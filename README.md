@@ -197,15 +197,22 @@ Every image in this README is a render of the shipping UI — see
 ## Development
 
 ```bash
-# everything
+./scripts/verify.sh               # tests + app build + launch smoke test
 ./scripts/build-app.sh            # build the app bundle
-./scripts/screenshots.sh          # regenerate README images
+./scripts/build-app.sh debug      # faster debug build
+./scripts/screenshots.sh          # regenerate the README images
+```
 
-# tests
-cd cli && node --test             # CLI engine + parsing (14 tests)
-swift test --package-path macos   # burn engine + app model (14 tests)
+Tests individually:
 
-# run from source
+```bash
+cd cli && node --test             # CLI engine + parsing
+swift test --package-path macos   # burn engine + app model + CLI interop
+```
+
+Run the app from source:
+
+```bash
 swift run --package-path macos BurnFuse
 ```
 
@@ -217,13 +224,19 @@ macos/               Swift package: app, shared UI, screenshot tool
   Sources/BurnFuse/       the menu-bar app
   Sources/BurnFuseUI/     views, design system, burn engine
   Sources/burnfuse-shots/ icon + screenshot renderer
-scripts/             build and screenshot scripts
+scripts/             build, verify and screenshot scripts
 assets/              app icon and the screenshots used above
 ```
 
 The burn-rate math lives in exactly two places — `cli/src/stats.js` and
 `macos/Sources/BurnFuseUI/Engine.swift` — and both suites pin the same behaviour, so the
-two front doors agree.
+two front doors agree. `macos/Tests/.../InteropTests.swift` decodes a real file written
+by the CLI, so the shared-state contract cannot silently break.
+
+> Building under `~/Desktop` or `~/Documents`? Those folders are iCloud-synced, and
+> iCloud writing to build artifacts mid-build makes SwiftPM fail intermittently. The
+> scripts already build into `~/Library/Caches/burnfuse-build` to avoid it. Override with
+> `BURNFUSE_SCRATCH` if you want it somewhere else.
 
 ## License
 

@@ -28,7 +28,8 @@ let package = Package(
         .testTarget(
             name: "BurnFuseUITests",
             dependencies: ["BurnFuseUI"],
-            path: "Tests/BurnFuseUITests"
+            path: "Tests/BurnFuseUITests",
+            resources: [.copy("Fixtures")]
         ),
     ],
     swiftLanguageModes: [.v5]

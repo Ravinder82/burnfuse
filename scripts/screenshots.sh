@@ -11,14 +11,17 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=scripts/lib.sh
+source "$ROOT/scripts/lib.sh"
+
 ASSETS="$ROOT/assets"
 
 mkdir -p "$ASSETS"
 rm -f "$ASSETS"/*.png
 
 echo "▸ Rendering icon and screens…"
-swift build --package-path "$ROOT/macos" >/dev/null
-BIN="$(swift build --package-path "$ROOT/macos" --show-bin-path)"
+swift_build >/dev/null
+BIN="$(swift_bin_path)"
 "$BIN/burnfuse-shots" icon "$ASSETS" >/dev/null
 "$BIN/burnfuse-shots" screens "$ASSETS"
 

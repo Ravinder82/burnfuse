@@ -10,27 +10,29 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-MACOS_DIR="$ROOT/macos"
+# shellcheck source=scripts/lib.sh
+source "$ROOT/scripts/lib.sh"
+
 CONFIG="${1:-release}"
 APP_NAME="BurnFuse"
 VERSION="1.0.0"
-BUILD_DIR="$MACOS_DIR/.build/$CONFIG"
 OUT_DIR="$MACOS_DIR/build"
 APP="$OUT_DIR/$APP_NAME.app"
 
 echo "▸ Building $APP_NAME ($CONFIG)…"
-swift build -c "$CONFIG" --package-path "$MACOS_DIR"
+swift_build -c "$CONFIG"
+
+BIN_PATH="$(swift_bin_path -c "$CONFIG")"
 
 echo "▸ Rendering app icon…"
 ICON_TMP="$(mktemp -d)"
-BIN_SHOTS="$(swift build -c "$CONFIG" --package-path "$MACOS_DIR" --show-bin-path)/burnfuse-shots"
-"$BIN_SHOTS" icon "$ICON_TMP" >/dev/null
+"$BIN_PATH/burnfuse-shots" icon "$ICON_TMP" >/dev/null
 iconutil -c icns "$ICON_TMP/$APP_NAME.iconset" -o "$ICON_TMP/AppIcon.icns"
 
 echo "▸ Assembling bundle…"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BUILD_DIR/$APP_NAME" "$APP/Contents/MacOS/$APP_NAME"
+cp "$BIN_PATH/$APP_NAME" "$APP/Contents/MacOS/$APP_NAME"
 cp "$ICON_TMP/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 cp "$MACOS_DIR/Resources/Info.plist" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP/Contents/Info.plist" >/dev/null
