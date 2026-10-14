@@ -1,0 +1,26 @@
+# Generated / build output
+.DS_Store
+build/
+.build/
+dist/
+*.zip
+*.icns
+assets/burnfuse.iconset/
+
+# Secrets — never commit these
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Xcode
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+
+# Local BurnFuse state
+state.json
+burnfuse-state.json

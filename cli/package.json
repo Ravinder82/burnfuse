@@ -1,0 +1,42 @@
+{
+  "name": "burnfuse",
+  "version": "1.0.0",
+  "description": "A spend breaker for your AI keys. Watch burn rate, cap the damage, cut the power before a runaway loop drains your card.",
+  "keywords": [
+    "ai",
+    "cost",
+    "spend",
+    "budget",
+    "runaway",
+    "circuit-breaker",
+    "openai",
+    "anthropic",
+    "openrouter",
+    "finops"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "burnfuse": "./bin/burnfuse.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node ./bin/burnfuse.js",
+    "test": "node --test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ravinder82/burnfuse.git"
+  },
+  "homepage": "https://github.com/Ravinder82/burnfuse#readme",
+  "bugs": {
+    "url": "https://github.com/Ravinder82/burnfuse/issues"
+  }
+}
