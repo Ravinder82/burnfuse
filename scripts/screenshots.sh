@@ -32,4 +32,15 @@ for size in 16 32 64 128 256; do rm -f "$ASSETS/icon_$size.png"; done
 # Dev-only contact sheet, not part of the shipped docs.
 rm -f "$ASSETS/_gallery.png"
 
-echo "  ✓ Wrote $(ls "$ASSETS"/*.png | wc -l | tr -d ' ') images to assets/"
+# Fail loudly rather than quietly shipping a README with missing images.
+expected=(panel-dark panel-light breach-dark settings-dark settings-light insights-dark icon_512 icon_1024)
+missing=0
+for name in "${expected[@]}"; do
+  if [ ! -s "$ASSETS/$name.png" ]; then
+    echo "  ✗ missing or empty: assets/$name.png"
+    missing=1
+  fi
+done
+[ "$missing" -eq 0 ] || { echo "  screenshots did not render as expected"; exit 1; }
+
+echo "  ✓ Wrote ${#expected[@]} images to assets/"

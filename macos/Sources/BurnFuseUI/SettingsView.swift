@@ -6,16 +6,21 @@ public struct SettingsView: View {
     @ObservedObject var model: AppModel
     var width: CGFloat = 460
     var scrollable: Bool = true
+    /// Overrides the path shown in the Terminal card. The screenshot renderer
+    /// points the model at a throwaway temp file, so it passes the canonical
+    /// `~/.burnfuse/state.json` here instead of leaking that temp path.
+    var displayStatePath: String? = nil
 
     @State private var newName: String = ""
     @State private var newProvider: String = "openai"
     @State private var newCap: String = "5"
     @State private var webhookDraft: String = ""
 
-    public init(model: AppModel, width: CGFloat = 460, scrollable: Bool = true) {
+    public init(model: AppModel, width: CGFloat = 460, scrollable: Bool = true, displayStatePath: String? = nil) {
         self.model = model
         self.width = width
         self.scrollable = scrollable
+        self.displayStatePath = displayStatePath
     }
 
     public var body: some View {
@@ -134,8 +139,9 @@ public struct SettingsView: View {
     private var sensitivitySection: some View {
         Card {
             VStack(alignment: .leading, spacing: DS.Space.sm) {
-                SectionHeader("Sensitivity", subtitle: "How far above normal a spike has to be")
+                SectionHeader("Sensitivity", subtitle: "How easily a spike should trip the breaker")
                 HStack {
+                    Text("Calm").font(.caption2).foregroundStyle(.secondary)
                     Slider(
                         value: Binding(
                             get: { model.state.settings.zThreshold },
@@ -144,9 +150,7 @@ public struct SettingsView: View {
                         in: 1.0...4.0,
                         step: 0.1
                     )
-                    Text(String(format: "%.1fσ", model.state.settings.zThreshold))
-                        .font(DS.Font.mono)
-                        .frame(width: 46, alignment: .trailing)
+                    Text("Only big").font(.caption2).foregroundStyle(.secondary)
                 }
                 Text(plainSensitivity)
                     .font(.caption)
@@ -214,6 +218,7 @@ public struct SettingsView: View {
     }
 
     private var displayPath: String {
+        if let displayStatePath { return displayStatePath }
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         let path = model.stateURL.path
         return path.hasPrefix(home) ? "~" + path.dropFirst(home.count) : path

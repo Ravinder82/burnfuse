@@ -88,10 +88,10 @@ struct BurnFuseShots {
             MainPanel(model: breach, width: 340, scrollable: false)
         }
         snapshot("settings-dark", dir, .dark, width: 460, insets: 16) {
-            SettingsView(model: health, width: 460, scrollable: false)
+            SettingsView(model: health, width: 460, scrollable: false, displayStatePath: "~/.burnfuse/state.json")
         }
         snapshot("settings-light", dir, .light, width: 460, insets: 16) {
-            SettingsView(model: health, width: 460, scrollable: false)
+            SettingsView(model: health, width: 460, scrollable: false, displayStatePath: "~/.burnfuse/state.json")
         }
         snapshot("insights-dark", dir, .dark, width: 400, insets: 16) {
             InsightsView(model: breach, width: 400, scrollable: false)

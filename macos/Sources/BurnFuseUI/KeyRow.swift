@@ -20,6 +20,18 @@ public struct KeyRow: View {
         return "Armed"
     }
 
+    /// Plain-language signal, shown only when something is worth noticing.
+    /// No statistics in the interface — just how far from normal this is.
+    private var signal: String? {
+        guard assessment.samples > 0, assessment.baseline > 0 else { return nil }
+        if assessment.overCap { return "over your cap" }
+        if assessment.spike {
+            let multiple = assessment.current / assessment.baseline
+            return String(format: "%.1f× its usual rate", multiple)
+        }
+        return nil
+    }
+
     private var stateSymbol: String {
         if key.isTripped { return "exclamationmark.octagon.fill" }
         if !key.armed { return "pause.circle.fill" }
@@ -79,10 +91,11 @@ public struct KeyRow: View {
             HStack(spacing: DS.Space.sm) {
                 StatusChip(text: stateLabel, systemImage: stateSymbol, tone: tone)
 
-                if assessment.samples > 0 {
-                    Text(Fmt.sigma(assessment.z))
-                        .font(DS.Font.monoSmall)
+                if let signal {
+                    Text(signal)
+                        .font(.caption2)
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
 
                 Spacer(minLength: DS.Space.xs)

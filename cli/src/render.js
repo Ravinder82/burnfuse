@@ -1,4 +1,4 @@
-import { money, sigma } from "./stats.js";
+import { money } from "./stats.js";
 
 /**
  * Presentation layer. Plain, quiet, Apple-ish: restrained colour, aligned
@@ -43,18 +43,23 @@ export function sparkline(values) {
     .join("");
 }
 
-export function statusGlyph(entry) {
-  if (entry.status === "tripped") return c.red("⛔ tripped");
-  if (entry.status === "paused" || !entry.armed) return c.gray("○ paused");
-  return c.green("● armed");
+/// A short, plain description of how hot a key is right now. No statistics.
+export function signalText(entry, assessment) {
+  if (entry.status === "tripped") return "stopped";
+  if (!entry.armed) return "paused";
+  if (assessment.overCap) return "over cap";
+  if (!assessment.samples) return "waiting";
+  if (assessment.spike && assessment.baseline > 0) {
+    return `${(assessment.current / assessment.baseline).toFixed(1)}× usual`;
+  }
+  return "normal";
 }
 
-export function zGlyph(assessment, settings) {
-  if (!assessment.samples) return c.gray("— new");
-  const label = sigma(assessment.z);
-  if (assessment.overCap) return c.red(label);
+export function signalGlyph(entry, assessment) {
+  const label = signalText(entry, assessment);
+  if (entry.status === "tripped" || assessment.overCap) return c.red(label);
   if (assessment.spike) return c.yellow(label);
-  return c.cyan(label);
+  return c.gray(label);
 }
 
 export function burnGlyph(entry) {
@@ -74,10 +79,10 @@ function truncate(s, n) {
 }
 
 export function keyTable(rows, settings) {
-  const head = `  ${pad(c.gray("KEY"), 26)}${pad(c.gray("BURN"), 14)}${pad(c.gray("CAP"), 10)}${pad(c.gray("SPIKE"), 12)}STATUS`;
+  const head = `  ${pad(c.gray("KEY"), 26)}${pad(c.gray("BURN"), 14)}${pad(c.gray("CAP"), 10)}${pad(c.gray("STATE"), 16)}`;
   const lines = rows.map(({ entry, assessment }) => {
     const name = pad(truncate(entry.name, 24), 26);
-    return `  ${name}${pad(burnGlyph(entry), 14)}${pad(c.gray(money(entry.hourlyLimit)), 10)}${pad(zGlyph(assessment, settings), 12)}${statusGlyph(entry)}`;
+    return `  ${name}${pad(burnGlyph(entry), 14)}${pad(c.gray(money(entry.hourlyLimit)), 10)}${signalGlyph(entry, assessment)}`;
   });
   return [head, ...lines].join("\n");
 }

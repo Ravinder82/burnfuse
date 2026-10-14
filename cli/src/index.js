@@ -8,7 +8,7 @@ import {
   makeId,
   resolveEntry,
 } from "./store.js";
-import { assess, money, sigma, multiple, projectBurn } from "./stats.js";
+import { assess, money, multiple, projectBurn } from "./stats.js";
 import { fetchSpend, notify } from "./poll.js";
 import { scanEnvFiles } from "./env.js";
 import { providerList, getProvider } from "./providers.js";
@@ -20,7 +20,6 @@ import {
   kv,
   note,
   rule,
-  statusGlyph,
   summaryLine,
   combinedSpark,
   sparkline,
@@ -116,7 +115,7 @@ async function runVerdict(state, entry, { persist = true, label = "check" } = {}
     state.incidents = state.incidents.slice(0, 200);
     if (state.settings.notifyWebhook) {
       await notify(state.settings.notifyWebhook, {
-        text: `⛔ burnfuse tripped ${entry.name} — ${money(entry.lastReading)}/hr vs ${money(entry.hourlyLimit)}/hr cap (${sigma(verdict.z)}, ${verdict.overCap ? "over cap" : "spike"})`,
+        text: `⛔ burnfuse tripped ${entry.name} — ${money(entry.lastReading)}/hr vs ${money(entry.hourlyLimit)}/hr cap (${multiple(entry.lastReading, verdict.baseline || entry.lastReading)} its usual rate)`,
       });
     }
   }
@@ -134,17 +133,17 @@ function printVerdict(entry, verdict) {
   console.log(`  ${entry.name} — ${state}`);
   console.log(kv("burning", `${money(verdict.current)}/hr`));
   console.log(kv("cap", `${money(verdict.hourlyLimit)}/hr`));
-  console.log(kv("baseline", `${money(verdict.baseline)}/hr  ${c.gray(`(σ ${money(verdict.sigma)})`)}`));
-  console.log(kv("spike", `${sigma(verdict.z)}  ${c.gray(`threshold ${verdict.zThreshold}σ`)}`));
-  if (verdict.samples && verdict.baseline) {
-    console.log(kv("vs normal", `${c.gray(multiple(verdict.current, verdict.baseline) + " your usual burn")}`));
+  if (verdict.samples) {
+    console.log(kv("your usual", `${money(verdict.baseline)}/hr`));
+    const ratio = verdict.baseline > 0 ? multiple(verdict.current, verdict.baseline) : "—";
+    console.log(kv("right now", `${ratio} your usual burn`));
   }
   if (verdict.breach) {
     console.log(
-      `\n  ${c.red("⛔ Breaker tripped.")} ${verdict.overCap ? "Burn crossed your cap." : "Burn spiked above normal."}`,
+      `\n  ${c.red("⛔ Breaker tripped.")} ${verdict.overCap ? "Burn crossed your cap." : "Burn jumped far above normal."}`,
     );
-    console.log(note(`What this would have cost you if it ran 6 more hours: ${c.bold(money(projectBurn(verdict.current, 6)))}`));
-    console.log(note(`Re-arm when you have fixed the leak: ${c.bold(`burnfuse arm ${entry.id}`)}`));
+    console.log(note(`Unchecked for 6 more hours, this rate would cost ${c.bold(money(projectBurn(verdict.current, 6)))}.`));
+    console.log(note(`Fixed the leak? Put it back to work: ${c.bold(`burnfuse arm ${entry.id}`)}`));
   }
 }
 
@@ -164,7 +163,7 @@ function cmdOverview(state, { json } = {}) {
   console.log(keyTable(rows, state.settings));
   console.log("");
   console.log(rule());
-  console.log(note(`cap = your hourly ceiling · spike = how far above normal`));
+  console.log(note(`cap = the ceiling you set · state = how hot the key is right now`));
   console.log(note(`${c.bold("burnfuse check")} to evaluate · ${c.bold("burnfuse record <key> <$/hr>")} to log a reading`));
 }
 
@@ -356,13 +355,22 @@ function cmdCap(state, positional) {
   console.log(`  ${c.green("✓")} ${entry.name} cap set to ${c.bold(`${money(value)}/hr`)}.`);
 }
 
+/// Turns the raw spike threshold into a word, so the terminal never asks you to
+/// read a z-score.
+function sensitivityWord(value) {
+  if (!Number.isFinite(value)) return "balanced";
+  if (value <= 1.6) return "very sensitive";
+  if (value >= 3) return "relaxed";
+  return "balanced";
+}
+
 function cmdSensitivity(state, positional, flags) {
   const value = Number(positional[0] ?? flags.z);
   if (!Number.isFinite(value) || value <= 0) throw new Error("usage:  burnfuse sensitivity <number>   (e.g. 2.5)");
   state.settings.zThreshold = value;
   saveState(state, state.__file);
   console.log("");
-  console.log(`  ${c.green("✓")} Alert sensitivity set to ${c.bold(`${value}σ`)}`);
+  console.log(`  ${c.green("✓")} Sensitivity set to ${c.bold(String(value))} — ${sensitivityWord(value)}.`);
   console.log(note(value <= 1.5 ? "Very sensitive — more alerts, fewer surprises." : value >= 3 ? "Relaxed — only loud spikes alert you." : "Balanced default."));
 }
 
@@ -450,7 +458,7 @@ async function cmdWatch(state, positional, flags) {
       if (entry.status === "tripped") continue;
       const verdict = await runVerdict(state, entry);
       if (verdict.breach) {
-        console.log(`\n  ${c.red("⛔ " + entry.name + " tripped")} — ${money(verdict.current)}/hr (${verdict.overCap ? "over cap" : sigma(verdict.z)})`);
+        console.log(`\n  ${c.red("⛔ " + entry.name + " tripped")} — ${money(verdict.current)}/hr (${verdict.overCap ? "over cap" : multiple(verdict.current, verdict.baseline) + " usual"})`);
         if (state.settings.notifyWebhook) console.log(note("Webhook alert sent."));
         console.log(note(`Re-arm: ${c.bold(`burnfuse arm ${entry.id}`)}`));
         process.exitCode = EXIT.breach;
@@ -470,7 +478,7 @@ function cmdDoctor(state, flags) {
   console.log(kv("state file", state.__file || "(default)"));
   console.log(kv("keys tracked", String(state.entries.length)));
   console.log(kv("webhook", state.settings.notifyWebhook ? "configured" : c.gray("none")));
-  console.log(kv("sensitivity", `${state.settings.zThreshold}σ`));
+  console.log(kv("sensitivity", sensitivityWord(Number(state.settings.zThreshold))));
   console.log("");
   console.log(heading("Providers"));
   for (const p of providerList) {
@@ -530,7 +538,7 @@ function cmdHelp() {
   console.log(`    ${b("trip")} <key|all>         cut the power now`);
   console.log(`    ${b("arm")} <key|all> [--clear]   re-arm after a fix`);
   console.log(`    ${b("cap")} <key> <$/hr>       set the hourly ceiling`);
-  console.log(`    ${b("sensitivity")} <number>    how big a spike trips the breaker (default 2.5σ)`);
+  console.log(`    ${b("sensitivity")} <number>    how big a spike trips the breaker (default 2.5)`);
   console.log(`    ${b("watch")} [--interval 60] [--once]   keep watching until something trips`);
   console.log("");
   console.log(`  ${c.gray("OTHER")}`);
@@ -550,7 +558,8 @@ export async function run(argv) {
   if (command === "help" || command === "--help") return cmdHelp();
 
   const { state, file } = loadState(flags.state);
-  state.__file = file;
+  // Keep the resolved path handy without letting it leak into JSON output.
+  Object.defineProperty(state, "__file", { value: file, enumerable: false, writable: true });
 
   switch (command) {
     case "status":

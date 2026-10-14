@@ -104,13 +104,15 @@ Two rules, both easy to reason about:
 
 1. **The cap.** You set `$5/hr`. Spend `$5.01` and the breaker trips.
 2. **The spike.** BurnFuse keeps your recent hourly readings and works out your normal
-   rate and how much it usually wobbles. A reading that lands far outside that range
-   trips the breaker on its own — so a key you never capped is still protected.
+   rate. A reading far above that trips the breaker on its own — so a key you never
+   capped is still protected. The interface shows this as a multiple ("4× usual"), not a
+   statistic.
 
-You control how twitchy rule 2 is. A lower number trips on smaller jumps:
+You control how easily a key trips. Slide toward *Calm* to catch small jumps, or *Only
+big* to hear from BurnFuse only when something is genuinely on fire:
 
 <p align="center">
-  <img src="assets/settings-dark.png" width="420" alt="BurnFuse settings showing per-key caps, spike sensitivity and alerts">
+  <img src="assets/settings-dark.png" width="420" alt="BurnFuse settings showing per-key caps, trip sensitivity and alerts">
 </p>
 
 A reading has to be both clearly abnormal *and* worth your attention. Quiet keys with
@@ -140,7 +142,7 @@ CONTROL
   trip <key|all>         cut the power now
   arm <key|all> [--clear]   re-arm after a fix
   cap <key> <$/hr>       set the hourly ceiling
-  sensitivity <number>    how big a spike trips the breaker (default 2.5σ)
+  sensitivity <number>    how big a spike trips the breaker (default 2.5)
   watch [--interval 60] [--once]   keep watching until something trips
 ```
 
@@ -150,10 +152,10 @@ CONTROL
   Burn  ▂▂▂▃▃▃█
   ⛔ 1 tripped  ·  2 armed  ·  $11.04/hr burning now
 
-  KEY                       BURN          CAP       SPIKE       STATUS
-  OpenAI prod               $9.90/hr      $5.00     +2.45σ      ⛔ tripped
-  Claude batch              $0.63/hr      $8.00     -0.18σ      ● armed
-  Fal images                $0.51/hr      $3.00     +0.33σ      ● armed
+  KEY                       BURN          CAP       STATE
+  OpenAI prod               $9.90/hr      $5.00     over cap
+  Claude batch              $0.63/hr      $8.00     normal
+  Fal images                $0.51/hr      $3.00     1.8× usual
 ```
 
 The exit code is `2` when something is tripped, so you can wire it into CI:
