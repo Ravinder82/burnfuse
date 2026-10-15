@@ -7,7 +7,7 @@
 	<key>CFBundleDisplayName</key>
 	<string>BurnFuse</string>
 	<key>CFBundleIdentifier</key>
-	<string>app.burnfuse.menubar</string>
+	<string>app.burnfuse</string>
 	<key>CFBundleExecutable</key>
 	<string>BurnFuse</string>
 	<key>CFBundleIconFile</key>
@@ -22,8 +22,8 @@
 	<string>6.0</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
-	<key>LSUIElement</key>
-	<true/>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.developer-tools</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>

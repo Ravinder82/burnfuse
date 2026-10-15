@@ -8,6 +8,8 @@
 
 Watch burn rate. Cap the damage. Cut the power before a runaway loop drains your card.
 
+A real macOS app. Sits in your Dock and your menu bar.
+
 [The app](#the-app) · [How it works](#how-it-works) · [Insights](#insights) · [Privacy](#privacy)
 
 <img src="assets/social-card.png" alt="BurnFuse — a spend breaker for your AI keys, shown in one macOS window">
@@ -30,17 +32,6 @@ single colour block that reads at a glance — green when settled, amber as burn
 red the moment the breaker trips. Click it and you get a miniature of the app: the same
 live number, the same watch list, without leaving what you were doing.
 
-<p align="center">
-  <img src="assets/menubar-dark.png" width="560" alt="BurnFuse in the macOS menu bar — green, settled">
-  &nbsp;
-  <img src="assets/menubar-climbing-dark.png" width="560" alt="BurnFuse in the macOS menu bar — amber, climbing">
-</p>
-<p align="center">
-  <img src="assets/menubar-breached-dark.png" width="560" alt="BurnFuse in the macOS menu bar — red, tripped">
-</p>
-
-### Glance, don't open
-
 The menu bar isn't a menu — it's the app, shrunk. Live burn, the trend, every watched key
 and the one action that matters, all in one small panel:
 
@@ -48,6 +39,16 @@ and the one action that matters, all in one small panel:
   <img src="assets/mini-panel-dark.png" width="300" alt="The BurnFuse menu-bar panel: a miniature of the app with live burn and watched keys">
   &nbsp;
   <img src="assets/mini-panel-breach-dark.png" width="300" alt="The BurnFuse menu-bar panel when a key has tripped">
+</p>
+
+And the colour block itself, in each state:
+
+<p align="center">
+  <img src="assets/menubar-dark.png" width="480" alt="BurnFuse in the macOS menu bar — green, settled">
+  <br>
+  <img src="assets/menubar-climbing-dark.png" width="480" alt="BurnFuse in the macOS menu bar — amber, climbing">
+  <br>
+  <img src="assets/menubar-breached-dark.png" width="480" alt="BurnFuse in the macOS menu bar — red, tripped">
 </p>
 
 ## What it does
@@ -145,17 +146,33 @@ macOS 14+ and the Xcode command line tools. No dependencies, no project file.
 ```bash
 git clone https://github.com/Ravinder82/burnfuse.git
 cd burnfuse
-./scripts/build-app.sh
+./scripts/install.sh
 ```
 
-Then open it:
+That builds BurnFuse, drops it in **/Applications**, and opens it. From then on it is a
+normal macOS app — launch it from Launchpad, Spotlight (⌘-Space) or the Dock, no terminal
+needed:
+
+<p align="center">
+  <img src="assets/icon_512.png" width="96" alt="BurnFuse app icon">
+</p>
+
+Prefer to do it by hand? Build the bundle and copy it wherever you like:
 
 ```bash
-open macos/build/BurnFuse.app        # or: cp -R macos/build/BurnFuse.app /Applications/
+./scripts/build-app.sh
+open macos/build/BurnFuse.app        # or drag it into /Applications
 ```
 
-It launches as a menu-bar app — no dock icon. Click the colour block for the panel, or
-press `⌘,` for Settings and `⌘I` for Insights, to open the full window.
+### Using it
+
+BurnFuse opens to the full window — Overview, Insights and Settings behind the sidebar,
+exactly like any other Mac app. It also keeps a live item in your menu bar:
+
+- **Click the colour block** for a panel: live burn, the trend, every watched key.
+- **Right-click it** for the quick actions: open the window, cut all power, quit.
+- `⌘,` opens Settings, `⌘I` opens Insights, `⌘W` closes the window (BurnFuse keeps
+  running in the menu bar; click the Dock icon to bring it back).
 
 ## Privacy
 
@@ -182,6 +199,8 @@ Every image in this README is a render of the shipping UI — see
 ./scripts/verify.sh               # tests + app build + launch smoke test
 ./scripts/build-app.sh            # build the app bundle
 ./scripts/build-app.sh debug      # faster debug build
+./scripts/install.sh              # build + install into /Applications + launch
+./scripts/package.sh              # build a double-clickable BurnFuse.dmg
 ./scripts/screenshots.sh          # regenerate the README and marketing images
 ```
 
@@ -200,11 +219,11 @@ swift run --package-path macos BurnFuse
 Layout:
 
 ```
-macos/               Swift package: the menu-bar app
-  Sources/BurnFuse/       the app entry point
-  Sources/BurnFuseUI/     window, design system, burn engine, live spend
+macos/               Swift package: the app
+  Sources/BurnFuse/       entry point, menu-bar item
+  Sources/BurnFuseUI/     window, panel, design system, burn engine, live spend
   Sources/burnfuse-shots/ icon + screenshot + marketing renderer
-scripts/             build, verify and screenshot scripts
+scripts/             build, install, package, verify and screenshot scripts
 assets/              app icon, window screenshots and the marketing card
 ```
 

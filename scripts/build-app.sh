@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Builds BurnFuse.app — a self-contained menu-bar app bundle.
+# Builds BurnFuse.app — a self-contained macOS app bundle.
 #
 #   ./scripts/build-app.sh            release build into macos/build/BurnFuse.app
 #   ./scripts/build-app.sh debug      faster debug build
@@ -48,5 +48,5 @@ echo "  ✓ Built $APP"
 echo ""
 echo "    Open it:        open \"$APP\""
 echo "    Install it:     cp -R \"$APP\" /Applications/"
-echo "    It lives in the menu bar (⌘, opens settings)."
+echo "    It opens a window and lives in the menu bar (⌘, opens settings)."
 echo ""

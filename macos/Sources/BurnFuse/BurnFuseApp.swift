@@ -5,13 +5,13 @@ import BurnFuseUI
 
 /// The BurnFuse app.
 ///
-/// One window holds everything — Overview, Insights and Settings behind a
-/// sidebar. The menu bar keeps a live, colour-coded burn visible at all times,
-/// and clicking it opens a miniature of the app you can keep an eye on.
+/// A real macOS app: it has a Dock icon and an app menu, and it opens its window
+/// on launch. On top of that it keeps a live, colour-coded item in the menu bar,
+/// so the burn is always one glance away. The window holds everything —
+/// Overview, Insights and Settings behind a sidebar.
 @main
 struct BurnFuseApp: App {
     @StateObject private var model: AppModel
-    @StateObject private var nav = AppNavigation()
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
     init() {
@@ -22,62 +22,63 @@ struct BurnFuseApp: App {
 
     var body: some Scene {
         Window("BurnFuse", id: "main") {
-            RootView(model: model, nav: nav)
+            RootView(model: model, nav: AppRouter.shared.nav)
+                .background(WindowActionCatcher())
         }
         .defaultSize(width: 900, height: 640)
         .commands {
             CommandGroup(replacing: .appSettings) {
-                Button("Settings") { open(.settings) }
+                Button("Settings…") { AppRouter.shared.show(.settings) }
                     .keyboardShortcut(",", modifiers: .command)
-                Button("Insights") { open(.insights) }
+                Button("Insights") { AppRouter.shared.show(.insights) }
                     .keyboardShortcut("i", modifiers: .command)
             }
+            CommandGroup(replacing: .newItem) {}
         }
-
-        MenuBarExtra {
-            MenuBarContent(model: model, nav: nav)
-        } label: {
-            StatusItemLabel(model: model)
-        }
-        .menuBarExtraStyle(.window)
-    }
-
-    private func open(_ section: AppSection) {
-        nav.section = section
-        WindowActivator.shared.open()
     }
 }
 
-/// The menu-bar popover: a miniature of the app, not a menu.
-struct MenuBarContent: View {
-    @ObservedObject var model: AppModel
-    @ObservedObject var nav: AppNavigation
+/// Routes "open the app" requests — from the menu bar, the Dock, or a menu
+/// command — to the one window, creating or focusing it as needed.
+@MainActor
+public final class AppRouter {
+    public static let shared = AppRouter()
 
+    let nav = AppNavigation()
+
+    /// Captured from the live scene so we can reopen the window after it closes.
+    var openWindowAction: ((String) -> Void)?
+
+    func install(openWindow: @escaping (String) -> Void) {
+        openWindowAction = openWindow
+    }
+
+    /// Show the main window on a given section.
+    public func show(_ section: AppSection) {
+        nav.section = section
+        revealWindow()
+    }
+
+    func revealWindow() {
+        if let window = NSApp.windows.first(where: { $0.canBecomeMain && !($0 is NSPanel) }) {
+            window.makeKeyAndOrderFront(nil)
+        } else {
+            openWindowAction?("main")
+        }
+        NSApp.activate(ignoringOtherApps: true)
+    }
+}
+
+/// Sits invisibly inside the window and hands the scene's `openWindow` action to
+/// `AppRouter`. SwiftUI's environment is only reachable from inside a scene, so
+/// this is how the menu bar can reopen the window after it has been closed.
+private struct WindowActionCatcher: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        MiniPanel(
-            model: model,
-            onOpen: { section in
-                nav.section = section
-                openWindow(id: "main")
-                NSApp.activate(ignoringOtherApps: true)
-            },
-            onQuit: { NSApplication.shared.terminate(nil) }
-        )
-    }
-}
-
-/// Brings the unified window to the front, creating nothing new — the Window
-/// scene already owns it.
-@MainActor
-final class WindowActivator {
-    static let shared = WindowActivator()
-    func open() {
-        if let window = NSApp.windows.first(where: { $0.canBecomeMain && !($0 is NSPanel) }) {
-            window.makeKeyAndOrderFront(nil)
-        }
-        NSApp.activate(ignoringOtherApps: true)
+        Color.clear
+            .frame(width: 0, height: 0)
+            .onAppear { AppRouter.shared.install { openWindow(id: $0) } }
     }
 }
 
@@ -85,18 +86,37 @@ final class WindowActivator {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     static weak var sharedModel: AppModel?
 
+    private var statusItem: StatusItemController?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
-        AppDelegate.sharedModel?.onIncident = { incident in
+        // A regular app: Dock icon, app menu, real windows.
+        NSApp.setActivationPolicy(.regular)
+
+        guard let model = AppDelegate.sharedModel else { return }
+
+        model.onIncident = { incident in
             AppDelegate.notify(incident)
         }
         // Read live spend in the background so the window and the menu bar stay
         // current without anyone touching anything.
-        AppDelegate.sharedModel?.refreshInterval = 60
+        model.refreshInterval = 60
+
+        // The menu-bar item is managed directly so its colour block renders as
+        // drawn; SwiftUI's MenuBarExtra would template it to monochrome.
+        statusItem = StatusItemController(model: model)
+
+        NSApp.activate(ignoringOtherApps: true)
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
 
+    /// Closing the window leaves BurnFuse running in the menu bar.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    /// Clicking the Dock icon brings the window back.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag { AppRouter.shared.revealWindow() }
+        return true
+    }
 
     /// Local notification when the breaker fires. Purely on-device.
     static func notify(_ incident: Incident) {

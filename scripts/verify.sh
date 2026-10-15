@@ -69,10 +69,18 @@ step "Launch check"
 PID=$!
 sleep 2
 if kill -0 "$PID" 2>/dev/null; then
-  kill "$PID"
+  kill "$PID" 2>/dev/null || true
+  wait "$PID" 2>/dev/null || true
   ok "app launches and stays running"
 else
   die "app exited immediately"
 fi
+
+# BurnFuse is a real app now: it must own a Dock icon and open a window, not
+# skulk in the menu bar as a background agent.
+if /usr/libexec/PlistBuddy -c "Print :LSUIElement" "$APP/Contents/Info.plist" >/dev/null 2>&1; then
+  die "LSUIElement is set — the app would have no Dock icon"
+fi
+ok "regular app (Dock icon, no LSUIElement)"
 
 printf "\n  all %d checks passed\n\n" "$pass"
