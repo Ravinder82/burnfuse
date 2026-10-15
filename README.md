@@ -136,8 +136,9 @@ its own number comes from:
 
 A row is a key and a cap. Give it an hourly ceiling, and choose whether BurnFuse should
 stop reading a key once it trips — the number then freezes where it tripped, as evidence,
-until you re-arm it. What it will not do is pretend to revoke your key: only the provider
-can, and every trip says exactly where.
+until you re-arm it. What it will not do is pretend to have cut a key it has not cut: where
+the provider's own API lets the key BurnFuse already holds switch a key off, the row does
+it; where it does not, the trip names the page that can.
 
 <p align="center">
   <img src="assets/window-settings-dark.png" width="600" alt="BurnFuse Settings: one list of keys, each row saying whether it reads itself or takes a typed number, with the add-a-key block at the top">
@@ -208,7 +209,7 @@ When something trips, the window says so plainly — what happened, what BurnFus
 about it, and the one action that actually ends the spend:
 
 <p align="center">
-  <img src="assets/window-breach-dark.png" width="720" alt="The BurnFuse window with the breaker tripped, naming the exact console page where the key is revoked">
+  <img src="assets/window-breach-dark.png" width="720" alt="The BurnFuse window with the breaker tripped, offering to switch the key off at OpenAI, and naming the console page wherever it cannot">
 </p>
 
 ### What a trip cannot do
@@ -239,8 +240,8 @@ provider puts both behind one key:
   *"the provider caps this key at $6.50, and it is spent"* — which is the fact that answers
   "can this key still spend?" without anybody's help.
 - **Everyone else.** There is no such endpoint, so the console is the only door, and the row
-  names the page: *OpenAI dashboard → API keys*, *Claude Console → API keys*, *Replicate →
-  Account → API tokens*, and so on.
+  names the page: *Replicate → Account → API tokens*, *ElevenLabs → Profile → API keys*,
+  *OpenRouter → Settings → Keys*, and so on.
 
 Two things it will never do: offer a switch-off its credential cannot perform, and claim a
 key is stopped before the provider has said so. And if you switch off the very key BurnFuse
