@@ -52,14 +52,15 @@ struct BurnFuseShots {
 
     /// Point the key store at a throwaway file holding obviously fake keys.
     ///
-    /// Only the live providers get one, so the Settings capture shows both
-    /// states at once: a stored key with its masked ends, and a provider still
-    /// telling you where to get one.
+    /// The two live providers the demo data watches get one each, so the
+    /// Settings capture shows the state a real person is working towards — a
+    /// stored key, its two ends on show, and the row saying it reads itself.
     @MainActor static func seedFakeKeys() {
         let fake = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("burnfuse-shot-keys.json")
         let seeded: [String: String] = [
-            "openrouter": "sk-or-v1-EXAMPLEFORTHEGUIDE00000000000000",
+            "openai": "sk-admin-EXAMPLEFORTHEGUIDE1234",
+            "anthropic": "sk-ant-admin01-EXAMPLEFORTHEGUIDE9876",
         ]
         guard let data = try? JSONSerialization.data(
             withJSONObject: seeded,
@@ -116,19 +117,21 @@ struct BurnFuseShots {
         // The unified window, one screenshot per section. This is the whole app:
         // there are no other windows to capture.
         let overview = write("window-overview-dark", to: dir,
-                             captureWindow(.overview, health, .dark, height: 620))
+                             captureWindow(.overview, health, .dark, height: 780))
         write("window-overview-light", to: dir,
-              captureWindow(.overview, health, .light, height: 620))
+              captureWindow(.overview, health, .light, height: 780))
         write("window-breach-dark", to: dir,
-              captureWindow(.overview, breach, .dark, height: 700))
+              captureWindow(.overview, breach, .dark, height: 860))
+        // Insights holds one trip in the demo, so the window is sized to the
+        // content rather than left with a screenful of nothing under it.
         write("window-insights-dark", to: dir,
-              captureWindow(.insights, breach, .dark, height: 620))
+              captureWindow(.insights, breach, .dark, height: 560))
         // Settings is the tallest section, and the pane is a scroll: capture
         // enough of it that every section in it is on show.
         write("window-settings-dark", to: dir,
-              captureWindow(.settings, health, .dark, height: 1760, displayStatePath: Self.canonicalStatePath))
+              captureWindow(.settings, health, .dark, height: 1180, displayStatePath: Self.canonicalStatePath))
         write("window-settings-light", to: dir,
-              captureWindow(.settings, health, .light, height: 1760, displayStatePath: Self.canonicalStatePath))
+              captureWindow(.settings, health, .light, height: 1180, displayStatePath: Self.canonicalStatePath))
 
         // Marketing: the menu-bar glance, and a social card built from the real
         // window render.
@@ -163,15 +166,18 @@ struct BurnFuseShots {
         // model at a throwaway temp file. Show the real one instead of leaking
         // a path that exists on nobody's Mac.
         //
-        // The custom row gets a key already typed into it, so the capture shows
-        // a paste in progress: an enabled Save, and Test offered before saving.
-        // Custom is the one row with nothing else to lose from it — it has no
-        // "where to get this key" line to hide.
+        // The add-a-key field gets a key already in it, so the capture shows the
+        // moment the whole flow is built around: a pasted key, recognised, with
+        // the one line that says what it will do — before anything is saved.
+        //
+        // Settings is captured unscrolled and measured, so the image is exactly
+        // as tall as the screen's content and stays right when the screen
+        // changes. The other sections are windows of a fixed size.
         let settings = SettingsView(
             model: model,
-            scrollable: true,
+            scrollable: false,
             displayStatePath: displayStatePath,
-            previewKeyDrafts: ["custom": "sk-live-0123456789abcdef"]
+            previewAddKey: "sk-or-v1-EXAMPLEFORTHEGUIDE00000000000000"
         )
         let view = WindowChrome(title: "BurnFuse", scheme: scheme) {
             switch section {
@@ -181,7 +187,7 @@ struct BurnFuseShots {
                 AnyView(RootView(model: model, nav: nav))
             }
         }
-        return capture(AnyView(view), scheme: scheme, width: width, height: height)
+        return capture(AnyView(view), scheme: scheme, width: width, height: height, fit: section == .settings)
     }
 
     /// Where the app really writes state, so an explainer screenshot can say so

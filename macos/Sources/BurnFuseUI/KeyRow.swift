@@ -10,10 +10,13 @@ public struct KeyRow: View {
     let onOpen: () -> Void
     var compact: Bool = false
 
-    private var tone: Color { DS.Tone.forAssessment(overCap: assessment.overCap, spike: assessment.spike) }
+    private var tone: Color {
+        waitsForYou ? DS.Tone.idle : DS.Tone.forAssessment(overCap: assessment.overCap, spike: assessment.spike)
+    }
 
     private var stateLabel: String {
         if key.isTripped { return "Tripped" }
+        if waitsForYou { return "No reading yet" }
         if !key.armed { return "Paused" }
         if assessment.overCap { return "Over cap" }
         if assessment.spike { return "Spiking" }
@@ -32,8 +35,22 @@ public struct KeyRow: View {
         return nil
     }
 
+    /// A key whose spend is typed in has no number until someone types one.
+    /// Showing it "$0.00/hr" and a green shield would be the app inventing a
+    /// fact it has no way to know.
+    private var waitsForYou: Bool {
+        key.readings.isEmpty && !SpendSource.canReadLive(key)
+    }
+
+    /// Where the number comes from, said on every row. It is the one distinction
+    /// that decides what the figure next to it means.
+    private var subtitle: String {
+        "\(key.effectiveCategory.title) · \(Providers.label(for: key.provider)) · \(key.readingSourcePhrase)"
+    }
+
     private var stateSymbol: String {
         if key.isTripped { return "exclamationmark.octagon.fill" }
+        if waitsForYou { return "keyboard" }
         if !key.armed { return "pause.circle.fill" }
         if assessment.overCap { return "flame.fill" }
         if assessment.spike { return "waveform.path.ecg" }
@@ -68,16 +85,17 @@ public struct KeyRow: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(key.name).font(.subheadline.weight(.semibold)).lineLimit(1)
                     if !compact {
-                        Text(Providers.label(for: key.provider))
+                        Text(subtitle)
                             .font(.caption2)
                             .foregroundStyle(.secondary)
+                            .lineLimit(1)
                     }
                 }
 
                 Spacer(minLength: DS.Space.sm)
 
                 VStack(alignment: .trailing, spacing: 1) {
-                    Text(Fmt.perHour(key.lastReading))
+                    Text(waitsForYou ? "—" : Fmt.perHour(key.lastReading))
                         .font(DS.Font.mono)
                         .foregroundStyle(tone)
                     Text("cap \(Fmt.money(key.hourlyLimit))")
@@ -91,7 +109,12 @@ public struct KeyRow: View {
             HStack(spacing: DS.Space.sm) {
                 StatusChip(text: stateLabel, systemImage: stateSymbol, tone: tone)
 
-                if let signal {
+                if waitsForYou {
+                    Text("Type what it is spending in Settings.")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                } else if let signal {
                     Text(signal)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
@@ -113,6 +136,8 @@ public struct KeyRow: View {
         .contentShape(Rectangle())
         .onTapGesture(perform: onOpen)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("\(key.name), \(stateLabel), burning \(Fmt.perHour(key.lastReading)), cap \(Fmt.money(key.hourlyLimit))")
+        .accessibilityLabel(waitsForYou
+            ? "\(key.name), no reading yet, cap \(Fmt.money(key.hourlyLimit))"
+            : "\(key.name), \(stateLabel), burning \(Fmt.perHour(key.lastReading)), cap \(Fmt.money(key.hourlyLimit))")
     }
 }

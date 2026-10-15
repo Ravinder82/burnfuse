@@ -111,7 +111,7 @@ export const providers = {
     whereToRevoke: "AWS IAM → Access keys",
   },
   custom: {
-    label: "Custom endpoint",
+    label: "Your own endpoint",
     blurb: "Any URL that returns a dollar number. Point BurnFuse at a JSON path.",
     signal: null,
     // Set by the user when they add the key: "rate" (the endpoint already
@@ -131,10 +131,74 @@ export const providers = {
   },
 };
 
+/**
+ * Providers BurnFuse can name but cannot read. Kept here so a trip, a label and
+ * a revoke pointer stay true for a key from any of them — an app that only
+ * knows the four it can read has to describe the rest as "custom", which is
+ * exactly the kind of small lie this project exists to avoid.
+ *
+ * Add a provider by adding a line: `id: [label, whereToRevoke]`.
+ */
+const MANUAL = {
+  google: ["Google Gemini", "Google AI Studio → API keys"],
+  xai: ["xAI (Grok)", "console.x.ai → API keys"],
+  mistral: ["Mistral", "Mistral Console → API keys"],
+  deepseek: ["DeepSeek", "DeepSeek platform → API keys"],
+  together: ["Together AI", "Together → Settings → API keys"],
+  fireworks: ["Fireworks AI", "Fireworks → API keys"],
+  perplexity: ["Perplexity", "Perplexity → API → Keys"],
+  huggingface: ["Hugging Face", "Hugging Face → Settings → Access tokens"],
+  stability: ["Stability AI", "Stability → Account → API keys"],
+  fal: ["fal.ai", "fal.ai → Dashboard → API keys"],
+  runway: ["Runway", "Runway → Account → API keys"],
+  luma: ["Luma", "Luma → Dashboard → API keys"],
+  elevenlabs: ["ElevenLabs", "ElevenLabs → Profile → API keys"],
+  deepgram: ["Deepgram", "Deepgram Console → API keys"],
+  firecrawl: ["Firecrawl", "Firecrawl → Dashboard → API keys"],
+  apify: ["Apify", "Apify Console → Settings → Integrations"],
+  browserbase: ["Browserbase", "Browserbase → Settings → API keys"],
+  exa: ["Exa", "Exa → Dashboard → API keys"],
+  tavily: ["Tavily", "Tavily → Dashboard → API keys"],
+  gcp: ["Google Cloud", "Google Cloud Console → IAM → Service accounts"],
+  azure: ["Microsoft Azure", "Azure → App registrations → Certificates & secrets"],
+  cloudflare: ["Cloudflare", "Cloudflare → My Profile → API Tokens"],
+  vercel: ["Vercel", "Vercel → Settings → Tokens"],
+  supabase: ["Supabase", "Supabase → Account → Access Tokens"],
+};
+
+for (const [id, [label, whereToRevoke]] of Object.entries(MANUAL)) {
+  providers[id] = {
+    label,
+    blurb: "No spend read. Add readings by hand, or wire a custom URL.",
+    signal: null,
+    measuresTotal: false,
+    fallbackUrls: [],
+    spendUrl: null,
+    parse: null,
+    whereToRevoke,
+  };
+}
+
 export const providerList = Object.entries(providers).map(([id, p]) => ({ id, ...p }));
 
+/**
+ * The provider entry for an id, falling back to a description of the id itself
+ * rather than quietly renaming it "custom endpoint". A key from a provider
+ * BurnFuse cannot read is still that provider's key, and saying so is the
+ * difference between a label and a lie.
+ */
 export function getProvider(id) {
-  return providers[id] || providers.custom;
+  const known = providers[id];
+  if (known) return known;
+  return {
+    ...providers.custom,
+    id,
+    label: String(id || "unknown")
+      .replace(/[-_]+/g, " ")
+      .replace(/\b\w/g, (m) => m.toUpperCase()),
+    blurb: "No spend read for this provider. Add readings by hand.",
+    whereToRevoke: null,
+  };
 }
 
 /**

@@ -26,6 +26,8 @@ public struct OverviewView: View {
 
             BurnHero(model: model)
 
+            CategoryBreakdown(model: model)
+
             WatchedKeys(model: model, onAdd: onAddKey)
 
             StatusFooter(model: model)
@@ -44,6 +46,14 @@ public struct BurnHero: View {
         self.model = model
     }
 
+    /// Keys are set up, but nothing has been measured yet — every one of them is
+    /// waiting for a number someone has to type. Saying "$0.00/hr" in the largest
+    /// type on the screen would read as "nothing is burning", which is not
+    /// something BurnFuse knows yet.
+    private var nothingMeasured: Bool {
+        !model.state.entries.isEmpty && model.state.entries.allSatisfy { $0.readings.isEmpty }
+    }
+
     public var body: some View {
         VStack(alignment: .leading, spacing: DS.Space.sm) {
             DS.eyebrow("Burning now")
@@ -51,7 +61,9 @@ public struct BurnHero: View {
             HStack(alignment: .firstTextBaseline, spacing: DS.Space.sm) {
                 Text(Fmt.perHour(model.state.totalBurn))
                     .font(DS.Font.hero)
-                    .foregroundStyle(model.state.hasBreach ? DS.Tone.breach : .primary)
+                    .foregroundStyle(model.state.hasBreach
+                                     ? AnyShapeStyle(DS.Tone.breach)
+                                     : (nothingMeasured ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary)))
                     .contentTransition(.numericText())
 
                 Spacer()
@@ -73,7 +85,9 @@ public struct BurnHero: View {
 
             Text(model.state.entries.isEmpty
                  ? "Add a key to start watching your burn."
-                 : "Trend across your last readings.")
+                 : (nothingMeasured
+                    ? "No readings yet — nothing has been measured."
+                    : "Trend across your last readings."))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

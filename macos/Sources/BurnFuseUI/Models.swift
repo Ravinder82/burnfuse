@@ -69,10 +69,28 @@ public enum BurnRate: Equatable, Sendable {
     case hours(Double)
 }
 
+/// How a key's numbers get in.
+///
+/// `auto` means BurnFuse reads the provider. `manual` means the provider has no
+/// readable spend — or turned the key down for it — and the figure comes from
+/// the person watching. The second case is a real, first-class way to use the
+/// app, not a failure state: some of the biggest providers simply do not publish
+/// a cost endpoint, and saying so beats pretending otherwise.
+public enum ReadMode: String, Codable, Sendable {
+    case auto
+    case manual
+}
+
 public struct BurnKey: Codable, Identifiable, Hashable, Sendable {
     public var id: String
     public var name: String
     public var provider: String
+    /// What this key is for — how the watch list is grouped and how Overview
+    /// adds spend up. Optional so older state files keep loading; when it is
+    /// absent the provider decides.
+    public var category: Category?
+    /// Read from the provider, or typed by hand. nil means `auto`.
+    public var readMode: ReadMode?
     public var hourlyLimit: Double
     public var armed: Bool
     /// Stop reading this key once it trips, instead of watching it come down.
@@ -95,6 +113,21 @@ public struct BurnKey: Codable, Identifiable, Hashable, Sendable {
 
     public var isTripped: Bool { status == "tripped" }
     public var isArmed: Bool { armed && !isTripped }
+
+    /// The category to show and group by: this key's own if it has one, the
+    /// provider's otherwise.
+    public var effectiveCategory: Category {
+        category ?? Providers.category(for: provider)
+    }
+
+    /// True when the number comes from the person, not from an endpoint.
+    public var isManualRead: Bool { readMode == .manual }
+
+    /// "reads itself" or "you type it" — the one distinction that decides what
+    /// the figure on a row means, in the same words everywhere it is shown.
+    public var readingSourcePhrase: String {
+        isManualRead || !Providers.canReadLive(provider) ? "you type it" : "reads itself"
+    }
 
     /// Burn as a share of the hourly cap, clamped to 0...1 for progress bars.
     public var capFill: Double {
@@ -124,6 +157,8 @@ public struct BurnKey: Codable, Identifiable, Hashable, Sendable {
         id: String,
         name: String,
         provider: String = "custom",
+        category: Category? = nil,
+        readMode: ReadMode? = nil,
         hourlyLimit: Double = 5,
         armed: Bool = true,
         autoKill: Bool = false,
@@ -139,6 +174,8 @@ public struct BurnKey: Codable, Identifiable, Hashable, Sendable {
         self.id = id
         self.name = name
         self.provider = provider
+        self.category = category
+        self.readMode = readMode
         self.hourlyLimit = hourlyLimit
         self.armed = armed
         self.autoKill = autoKill
@@ -153,7 +190,7 @@ public struct BurnKey: Codable, Identifiable, Hashable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, provider, hourlyLimit, armed, autoKill, status
+        case id, name, provider, category, readMode, hourlyLimit, armed, autoKill, status
         case readings, lastReading, trippedAt, createdAt, source
         case lastCumulative, lastCumulativeAt
     }
@@ -163,6 +200,8 @@ public struct BurnKey: Codable, Identifiable, Hashable, Sendable {
         id = try c.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
         name = try c.decodeIfPresent(String.self, forKey: .name) ?? "Untitled key"
         provider = try c.decodeIfPresent(String.self, forKey: .provider) ?? "custom"
+        category = try c.decodeIfPresent(Category.self, forKey: .category)
+        readMode = try c.decodeIfPresent(ReadMode.self, forKey: .readMode)
         hourlyLimit = try c.decodeIfPresent(Double.self, forKey: .hourlyLimit) ?? 5
         armed = try c.decodeIfPresent(Bool.self, forKey: .armed) ?? true
         autoKill = try c.decodeIfPresent(Bool.self, forKey: .autoKill) ?? false
@@ -298,6 +337,45 @@ public struct AppState: Codable, Sendable {
     public var totalBurn: Double { entries.reduce(0) { $0 + $1.lastReading } }
     public var totalCap: Double { entries.reduce(0) { $0 + $1.hourlyLimit } }
     public var hasBreach: Bool { !tripped.isEmpty }
+
+    /// Spend added up by what the keys are for, biggest first.
+    ///
+    /// The whole point of a category is this line: "$0.40/hr on images, $2.10 on
+    /// coding" is a sentence about your month that a flat list of twelve keys
+    /// cannot produce. Categories with nothing burning are left out rather than
+    /// printed as a row of zeros.
+    public var burnByCategory: [CategoryBurn] {
+        var totals: [Category: (burn: Double, cap: Double, tripped: Bool)] = [:]
+        for entry in entries {
+            let category = entry.effectiveCategory
+            let running = totals[category] ?? (0, 0, false)
+            totals[category] = (
+                running.burn + entry.lastReading,
+                running.cap + entry.hourlyLimit,
+                running.tripped || entry.isTripped
+            )
+        }
+        return totals
+            .map { CategoryBurn(category: $0.key, burn: $0.value.burn, cap: $0.value.cap, tripped: $0.value.tripped) }
+            .sorted { $0.burn == $1.burn ? $0.category.rawValue < $1.category.rawValue : $0.burn > $1.burn }
+    }
+}
+
+/// One row of the by-category breakdown on Overview.
+public struct CategoryBurn: Identifiable, Hashable, Sendable {
+    public var category: Category
+    public var burn: Double
+    public var cap: Double
+    public var tripped: Bool
+
+    public var id: String { category.rawValue }
+
+    public init(category: Category, burn: Double, cap: Double, tripped: Bool = false) {
+        self.category = category
+        self.burn = burn
+        self.cap = cap
+        self.tripped = tripped
+    }
 }
 
 public enum Fmt {

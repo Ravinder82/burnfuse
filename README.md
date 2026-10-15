@@ -10,7 +10,7 @@ Watch the burn rate. Cap the damage. Know within a minute — not in the morning
 
 A real macOS app. Sits in your Dock and your menu bar.
 
-[The app](#the-app) · [How it works](#how-it-works) · [What a trip cannot do](#what-a-trip-cannot-do) · [Insights](#insights) · [Privacy](#privacy)
+[The app](#the-app) · [How it works](#how-it-works) · [What a trip cannot do](#what-a-trip-cannot-do) · [Insights](#insights) · [Providers](#providers) · [Privacy](#privacy)
 
 <img src="assets/social-card.png" alt="BurnFuse — a spend breaker for your AI keys, shown in one macOS window">
 
@@ -56,6 +56,7 @@ And the colour block itself, in each state:
 ## What it does
 
 - **Shows the burn.** One number in your menu bar, in a colour block that reads at a glance: green when settled, amber as it climbs, red when tripped.
+- **Uses the key you already have.** Paste it once and BurnFuse watches that same key — no second key to create, no list to reconcile. Where a provider needs a particular *kind* of key to read spend, the row says so in one line instead of leaving you to guess.
 - **Catches the spike.** It learns each key's normal rate and trips when the rate jumps — even if you never set a cap.
 - **Respects the cap.** Set an hourly ceiling per key. Cross it and the breaker trips.
 - **Tells you inside a minute.** Menu bar red, a desktop notification, and — if you add one — a Slack or Discord ping. Not a billing email you read tomorrow.
@@ -80,53 +81,65 @@ Light and dark follow the system:
 
 ### Keys
 
-Add a key, give it an hourly cap, and choose whether BurnFuse should stop reading a key
-once it trips — the number then freezes where it tripped, as evidence, until you re-arm
-it. What it will not do is pretend to revoke your key: only the provider can, and every
-trip says exactly where.
+Settings is one list, and the top of that list is where a key goes. Paste the key you
+already use — BurnFuse watches that same key. Nothing to create first, no second key to
+copy, no separate place to register anything.
+
+As you paste, BurnFuse names the provider from the shape of the key itself (`sk-or-…` is
+OpenRouter, `sk-ant-…` is Anthropic), files it under what you use it for, and tells you in
+one line what it will be able to do — before anything is saved. Every row then says where
+its own number comes from:
+
+| On the row | What it means |
+|---|---|
+| **reads itself** | BurnFuse reads the provider's own cost figure every minute, with the key you pasted |
+| **you type it** | That provider publishes no spend figure — the row takes a number from you, and says where to read it |
+
+A row is a key and a cap. Give it an hourly ceiling, and choose whether BurnFuse should
+stop reading a key once it trips — the number then freezes where it tripped, as evidence,
+until you re-arm it. What it will not do is pretend to revoke your key: only the provider
+can, and every trip says exactly where.
 
 <p align="center">
-  <img src="assets/window-settings-dark.png" width="600" alt="BurnFuse Settings showing per-key caps, live data, readings and sensitivity">
+  <img src="assets/window-settings-dark.png" width="600" alt="BurnFuse Settings: one list of keys, each row saying whether it reads itself or takes a typed number, with the add-a-key block at the top">
 </p>
 
 ### Keeping it current
 
-BurnFuse reads spend straight from your provider — no scripts, no terminal:
+BurnFuse gets a key's spend one of three ways, and the row always says which:
 
-1. **Provider keys → OpenAI, Anthropic, OpenRouter.** Paste a read-only key and press
-   **Test** to have the provider's own cost endpoint answer right then, instead of
-   waiting a minute to find out. Test tries the key sitting in the field, so you can
-   check one before committing to it. After that BurnFuse asks again every minute. Keys
-   are stored on your Mac only, owner-readable, and are sent nowhere except that provider;
-   the row shows just the two ends of the key (`sk-o…0000`), so you can tell which one
-   is stored without it being usable.
-2. **Log a reading.** For any key — a provider without a public spend endpoint,
-   or a number you read somewhere else — type what it is spending per hour. That
-   is all a reading is: one dollar figure per hour.
-3. **Custom endpoint.** Any URL that returns a dollar amount. Name where the
-   figure sits in the JSON, and say whether it counts up.
+1. **It reads itself.** Paste the key you already use. OpenRouter answers a standard key
+   with its own credit usage; OpenAI and Anthropic answer with your organization's costs,
+   which their cost APIs accept only from an Admin key — the row says so in one line.
+   A failed read gives the provider's own reason rather than a status code: a standard
+   OpenAI key instead of an Admin one, or an OpenAI key pasted into the OpenRouter row, is
+   named where you typed it rather than failing silently a minute later. A value that is
+   really the placeholder from a sample file is called out as one. Keys are stored on your
+   Mac only, owner-readable, and are sent nowhere except that provider; the row shows just
+   the two ends of the key (`sk-o…0000`), so you can tell which one is stored without it
+   being usable. **Test** asks the provider right then, instead of waiting a minute to
+   find out.
+2. **You type it.** Most providers publish no spend figure at all. Their rows say so in
+   plain words and take a number from you — what that key is spending per hour. That is
+   all a reading is: one dollar figure per hour. A typed row is a first-class way to use
+   the app, not a failure state.
+3. **Your own endpoint.** Any URL that returns a dollar amount. Name where the figure
+   sits in the JSON, and say whether it counts up.
 
-A key you paste is checked before BurnFuse uses it, and a failed read gives the
-provider's own reason rather than a status code: a standard OpenAI key instead of an
-Admin one, or an OpenAI key pasted into the OpenRouter row, is named where you typed
-it rather than failing silently a minute later. Anthropic needs an Admin key on an
-organization account — individual accounts have no Admin API at all — and the app
-says exactly that. A value that is really the placeholder from a sample file is called
-out as one. A provider that has since moved its cost endpoint is tried at its other
-address before BurnFuse will suggest anything is wrong.
+If a provider turns the key down for cost reads — the common case being a standard OpenAI
+key, which can use the API but cannot see spend — the same row offers the way out in
+place: **Type this key's spend by hand instead**. The key stays watched either way; only
+where the number comes from changes. And a key you have never pasted is never reported as
+invalid: the app says it has nothing to read with, which is a different problem from a key
+that was turned down. Saving an empty field will not quietly delete a key you already
+have — removing one is its own button, on purpose.
 
-And a key you have never pasted is never reported as invalid: the app says it has
-nothing to read with, which is a different problem from a key that was turned down.
-Saving an empty field will not quietly delete a key you already have — removing one is
-its own button, on purpose.
+Some providers count money up instead of reporting an hourly figure. Those need two reads
+— the first saves a baseline, the next one gives you a rate — and the app says so while it
+is measuring, rather than showing a number it cannot back up.
 
-Some providers count money up instead of reporting an hourly figure. Those need
-two reads — the first saves a baseline, the next one gives you a rate — and the
-app says so while it is measuring, rather than showing a number it cannot back up.
-
-Providers without a live endpoint (Replicate, Groq, AWS) work fully through a
-logged reading. The settings list says plainly which providers read themselves and
-which need a number from you, so nothing is a dead end.
+A key whose spend has never been measured shows **no reading yet** rather than `$0.00/hr`.
+Printing a zero it has not measured would be telling you something it does not know.
 
 ## How it works
 
@@ -185,17 +198,26 @@ late is the reason the app exists.
 
 ## Providers
 
-| Provider | Live spend | How |
-|---|---|---|
-| OpenAI | ✅ | Organization costs API (needs an Admin key) |
-| Anthropic | ✅ | Organization cost report (needs an Admin key on an organization account) |
-| OpenRouter | ✅ | Reads your credit usage with a standard key |
-| Custom endpoint | ✅ | Point it at any URL that returns a dollar amount |
-| Replicate · Groq · AWS | — | Log a reading per hour |
+Categories are how the app talks about your spend: the headings when you add a key, and
+the breakdown on Overview — *Coding & chat $1.94/hr · Images $0.51/hr*. They organise;
+they never decide what BurnFuse can read. That is a fact about the provider, and the
+provider says it in one line.
 
-Everything else in BurnFuse reads its spend from one number you type. The only
-front-end BurnFuse provides to that is Settings → **Watch a key**, and the only
-thing it asks for is a name and a dollar-an-hour cap.
+| Category | Reads itself | You type it |
+|---|---|---|
+| Coding & chat | OpenAI · Anthropic | Google Gemini · xAI · Mistral · DeepSeek · Groq · Together · Fireworks · Perplexity |
+| Model aggregators | OpenRouter | Replicate · Hugging Face |
+| Images | — | Stability AI · fal.ai |
+| Video | — | Runway · Luma |
+| Voice & audio | — | ElevenLabs · Deepgram |
+| Scraping & search | — | Firecrawl · Apify · Browserbase · Exa · Tavily |
+| Hosting & storage | — | AWS · Google Cloud · Azure · Cloudflare · Vercel · Supabase |
+| Something else | Your own endpoint | any provider — name it and type its spend |
+
+That is thirty providers by name, and BurnFuse can read spend for three of them — plus any
+endpoint of your own. The rest genuinely publish no cost figure that a key can read, and
+no amount of wanting changes that. So each row says so, names where the number lives
+instead, and takes it. Nothing in the list is ever a dead end.
 
 ## Install
 

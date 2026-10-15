@@ -39,6 +39,9 @@ public final class AppModel: ObservableObject {
     @Published public var isRefreshing: Bool = false
     /// The last thing a live read had to say — success or reason it could not.
     @Published public var lastReadMessage: String?
+    /// The same, per key, so a row can say what happened to *it* rather than
+    /// making someone read a combined line and work out which key it was about.
+    @Published public var lastMessageByKey: [String: String] = [:]
     /// Progress toward the next automatic live read, 0...1.
     @Published public var pollProgress: Double = 0
     /// The last Test result per provider. A key that cannot work says why here,
@@ -169,25 +172,33 @@ public final class AppModel: ObservableObject {
         defer { isRefreshing = false; lastLiveRead = Date(); pollProgress = 0 }
 
         var messages: [String] = []
+        var byKey: [String: String] = [:]
         for key in state.entries where key.armed && !key.isTripped {
             guard SpendSource.canReadLive(key) else { continue }
             let result = await SpendPoller.fetch(key, apiKey: Credentials.key(for: key.provider), session: session)
             guard result.ok, let figure = result.cost else {
                 messages.append("\(key.name): \(result.message)")
+                byKey[key.id] = result.message
                 continue
             }
 
             if SpendSource.measuresTotal(key) {
-                messages.append(absorb(keyID: key.id, total: figure))
+                let line = absorb(keyID: key.id, total: figure)
+                messages.append(line)
+                byKey[key.id] = line.replacingOccurrences(of: "\(key.name): ", with: "")
             } else {
                 record(keyID: key.id, cost: figure)
                 messages.append("\(key.name): \(Fmt.perHour(figure))")
+                byKey[key.id] = "Read \(Fmt.perHour(figure)) a moment ago."
             }
         }
 
         lastRefresh = Date()
+        lastMessageByKey = byKey
         lastReadMessage = messages.isEmpty
-            ? "No key is set up for a live read yet. Log a reading instead."
+            ? (state.entries.contains { !$0.isManualRead && Providers.canReadLive($0.provider) }
+               ? "Nothing was read this pass."
+               : "No key is set up for a live read yet. Type your spend instead.")
             : messages.prefix(3).joined(separator: "\n")
     }
 
@@ -243,17 +254,17 @@ public final class AppModel: ObservableObject {
                 entry.provider == "custom"
                     && !(entry.source?.spendUrl?.trimmingCharacters(in: .whitespaces).isEmpty ?? true)
             }) else {
-                keyTests[providerID] = .failed("Add a watched key with a cost URL first, then test it.")
+                keyTests[providerID] = .failed("Add your endpoint's address first, then test it.")
                 return
             }
             probe.source = entry.source
         } else if apiKey == nil {
-            keyTests[providerID] = .failed("No key stored yet — paste one above and save it first.")
+            keyTests[providerID] = .failed("No \(Providers.label(for: providerID)) key saved yet — paste one next to it and press Save.")
             return
         }
 
         guard SpendSource.canReadLive(probe) else {
-            keyTests[providerID] = .failed("\(Providers.label(for: providerID)) has no live spend read to test.")
+            keyTests[providerID] = .failed("\(Providers.label(for: providerID)) has no spend read to test — its numbers are typed in.")
             return
         }
 
@@ -390,12 +401,15 @@ public final class AppModel: ObservableObject {
         name: String,
         provider: String,
         cap: Double,
+        category: Category? = nil,
+        readMode: ReadMode? = nil,
         spendUrl: String? = nil,
         jsonPath: String? = nil,
         header: String? = nil,
         measures: String? = nil
     ) -> BurnKey {
-        var key = BurnEngine.addKey(&state, name: name, provider: provider, cap: cap)
+        var key = BurnEngine.addKey(&state, name: name, provider: provider, cap: cap,
+                                    category: category, readMode: readMode)
         let source = KeySource(spendUrl: spendUrl, jsonPath: jsonPath, header: header, measures: measures)
         if !source.isEmpty {
             key.source = source
@@ -407,10 +421,45 @@ public final class AppModel: ObservableObject {
         return key
     }
 
+    /// Rename a watched key. The id — and every reading and trip attached to it
+    /// — stays put, so this is a label change and nothing else.
+    public func rename(keyID: String, to name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let index = state.entries.firstIndex(where: { $0.id == keyID }) else { return }
+        state.entries[index].name = trimmed
+        persist()
+    }
+
+    public func setCategory(keyID: String, category: Category) {
+        guard let index = state.entries.firstIndex(where: { $0.id == keyID }) else { return }
+        state.entries[index].category = category
+        persist()
+    }
+
+    /// Move a key between "BurnFuse reads it" and "I type it".
+    ///
+    /// Both directions are offered in the interface: a provider with no cost
+    /// endpoint is manual from the start, and a live key whose provider turned
+    /// it down becomes manual the moment the person chooses to type the number
+    /// rather than chase a different key.
+    public func setReadMode(keyID: String, mode: ReadMode) {
+        guard let index = state.entries.firstIndex(where: { $0.id == keyID }) else { return }
+        state.entries[index].readMode = mode == .auto ? nil : mode
+        persist()
+    }
+
     public func remove(keyID: String) {
         BurnEngine.remove(&state, keyID: keyID)
+        lastMessageByKey[keyID] = nil
         if selectedKeyID == keyID { selectedKeyID = nil }
         persist()
+    }
+
+    /// Store (or, with nil, clear) the key BurnFuse reads a provider with.
+    public func storeCredential(_ value: String?, for providerID: String) {
+        Credentials.set(value, for: providerID)
+        // A different key means the last verdict was about a key that is gone.
+        keyTests[providerID] = nil
     }
 
     public func updateSettings(_ transform: (inout Settings) -> Void) {
@@ -436,7 +485,7 @@ public final class AppModel: ObservableObject {
                     hourlyLimit: 5, readings: history([1.12, 1.28, 1.19, 1.34, 1.22, 1.31]), lastReading: 1.31),
             BurnKey(id: BurnEngine.makeID(seed: "Claude batch"), name: "Claude batch", provider: "anthropic",
                     hourlyLimit: 8, readings: history([0.62, 0.58, 0.71, 0.66, 0.69, 0.63]), lastReading: 0.63),
-            BurnKey(id: BurnEngine.makeID(seed: "Fal images"), name: "Fal images", provider: "custom",
+            BurnKey(id: BurnEngine.makeID(seed: "Fal images"), name: "Fal images", provider: "fal",
                     hourlyLimit: 3, readings: history([0.4, 0.5, 0.45, 0.52, 0.48, 0.51]), lastReading: 0.51),
         ]
         for key in seeds where !state.entries.contains(where: { $0.name == key.name }) {

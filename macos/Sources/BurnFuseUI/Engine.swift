@@ -146,11 +146,20 @@ public enum BurnEngine {
         }
     }
 
-    public static func addKey(_ state: inout AppState, name: String, provider: String, cap: Double) -> BurnKey {
+    public static func addKey(
+        _ state: inout AppState,
+        name: String,
+        provider: String,
+        cap: Double,
+        category: Category? = nil,
+        readMode: ReadMode? = nil
+    ) -> BurnKey {
         let key = BurnKey(
             id: makeID(seed: name),
             name: name,
             provider: provider,
+            category: category,
+            readMode: readMode,
             hourlyLimit: cap
         )
         state.entries.append(key)

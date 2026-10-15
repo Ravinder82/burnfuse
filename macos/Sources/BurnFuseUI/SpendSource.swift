@@ -79,8 +79,14 @@ public enum SpendSource {
     }
 
     /// Whether a key can be read live, or needs a manual reading.
+    ///
+    /// A manual key is a decision, not a failure: either the provider publishes
+    /// no cost endpoint, or its key was turned down for one and the person
+    /// watching chose to type the number instead. Both are answered here so no
+    /// caller has to remember to check twice.
     public static func canReadLive(_ key: BurnKey) -> Bool {
-        endpoint(for: key) != nil
+        guard !key.isManualRead else { return false }
+        return endpoint(for: key) != nil
     }
 
     /// Whether this provider counts money up rather than reporting an hourly

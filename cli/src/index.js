@@ -188,7 +188,17 @@ function cmdAdd(state, positional, flags) {
   const name = positional[0];
   if (!name) throw new Error('give the key a name, e.g.  burnfuse add "OpenAI prod" --limit 5');
   const provider = String(flags.provider || "custom").toLowerCase();
-  if (!getProvider(provider)) throw new Error(`unknown provider "${provider}". Try: ${providerList.map((p) => p.id).join(", ")}`);
+  // A provider BurnFuse can name but not read is still perfectly usable — its
+  // spend is typed in by hand — so an id we do not know is a note, not a
+  // refusal. What it must not do is quietly pretend the id is something else.
+  if (!providerList.some((p) => p.id === provider)) {
+    const near = providerList
+      .map((p) => p.id)
+      .filter((id) => id.startsWith(provider.slice(0, 3)) || provider.startsWith(id.slice(0, 3)));
+    console.log(
+      `  ${c.yellow("!")} "${provider}" is not a provider BurnFuse knows${near.length ? ` — did you mean ${near.join(", ")}?` : ""}. It will be watched with readings you add by hand.`
+    );
+  }
   const limit = Number(flags.limit ?? flags.cap ?? 5);
   const entry = {
     id: makeId(flags.id || name),

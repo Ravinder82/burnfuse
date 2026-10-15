@@ -155,8 +155,15 @@ test("a trip names the console page where the key is revoked", () => {
   assert.match(revokeHint({ provider: "nope" }), /where you issued it/);
 });
 
-test("unknown provider falls back to custom", () => {
-  assert.equal(getProvider("nope").label, getProvider("custom").label);
+test("an unknown provider is described as itself, not renamed", () => {
+  // The app names an id it does not know after the id; the CLI used to call it
+  // "Custom endpoint", which pointed people at a form that would not help.
+  assert.equal(getProvider("nope").label, "Nope");
+  assert.equal(getProvider("my-thing").label, "My Thing");
+  assert.equal(getProvider("custom").label, "Your own endpoint");
+  // It still behaves like a custom endpoint, so its own cost URL keeps working.
+  const entry = { provider: "nope", source: { spendUrl: "https://example.com/cost.json" } };
+  assert.equal(getProvider("nope").spendUrl(entry), "https://example.com/cost.json");
 });
 
 test("mask never reveals the middle of a key", () => {

@@ -177,7 +177,7 @@ final class LiveReadTests: XCTestCase {
 
         XCTAssertFalse(m.lastReadMessage?.isEmpty ?? true)
         // Nothing at all is set up, so the app says what to do instead.
-        XCTAssertTrue(m.lastReadMessage?.contains("Log a reading") ?? false, m.lastReadMessage ?? "")
+        XCTAssertTrue(m.lastReadMessage?.contains("Type your spend") ?? false, m.lastReadMessage ?? "")
     }
 
     /// A custom source has to survive the state file, header and counter kind
@@ -200,7 +200,7 @@ final class LiveReadTests: XCTestCase {
     /// A provider that claims a live read must actually have an endpoint to
     /// read. `custom` is the exception: the user supplies its address.
     func testEveryProviderClaimingALiveReadCanActuallyBeRead() {
-        for provider in Providers.all where provider.supportsLiveSpend {
+        for provider in Providers.all where provider.canReadLive {
             guard provider.id != "custom" else { continue }
             let key = BurnKey(id: provider.id, name: provider.id, provider: provider.id)
             XCTAssertNotNil(SpendSource.endpoint(for: key),
@@ -211,28 +211,40 @@ final class LiveReadTests: XCTestCase {
     /// A provider without a live read must never look broken or refused: it has
     /// to say what to do instead.
     func testEveryProviderWithoutALiveReadIsExplainedNotRefused() {
-        for provider in Providers.all where !provider.supportsLiveSpend {
+        for provider in Providers.all where !provider.canReadLive {
             let key = BurnKey(id: provider.id, name: provider.id, provider: provider.id)
             XCTAssertFalse(SpendSource.canReadLive(key))
-            XCTAssertFalse(provider.keyHint.isEmpty, "\(provider.id) must say what to do instead")
+            XCTAssertFalse(provider.readHint.isEmpty, "\(provider.id) must say what to do instead")
         }
     }
 
     func testTheLiveProvidersAreTheOnesWithAnEndpointToRead() {
         // The settings rows are generated from this flag, so it must not drift
         // from what the fetcher can actually reach.
-        let live = Set(Providers.all.filter(\.supportsLiveSpend).map(\.id))
+        let live = Set(Providers.all.filter(\.canReadLive).map(\.id))
         XCTAssertEqual(live, ["openai", "anthropic", "openrouter", "custom"])
     }
 
+    /// A watched key can be set to "I type this one", and that has to hold even
+    /// for a provider BurnFuse can read — it is the answer to a key the provider
+    /// turns down for cost reads.
+    func testAKeySetToManualIsNeverReadAutomatically() {
+        let openAI = BurnKey(id: "a", name: "a", provider: "openai", readMode: .manual)
+        XCTAssertFalse(SpendSource.canReadLive(openAI),
+                       "a manual key must not be read behind the user's back")
+        XCTAssertEqual(SpendSource.endpoint(for: openAI)?.host(), "api.openai.com",
+                       "the endpoint still exists — it is the key that opted out")
+    }
+
     func testAProviderWeDoNotKnowIsDescribedAsItself() {
-        // Not quietly renamed to "Custom endpoint" and pointed at a form that
+        // Not quietly renamed to "Your own endpoint" and pointed at a form that
         // will not help.
-        let provider = Providers.provider(for: "mistral")
-        XCTAssertEqual(provider.label, "Mistral")
-        XCTAssertEqual(Providers.label(for: "mistral"), "Mistral",
+        let provider = Providers.provider(for: "acme-ai")
+        XCTAssertEqual(provider.label, "Acme-Ai")
+        XCTAssertEqual(Providers.label(for: "acme-ai"), "Acme-Ai",
                        "both ways of naming a provider must agree")
-        XCTAssertFalse(provider.supportsLiveSpend)
+        XCTAssertFalse(provider.canReadLive)
+        XCTAssertEqual(provider.category, .other)
     }
 
     // MARK: - Test connection
@@ -294,7 +306,7 @@ final class LiveReadTests: XCTestCase {
 
         let test = try XCTUnwrap(m.keyTests["openai"])
         guard case .failed(let message) = test else { return XCTFail("expected failed, got \(test)") }
-        XCTAssertTrue(message.contains("No key stored yet"), message)
+        XCTAssertTrue(message.contains("No OpenAI key saved yet"), message)
     }
 
     /// A provider with no live read is explained, never left looking broken.
@@ -308,7 +320,7 @@ final class LiveReadTests: XCTestCase {
 
         let test = try XCTUnwrap(m.keyTests["groq"])
         guard case .failed(let message) = test else { return XCTFail("expected failed, got \(test)") }
-        XCTAssertTrue(message.contains("no live spend read"), message)
+        XCTAssertTrue(message.contains("has no spend read to test"), message)
     }
 
     /// A custom endpoint has no address until a watched key supplies one, so
@@ -322,7 +334,7 @@ final class LiveReadTests: XCTestCase {
 
         let test = try XCTUnwrap(m.keyTests["custom"])
         guard case .failed(let message) = test else { return XCTFail("expected failed, got \(test)") }
-        XCTAssertTrue(message.contains("cost URL"), message)
+        XCTAssertTrue(message.contains("endpoint's address"), message)
     }
 
     /// With a watched custom key set up, its address is what gets tested.
