@@ -14,6 +14,15 @@ A real macOS app. Sits in your Dock and your menu bar.
 
 <img src="assets/social-card.png" alt="BurnFuse — a spend breaker for your AI keys, shown in one macOS window">
 
+<p align="center">
+  <video width="760" controls autoplay muted loop playsinline poster="assets/window-overview-dark.png">
+    <source src="assets/tour.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+  </video>
+  <br>
+  <sub>The product tour: the burn block, watched keys, and a trip in under a minute.</sub>
+</p>
+
 </div>
 
 ---
