@@ -75,10 +75,11 @@ public struct CategoryBreakdown: View {
     }
 
     private func chip(_ entry: CategoryBurn) -> some View {
-        HStack(spacing: DS.Space.xs) {
+        let tint = entry.category.tint
+        return HStack(spacing: DS.Space.xs) {
             Image(systemName: entry.category.symbol)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.secondary)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(tint)
             Text(entry.category.title)
                 .font(.caption.weight(.medium))
             Text(Fmt.perHour(entry.burn))
@@ -87,7 +88,10 @@ public struct CategoryBreakdown: View {
         }
         .padding(.horizontal, DS.Space.sm + 2)
         .padding(.vertical, 5)
-        .background(Capsule().fill(Color(nsColor: .quaternaryLabelColor).opacity(0.22)))
+        // The same colour this category wears on its band in Settings, so
+        // "images" is one thing across the app rather than two.
+        .background(Capsule().fill(tint.opacity(0.13)))
+        .overlay(Capsule().strokeBorder(tint.opacity(0.26)))
         .accessibilityElement(children: .combine)
     }
 }

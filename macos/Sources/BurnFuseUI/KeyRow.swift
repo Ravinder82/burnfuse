@@ -90,12 +90,11 @@ public struct KeyRow: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: DS.Space.sm) {
-            HStack(alignment: .firstTextBaseline, spacing: DS.Space.sm) {
-                Image(systemName: Providers.provider(for: key.provider).symbol)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 16)
-                    .accessibilityHidden(true)
+            HStack(alignment: .center, spacing: DS.Space.sm) {
+                // The same tile the key has in Settings, so the row in the watch
+                // list and the row in the list of keys are recognisably the same
+                // thing.
+                ProviderTile(provider: Providers.provider(for: key.provider), size: 26)
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(key.name).font(.subheadline.weight(.semibold)).lineLimit(1)

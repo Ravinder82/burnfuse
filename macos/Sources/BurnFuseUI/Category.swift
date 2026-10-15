@@ -1,4 +1,4 @@
-import Foundation
+import SwiftUI
 
 /// What a key is *for*. This is how you think about your spend, and nothing
 /// else: the same grouping on Overview ("Images $0.40/hr") and the same
@@ -57,6 +57,27 @@ public enum Category: String, CaseIterable, Identifiable, Sendable, Codable {
         case .hosting: return "cloud"
         case .aggregator: return "square.stack.3d.up"
         case .other: return "ellipsis.circle"
+        }
+    }
+
+    /// The colour this category is known by: the band over its group of keys in
+    /// Settings, and the same hue in the Overview breakdown, so "images" is one
+    /// colour rather than two.
+    ///
+    /// System colours, so light, dark and Increased Contrast stay legible. None
+    /// of them is green, amber or red — those three mean "settled, climbing,
+    /// tripped" everywhere else in this app, and a category that borrowed one
+    /// would read as a state. The name is always written next to the colour.
+    public var tint: Color {
+        switch self {
+        case .coding: return Color(nsColor: .systemBlue)
+        case .aggregator: return Color(nsColor: .systemIndigo)
+        case .images: return Color(nsColor: .systemPink)
+        case .video: return Color(nsColor: .systemPurple)
+        case .audio: return Color(nsColor: .systemTeal)
+        case .scraping: return Color(nsColor: .systemBrown)
+        case .hosting: return Color(nsColor: .systemCyan)
+        case .other: return Color(nsColor: .systemGray)
         }
     }
 

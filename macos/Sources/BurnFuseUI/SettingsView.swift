@@ -79,10 +79,17 @@ public struct SettingsView: View {
 
     // MARK: - Keys
 
-    /// Your keys, and how to add another. One card, because it is one thing.
+    /// Your keys, grouped by what they are for, and how to add another.
+    ///
+    /// The grouping is the answer to "which of these is which". A band says what
+    /// the group is for, in that category's colour and with its own symbol, and
+    /// every row leads with the tile of the provider it belongs to. Groups follow
+    /// the picker's order — coding first, "something else" last — and a category
+    /// nobody has a key in simply does not appear. One card, because it is one
+    /// thing.
     private var keysSection: some View {
         Card {
-            VStack(alignment: .leading, spacing: DS.Space.md) {
+            VStack(alignment: .leading, spacing: DS.Space.lg) {
                 SectionHeader("Your keys", subtitle: "BurnFuse watches these and trips the breaker when one runs hot.") {
                     LinkButton(model.isRefreshing ? "Reading…" : "Refresh now",
                                enabled: !model.isRefreshing) {
@@ -93,10 +100,15 @@ public struct SettingsView: View {
                 if model.state.entries.isEmpty {
                     EmptyKeys()
                 } else {
-                    VStack(alignment: .leading, spacing: DS.Space.md) {
-                        ForEach(Array(model.state.entries.enumerated()), id: \.element.id) { index, key in
-                            if index > 0 { Divider() }
-                            keyRow(key)
+                    VStack(alignment: .leading, spacing: DS.Space.lg) {
+                        ForEach(groupedKeys, id: \.category) { group in
+                            VStack(alignment: .leading, spacing: DS.Space.md) {
+                                CategoryBand(category: group.category, keys: group.keys)
+                                ForEach(Array(group.keys.enumerated()), id: \.element.id) { index, key in
+                                    if index > 0 { Divider() }
+                                    keyRow(key)
+                                }
+                            }
                         }
                     }
                 }
@@ -105,6 +117,15 @@ public struct SettingsView: View {
 
                 addKeyBlock
             }
+        }
+    }
+
+    /// The keys that exist, in category order. Empty categories are dropped
+    /// rather than shown as an empty band.
+    private var groupedKeys: [(category: Category, keys: [BurnKey])] {
+        Category.allCases.compactMap { category in
+            let keys = model.state.entries.filter { $0.effectiveCategory == category }
+            return keys.isEmpty ? nil : (category, keys)
         }
     }
 
@@ -248,22 +269,48 @@ public struct SettingsView: View {
         let provider = Providers.provider(for: key.provider)
         let assessment = model.assessment(for: key)
         let tone = DS.Tone.forAssessment(overCap: assessment.overCap, spike: assessment.spike)
+        let readFailed = model.lastReadFailed(key.id)
+        // The same rule the watch list uses: a key nothing can read and nobody
+        // has typed a number for has no figure at all, and "$0.00/hr" would be
+        // the app inventing one.
+        let hasNoFigure = (key.readings.isEmpty && !SpendSource.canReadLive(key))
+            || (readFailed && key.readings.isEmpty)
 
         return VStack(alignment: .leading, spacing: DS.Space.sm) {
-            HStack(spacing: DS.Space.sm) {
-                Image(systemName: provider.symbol)
-                    .foregroundStyle(.secondary)
-                    .frame(width: 16)
+            // The provider leads the row: it is the answer to "which API is
+            // this", and it is the same tile everywhere that provider appears.
+            HStack(alignment: .top, spacing: DS.Space.sm) {
+                ProviderTile(provider: provider, size: 28)
+                    .padding(.top, 1)
+
                 VStack(alignment: .leading, spacing: 1) {
+                    HStack(spacing: DS.Space.xs) {
+                        Text(provider.label)
+                            .font(.callout.weight(.semibold))
+                        Text(key.readingSourcePhrase)
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                    // The name you gave it — what trips, notifications and the
+                    // watch list call this key. Editable in place, the way a
+                    // plain field is everywhere else on macOS.
                     TextField("Name", text: nameBinding(key))
                         .textFieldStyle(.plain)
-                        .font(.subheadline.weight(.semibold))
-                    Text("\(key.effectiveCategory.title) · \(provider.label) · \(key.readingSourcePhrase)")
-                        .font(.caption2)
+                        .font(.callout)
                         .foregroundStyle(.secondary)
                 }
+
                 Spacer(minLength: DS.Space.sm)
-                Text(Fmt.perHour(key.lastReading)).font(DS.Font.mono).foregroundStyle(tone)
+
+                VStack(alignment: .trailing, spacing: 1) {
+                    Text(hasNoFigure ? "—" : Fmt.perHour(key.lastReading))
+                        .font(DS.Font.mono)
+                        .foregroundStyle(hasNoFigure ? AnyShapeStyle(.secondary) : AnyShapeStyle(tone))
+                    Text("cap \(Fmt.money(key.hourlyLimit))")
+                        .font(DS.Font.monoSmall)
+                        .foregroundStyle(.secondary)
+                }
+
                 // Removing a row and revoking a key are different actions, and
                 // the moment someone reaches for the first is the moment to name
                 // the second.
@@ -283,6 +330,17 @@ public struct SettingsView: View {
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 70)
                 Text("$/hr").font(.caption).foregroundStyle(.secondary)
+
+                // Which group this key sits in — the band it appears under.
+                // Moving it is a filing decision and changes nothing about how
+                // its spend is read.
+                MenuChip(title: key.effectiveCategory.title,
+                         symbol: key.effectiveCategory.symbol) {
+                    ForEach(Category.allCases) { category in
+                        Button(category.title) { model.setCategory(keyID: key.id, category: category) }
+                    }
+                }
+                .help("The group this key sits in. Moving it changes nothing about how its spend is read.")
 
                 Spacer(minLength: DS.Space.sm)
 
