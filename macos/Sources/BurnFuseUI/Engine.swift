@@ -1,6 +1,7 @@
 import Foundation
 
-/// The burn-rate math, kept identical to the CLI so both front doors agree.
+/// The burn-rate math. Deliberately small and explainable, and pinned by tests
+/// so the app's verdicts never drift.
 /// Pure functions in, state out — no I/O, trivially testable.
 public enum BurnEngine {
 

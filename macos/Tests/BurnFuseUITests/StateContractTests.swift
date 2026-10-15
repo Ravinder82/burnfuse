@@ -2,10 +2,10 @@ import XCTest
 import Foundation
 @testable import BurnFuseUI
 
-/// Guards the contract that matters most: the CLI and the macOS app read and
-/// write the same file. `cli-state.json` is real output from
-/// `burnfuse demo && burnfuse record`.
-final class InteropTests: XCTestCase {
+/// Guards the app's own state contract: the shape of `~/.burnfuse/state.json`,
+/// which is the whole product's memory. `state-sample.json` is a realistic file
+/// as the app writes it (settings, three keys, one trip).
+final class StateContractTests: XCTestCase {
 
     private func fixtureURL(_ name: String) throws -> URL {
         let bundle = Bundle.module
@@ -16,13 +16,13 @@ final class InteropTests: XCTestCase {
         )
     }
 
-    func testDecodesRealCLIStateFile() throws {
-        let url = try fixtureURL("cli-state")
+    func testDecodesARealisticStateFile() throws {
+        let url = try fixtureURL("state-sample")
         let data = try Data(contentsOf: url)
         let state = try JSONDecoder().decode(AppState.self, from: data)
 
         XCTAssertEqual(state.version, 2)
-        XCTAssertEqual(state.entries.count, 3, "three seeded keys")
+        XCTAssertEqual(state.entries.count, 3, "three tracked keys")
         XCTAssertEqual(state.incidents.count, 1, "one trip was recorded")
         XCTAssertEqual(state.tripped.map(\.name), ["OpenAI prod"])
         XCTAssertEqual(state.settings.zThreshold, 2.5)
@@ -35,8 +35,8 @@ final class InteropTests: XCTestCase {
         XCTAssertGreaterThan(tripped.readings.count, 5)
     }
 
-    func testReEncodingKeepsEveryFieldTheCLIUses() throws {
-        let url = try fixtureURL("cli-state")
+    func testReEncodingKeepsEveryField() throws {
+        let url = try fixtureURL("state-sample")
         let original = try JSONDecoder().decode(AppState.self, from: Data(contentsOf: url))
 
         let encoder = JSONEncoder()
@@ -53,10 +53,10 @@ final class InteropTests: XCTestCase {
         }
     }
 
-    func testCLIFileIsAcceptedByModelWithoutLoss() throws {
-        let url = try fixtureURL("cli-state")
+    func testStateFileIsAcceptedByModelWithoutLoss() throws {
+        let url = try fixtureURL("state-sample")
         let copy = FileManager.default.temporaryDirectory
-            .appendingPathComponent("burnfuse-interop-\(UUID().uuidString).json")
+            .appendingPathComponent("burnfuse-state-\(UUID().uuidString).json")
         try FileManager.default.copyItem(at: url, to: copy)
         try MainActor.assumeIsolated {
             let model = AppModel(stateURL: copy, pollInterval: 0)
@@ -67,9 +67,8 @@ final class InteropTests: XCTestCase {
         }
     }
 
-    func testFixtureIsTheExactShapeTheCLIWrites() throws {
-        // Version, settings and per-entry fields the CLI depends on.
-        let url = try fixtureURL("cli-state")
+    func testFixtureCarriesEveryRequiredField() throws {
+        let url = try fixtureURL("state-sample")
         let data = try Data(contentsOf: url)
         let state = try JSONDecoder().decode(AppState.self, from: data)
         XCTAssertEqual(state.version, 2)

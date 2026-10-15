@@ -6,20 +6,33 @@ public struct MainPanel: View {
     @ObservedObject var model: AppModel
     var width: CGFloat = 340
     var scrollable: Bool = true
+    /// Tallest the scrolling body is allowed to grow before it starts to scroll.
+    var maxBodyHeight: CGFloat = 560
     var onOpenSettings: () -> Void = {}
+    var onOpenInsights: () -> Void = {}
     var onQuit: () -> Void = {}
+
+    /// The body's natural height, measured so the panel can size itself.
+    /// A bare `ScrollView` has no intrinsic height and collapses to nothing
+    /// inside a `MenuBarExtra` window, which is what hid the whole middle of
+    /// the panel at runtime.
+    @State private var bodyHeight: CGFloat = 0
 
     public init(
         model: AppModel,
         width: CGFloat = 340,
         scrollable: Bool = true,
+        maxBodyHeight: CGFloat = 560,
         onOpenSettings: @escaping () -> Void = {},
+        onOpenInsights: @escaping () -> Void = {},
         onQuit: @escaping () -> Void = {}
     ) {
         self.model = model
         self.width = width
         self.scrollable = scrollable
+        self.maxBodyHeight = maxBodyHeight
         self.onOpenSettings = onOpenSettings
+        self.onOpenInsights = onOpenInsights
         self.onQuit = onQuit
     }
 
@@ -33,20 +46,33 @@ public struct MainPanel: View {
                              onReview: { onOpenSettings() })
             }
 
-            if scrollable {
-                ScrollView {
-                    panelContent
-                }
-                .frame(maxHeight: 384)
-            } else {
-                panelContent
-            }
+            bodyContent
 
             Divider()
             footer
         }
         .frame(width: width)
         .background(.regularMaterial)
+    }
+
+    /// The scrolling middle. Measured against its content so the panel shows
+    /// the real UI the moment it opens, whatever the menu-bar host proposes.
+    @ViewBuilder
+    private var bodyContent: some View {
+        if scrollable {
+            ScrollView {
+                panelContent
+                    .background(
+                        GeometryReader { proxy in
+                            Color.clear.preference(key: BodyHeightKey.self, value: proxy.size.height)
+                        }
+                    )
+            }
+            .frame(height: min(bodyHeight, maxBodyHeight))
+            .onPreferenceChange(BodyHeightKey.self) { bodyHeight = $0 }
+        } else {
+            panelContent
+        }
     }
 
     private var panelContent: some View {
@@ -72,6 +98,8 @@ public struct MainPanel: View {
                 systemImage: model.state.hasBreach ? "exclamationmark.octagon.fill" : "checkmark.shield.fill",
                 tone: model.state.hasBreach ? DS.Tone.breach : DS.Tone.calm
             )
+
+            IconButton("chart.line.uptrend.xyaxis", help: "Insights") { onOpenInsights() }
 
             IconButton("gearshape", help: "Settings") { onOpenSettings() }
         }
@@ -175,6 +203,15 @@ public struct MainPanel: View {
     }
 }
 
+/// Reports the natural height of the panel body so the panel can size the
+/// scroll region to its content instead of collapsing to zero.
+private struct BodyHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
 /// Empty state — tells you exactly what to do next, nothing more.
 public struct EmptyKeys: View {
     public init() {}
@@ -185,7 +222,7 @@ public struct EmptyKeys: View {
                 .font(.system(size: 28))
                 .foregroundStyle(.tertiary)
             Text("No keys watched yet").font(.subheadline.weight(.medium))
-            Text("Run `burnfuse scan` in your project, or add a key in Settings.")
+            Text("Add a key in Settings to start watching its burn.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

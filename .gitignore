@@ -6,6 +6,7 @@ dist/
 *.zip
 *.icns
 assets/burnfuse.iconset/
+macos/assets/
 
 # Secrets — never commit these
 .env

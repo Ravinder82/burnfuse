@@ -5,7 +5,8 @@ import Combine
 ///
 /// Deliberately GUI-free so the screenshot renderer and tests can drive it.
 /// Everything the menu-bar UI does goes through here, and every mutation is
-/// written straight back to ~/.burnfuse/state.json so the CLI sees it instantly.
+/// written straight back to ~/.burnfuse/state.json — one readable file, on
+/// your Mac, that is the whole product.
 @MainActor
 public final class AppModel: ObservableObject {
 
@@ -14,11 +15,21 @@ public final class AppModel: ObservableObject {
     @Published public var lastRefresh: Date = Date()
     @Published public var selectedKeyID: String?
 
+    /// Set while a live spend read is in flight, so buttons can show progress.
+    @Published public var isRefreshing: Bool = false
+    /// The last thing a live read had to say — success or reason it could not.
+    @Published public var lastReadMessage: String?
+    /// Progress toward the next automatic live read, 0...1.
+    @Published public var pollProgress: Double = 0
+
     public var onIncident: ((Incident) -> Void)?
 
     public let stateURL: URL
     private var watcher: Timer?
     private var lastSeenFingerprint: String = ""
+    private var pollTimer: Timer?
+    private var pollTick: Timer?
+    private var pollSeconds: TimeInterval = 0
 
     public init(stateURL: URL? = nil, pollInterval: TimeInterval = 4) {
         self.stateURL = stateURL ?? AppModel.defaultStateURL()
@@ -89,6 +100,63 @@ public final class AppModel: ObservableObject {
         watcher = nil
     }
 
+    // MARK: - Live polling
+
+    /// How often we read live spend. Zero turns automatic reads off.
+    public var refreshInterval: TimeInterval {
+        get { pollSeconds }
+        set { pollSeconds = max(0, newValue); schedulePolling() }
+    }
+
+    private func schedulePolling() {
+        pollTimer?.invalidate()
+        pollTick?.invalidate()
+        pollTimer = nil
+        pollTick = nil
+        pollProgress = 0
+        guard pollSeconds > 0 else { return }
+
+        pollTimer = Timer.scheduledTimer(withTimeInterval: pollSeconds, repeats: true) { [weak self] _ in
+            Task { @MainActor in await self?.refreshLive() }
+        }
+        pollTick = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.pollSeconds > 0 else { return }
+                let elapsed = Date().timeIntervalSince(self.lastLiveRead ?? self.lastRefresh)
+                self.pollProgress = min(max(elapsed / self.pollSeconds, 0), 1)
+            }
+        }
+    }
+
+    private var lastLiveRead: Date?
+
+    /// Read live spend for every key that supports it, then record the results.
+    public func refreshLive() async {
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        defer { isRefreshing = false; lastLiveRead = Date(); pollProgress = 0 }
+
+        var messages: [String] = []
+        var readAny = false
+        for key in state.entries where key.armed && !key.isTripped {
+            guard SpendSource.canReadLive(key) else { continue }
+            let result = await SpendPoller.fetch(key, apiKey: Credentials.key(for: key.provider))
+            if result.ok, let cost = result.cost {
+                record(keyID: key.id, cost: cost)
+                readAny = true
+                messages.append("\(key.name): \(Fmt.perHour(cost))")
+            } else {
+                messages.append("\(key.name): \(result.message)")
+            }
+        }
+
+        lastRefresh = Date()
+        lastReadMessage = messages.isEmpty
+            ? "No key is set up for a live read yet. Log a reading instead."
+            : messages.prefix(3).joined(separator: "\n")
+        _ = readAny
+    }
+
     // MARK: - Queries
 
     public func assessment(for key: BurnKey) -> BurnEngine.Assessment {
@@ -120,7 +188,37 @@ public final class AppModel: ObservableObject {
 
     public func record(keyID: String, cost: Double, model: String? = nil) {
         if let incident = BurnEngine.recordReading(&state, keyID: keyID, cost: cost, model: model) {
+            // "Cut the power automatically" means the key stops dead, not just
+            // gets marked — so it cannot keep draining if you are asleep.
+            if state.settings.autoKillOnBreach,
+               let index = state.entries.firstIndex(where: { $0.id == keyID }) {
+                state.entries[index].armed = false
+            }
             onIncident?(incident)
+            sendWebhook(for: incident)
+        }
+        persist()
+    }
+
+    private func sendWebhook(for incident: Incident) {
+        let webhook = state.settings.notifyWebhook
+        guard !webhook.isEmpty else { return }
+        let text = "⛔ burnfuse tripped \(incident.name) — \(Fmt.perHour(incident.reading)) vs \(Fmt.money(incident.hourlyLimit)) cap (\(incident.reason))."
+        Task { await SpendPoller.notify(webhook: webhook, text: text) }
+    }
+
+    /// Point a key at a custom cost endpoint (and optional JSON path).
+    public func setSource(keyID: String, spendUrl: String?, jsonPath: String?) {
+        guard let index = state.entries.firstIndex(where: { $0.id == keyID }) else { return }
+        let trimmedURL = spendUrl?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedPath = jsonPath?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if (trimmedURL?.isEmpty ?? true) && (trimmedPath?.isEmpty ?? true) {
+            state.entries[index].source = nil
+        } else {
+            state.entries[index].source = KeySource(
+                spendUrl: trimmedURL?.isEmpty == true ? nil : trimmedURL,
+                jsonPath: trimmedPath?.isEmpty == true ? nil : trimmedPath
+            )
         }
         persist()
     }

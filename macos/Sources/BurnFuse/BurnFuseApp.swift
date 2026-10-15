@@ -23,6 +23,7 @@ struct BurnFuseApp: App {
             MainPanel(
                 model: model,
                 onOpenSettings: { SettingsWindowController.shared.show(model: model) },
+                onOpenInsights: { InsightsWindowController.shared.show(model: model) },
                 onQuit: { NSApplication.shared.terminate(nil) }
             )
         } label: {
@@ -33,6 +34,8 @@ struct BurnFuseApp: App {
             CommandGroup(replacing: .appSettings) {
                 Button("Settings…") { SettingsWindowController.shared.show(model: model) }
                     .keyboardShortcut(",", modifiers: .command)
+                Button("Insights...") { InsightsWindowController.shared.show(model: model) }
+                    .keyboardShortcut("i", modifiers: .command)
             }
         }
     }
@@ -72,6 +75,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AppDelegate.sharedModel?.onIncident = { incident in
             AppDelegate.notify(incident)
         }
+        // Read live spend in the background so the menu bar stays current
+        // without anyone touching a terminal.
+        AppDelegate.sharedModel?.refreshInterval = 60
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
 
@@ -111,6 +117,33 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         window.title = "BurnFuse Settings"
         window.styleMask = [.titled, .closable, .miniaturizable, .fullSizeContentView]
         window.setContentSize(NSSize(width: 460, height: 720))
+        window.isReleasedWhenClosed = false
+        window.center()
+        window.delegate = self
+        self.window = window
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+}
+
+/// A single reusable Insights window — what the breaker actually saved you.
+@MainActor
+final class InsightsWindowController: NSObject, NSWindowDelegate {
+    static let shared = InsightsWindowController()
+    private var window: NSWindow?
+
+    func show(model: AppModel) {
+        if let existing = window, existing.isVisible {
+            existing.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+        let view = InsightsView(model: model)
+        let hosting = NSHostingController(rootView: view)
+        let window = NSWindow(contentViewController: hosting)
+        window.title = "BurnFuse Insights"
+        window.styleMask = [.titled, .closable, .miniaturizable, .fullSizeContentView]
+        window.setContentSize(NSSize(width: 400, height: 640))
         window.isReleasedWhenClosed = false
         window.center()
         window.delegate = self

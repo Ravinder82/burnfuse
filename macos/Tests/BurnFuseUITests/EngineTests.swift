@@ -85,9 +85,8 @@ final class EngineTests: XCTestCase {
         XCTAssertNotEqual(a, BurnEngine.makeID(seed: "OpenAI Prod!"))
     }
 
-    func testFmtFormatsMoneyAndSigma() {
+    func testFmtFormatsMoneyAndMultiples() {
         XCTAssertEqual(Fmt.money(1.5), "$1.50")
-        XCTAssertEqual(Fmt.sigma(2.456), "+2.46σ")
         XCTAssertEqual(Fmt.multiple(4, 2), "2.0×")
     }
 }
@@ -133,5 +132,39 @@ final class AppModelTests: XCTestCase {
     func testInMemoryRendersPersistPath() {
         let model = makeModel()
         XCTAssertTrue(model.stateURL.path.contains("burnfuse-test-"))
+    }
+
+    func testAutoCutDisarmsAKeyWhenItTrips() {
+        let model = makeModel()
+        let key = model.addKey(name: "Burner", provider: "custom", cap: 2)
+        model.updateSettings { $0.autoKillOnBreach = true }
+        for cost in [0.4, 0.5, 0.45, 0.48] { model.record(keyID: key.id, cost: cost) }
+        model.record(keyID: key.id, cost: 12)
+
+        XCTAssertTrue(model.state.hasBreach)
+        XCTAssertFalse(model.state.entries.first?.armed ?? true, "auto-cut disarms the key")
+    }
+
+    func testAutoCutOffLeavesTheKeyArmedButTripped() {
+        let model = makeModel()
+        let key = model.addKey(name: "Burner", provider: "custom", cap: 2)
+        for cost in [0.4, 0.5, 0.45, 0.48] { model.record(keyID: key.id, cost: cost) }
+        model.record(keyID: key.id, cost: 12)
+
+        XCTAssertTrue(model.state.hasBreach)
+        XCTAssertTrue(model.state.entries.first?.armed ?? false, "still armed, just tripped")
+    }
+
+    func testSourceRoundTripsThroughDisk() {
+        let model = makeModel()
+        let key = model.addKey(name: "Custom", provider: "custom", cap: 3)
+        model.setSource(keyID: key.id, spendUrl: "https://example.com/cost.json", jsonPath: "data.total")
+
+        let reloaded = AppModel.read(from: model.stateURL)
+        XCTAssertEqual(reloaded.entries.first?.source?.spendUrl, "https://example.com/cost.json")
+        XCTAssertEqual(reloaded.entries.first?.source?.jsonPath, "data.total")
+
+        model.setSource(keyID: key.id, spendUrl: "", jsonPath: "")
+        XCTAssertNil(AppModel.read(from: model.stateURL).entries.first?.source)
     }
 }

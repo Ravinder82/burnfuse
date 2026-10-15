@@ -8,7 +8,7 @@
 
 Watch burn rate. Cap the damage. Cut the power before a runaway loop drains your card.
 
-[macOS app](#the-macos-app) · [CLI](#the-cli) · [How it works](#how-it-works) · [Privacy](#privacy)
+[The app](#the-app) · [How it works](#how-it-works) · [Insights](#insights) · [Privacy](#privacy)
 
 </div>
 
@@ -46,9 +46,9 @@ When something trips, the app says so plainly and gives you the one action that 
 
 ## Install
 
-### The macOS app
+### Requirements
 
-Requires macOS 14+ and Xcode command line tools. No dependencies, no project file.
+macOS 14+ and the Xcode command line tools. No dependencies, no project file.
 
 ```bash
 git clone https://github.com/Ravinder82/burnfuse.git
@@ -63,40 +63,31 @@ open macos/build/BurnFuse.app        # or: cp -R macos/build/BurnFuse.app /Appli
 ```
 
 It launches straight into the menu bar. There is no dock icon and no window to babysit.
-`⌘,` opens settings.
+`⌘,` opens settings, `⌘I` opens Insights.
 
-### The CLI
+## The app
 
-The terminal tool needs nothing but Node 18+.
+Everything is one place: the keys you watch, the caps you set, and how the app keeps
+itself current.
 
-```bash
-npx burnfuse scan                     # find AI keys in your .env files (read-only)
-npx burnfuse status                   # see burn rate, caps and spikes at a glance
-npx burnfuse add "OpenAI prod" --limit 5
-npx burnfuse record openai_prod 1.20  # log an hourly reading
-npx burnfuse watch                    # keep watching until something trips
-```
+<p align="center">
+  <img src="assets/settings-dark.png" width="420" alt="BurnFuse settings showing per-key caps, live data, readings, sensitivity and alerts">
+</p>
 
-Or install it globally:
+### Keeping it current
 
-```bash
-npm install -g burnfuse
-```
+BurnFuse reads spend straight from your provider — no scripts, no terminal:
 
-> Not published to npm yet? Run it straight from the repo: `cd cli && node bin/burnfuse.js status`
+1. **Live data.** Paste a read-only key for OpenAI (an Admin key) or OpenRouter. BurnFuse
+   asks the provider's own cost endpoint every minute and records the number. Keys are
+   stored on your Mac only, owner-readable, and are sent nowhere except that provider.
+2. **Log a reading.** For any key — a provider without a public spend endpoint, a custom
+   endpoint, or a number you read somewhere else — type what it is spending per hour.
+   That is all a reading is: one dollar figure per hour.
 
-## The same data, two front doors
-
-The app and the CLI read **one file**: `~/.burnfuse/state.json`. Add a key in the
-terminal, it appears in the menu bar within seconds. Trip a breaker in the app, the CLI
-sees it immediately. There is no account and no sync service in the middle.
-
-```
-┌──────────────┐        ~/.burnfuse/state.json        ┌──────────────┐
-│  burnfuse    │  ◀────────────  one file  ──────────▶ │  menu bar    │
-│  (terminal)  │                                       │  app         │
-└──────────────┘                                       └──────────────┘
-```
+Providers without a live endpoint (Anthropic, Replicate, Groq, AWS) work fully through
+a logged reading. Custom endpoints can name their own read-only cost URL and where the
+dollar figure sits in the JSON.
 
 ## How it works
 
@@ -109,11 +100,7 @@ Two rules, both easy to reason about:
    statistic.
 
 You control how easily a key trips. Slide toward *Calm* to catch small jumps, or *Only
-big* to hear from BurnFuse only when something is genuinely on fire:
-
-<p align="center">
-  <img src="assets/settings-dark.png" width="420" alt="BurnFuse settings showing per-key caps, trip sensitivity and alerts">
-</p>
+big* to hear from BurnFuse only when something is genuinely on fire.
 
 A reading has to be both clearly abnormal *and* worth your attention. Quiet keys with
 tiny numbers are not allowed to cry wolf.
@@ -127,43 +114,6 @@ have cost, and the honest framing that billing emails arrive late.
   <img src="assets/insights-dark.png" width="400" alt="BurnFuse insights showing averted spend and the log of trips">
 </p>
 
-## The CLI at a glance
-
-```
-EVERYDAY
-  status                 see every key, burn rate and spike at a glance
-  scan [dir] [--import]  find AI keys in your .env files (read-only)
-  add <name> [--limit N] [--provider p]   start tracking a key
-  record <key> <$/hr>     log an hourly spend reading
-  check [key|all]         evaluate now, trip if the breaker should
-  poll [key|all]          pull live spend where the provider allows
-
-CONTROL
-  trip <key|all>         cut the power now
-  arm <key|all> [--clear]   re-arm after a fix
-  cap <key> <$/hr>       set the hourly ceiling
-  sensitivity <number>    how big a spike trips the breaker (default 2.5)
-  watch [--interval 60] [--once]   keep watching until something trips
-```
-
-`status` reads like this:
-
-```
-  Burn  ▂▂▂▃▃▃█
-  ⛔ 1 tripped  ·  2 armed  ·  $11.04/hr burning now
-
-  KEY                       BURN          CAP       STATE
-  OpenAI prod               $9.90/hr      $5.00     over cap
-  Claude batch              $0.63/hr      $8.00     normal
-  Fal images                $0.51/hr      $3.00     1.8× usual
-```
-
-The exit code is `2` when something is tripped, so you can wire it into CI:
-
-```yaml
-- run: npx burnfuse check
-```
-
 ## Providers
 
 | Provider | Live spend | How |
@@ -171,21 +121,17 @@ The exit code is `2` when something is tripped, so you can wire it into CI:
 | OpenAI | ✅ | Organization costs API (needs an Admin key) |
 | OpenRouter | ✅ | Reads your credit usage with a standard key |
 | Custom endpoint | ✅ | Point it at any URL that returns a dollar amount |
-| Anthropic · Replicate · Groq · AWS | — | Log readings, or wire a custom cost endpoint |
-
-Anything without a public spend endpoint still works — `burnfuse record` takes an hourly
-number from wherever you already read it (Cost Explorer, a webhook, your own script).
+| Anthropic · Replicate · Groq · AWS | — | Log a reading per hour |
 
 ## Privacy
 
 BurnFuse is built to be boring about your secrets.
 
 - **Nothing leaves your machine.** No account, no analytics, no telemetry, no server of ours.
-- **The app speaks to nothing.** It reads a local file. That is the whole network story.
-- **The CLI only calls what you ask it to.** A live poll hits your provider's own cost
-  endpoint, over TLS, with your key. Nothing is proxied anywhere.
-- **`scan` is read-only.** It reads variable names from local `.env` files and prints a
-  masked preview. Your keys are never printed and never uploaded.
+- **Your keys stay local.** Provider keys live in `~/.burnfuse/keys.json`, owner-readable,
+  and are sent only to the provider you named, over TLS. Nothing is proxied anywhere.
+- **One file holds your data.** `~/.burnfuse/state.json` is the whole product's memory:
+  your keys, their readings, and every trip. Delete it and BurnFuse forgets everything.
 
 ## Design
 
@@ -208,8 +154,7 @@ Every image in this README is a render of the shipping UI — see
 Tests individually:
 
 ```bash
-cd cli && node --test             # CLI engine + parsing
-swift test --package-path macos   # burn engine + app model + CLI interop
+swift test --package-path macos   # burn engine + app model + state contract
 ```
 
 Run the app from source:
@@ -221,19 +166,13 @@ swift run --package-path macos BurnFuse
 Layout:
 
 ```
-cli/                 the npm package (zero dependencies, Node 18+)
-macos/               Swift package: app, shared UI, screenshot tool
-  Sources/BurnFuse/       the menu-bar app
-  Sources/BurnFuseUI/     views, design system, burn engine
+macos/               Swift package: the menu-bar app
+  Sources/BurnFuse/       the app entry point
+  Sources/BurnFuseUI/     views, design system, burn engine, live spend
   Sources/burnfuse-shots/ icon + screenshot renderer
 scripts/             build, verify and screenshot scripts
 assets/              app icon and the screenshots used above
 ```
-
-The burn-rate math lives in exactly two places — `cli/src/stats.js` and
-`macos/Sources/BurnFuseUI/Engine.swift` — and both suites pin the same behaviour, so the
-two front doors agree. `macos/Tests/.../InteropTests.swift` decodes a real file written
-by the CLI, so the shared-state contract cannot silently break.
 
 > Building under `~/Desktop` or `~/Documents`? Those folders are iCloud-synced, and
 > iCloud writing to build artifacts mid-build makes SwiftPM fail intermittently. The

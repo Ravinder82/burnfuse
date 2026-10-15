@@ -2,9 +2,9 @@ import Foundation
 
 // MARK: - Shared state shape
 //
-// This mirrors ~/.burnfuse/state.json, which the CLI writes. One file, two
-// front doors: `burnfuse` in the terminal and BurnFuse.app in the menu bar.
-// Anything either tool writes shows up in the other within a couple seconds.
+// BurnFuse keeps one readable file at ~/.burnfuse/state.json: the keys you
+// watch, their readings, and every trip. It is the whole product's memory,
+// and nothing in it ever leaves your Mac.
 
 public struct Reading: Codable, Identifiable, Hashable, Sendable {
     public var at: Double
@@ -245,10 +245,6 @@ public enum Fmt {
 
     public static func perHour(_ value: Double) -> String {
         "\(money(value))/hr"
-    }
-
-    public static func sigma(_ z: Double) -> String {
-        String(format: "%@%.2fσ", z >= 0 ? "+" : "", z)
     }
 
     public static func multiple(_ current: Double, _ baseline: Double) -> String {

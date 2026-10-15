@@ -1,7 +1,7 @@
 import Foundation
 
-/// Display metadata for providers. The CLI owns the network behaviour; the
-/// app mirrors the names so the two never disagree about what you are looking at.
+/// Display metadata for providers. Names and symbols the app shows for each
+/// provider, kept in one place so every screen agrees.
 public struct Provider: Identifiable, Hashable, Sendable {
     public let id: String
     public let label: String

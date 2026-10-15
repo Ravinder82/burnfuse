@@ -1,12 +1,12 @@
 import SwiftUI
 
-/// Settings: the whole app's configuration in one scroll. Keys, sensitivity,
-/// alerts, and the CLI hand-off — nothing hidden behind submenus.
+/// Settings: the whole app's configuration in one scroll. Keys, live data,
+/// sensitivity, and alerts — nothing hidden behind submenus.
 public struct SettingsView: View {
     @ObservedObject var model: AppModel
     var width: CGFloat = 460
     var scrollable: Bool = true
-    /// Overrides the path shown in the Terminal card. The screenshot renderer
+    /// Overrides the path shown in the About card. The screenshot renderer
     /// points the model at a throwaway temp file, so it passes the canonical
     /// `~/.burnfuse/state.json` here instead of leaking that temp path.
     var displayStatePath: String? = nil
@@ -14,7 +14,16 @@ public struct SettingsView: View {
     @State private var newName: String = ""
     @State private var newProvider: String = "openai"
     @State private var newCap: String = "5"
+    @State private var newSpendURL: String = ""
+    @State private var newJSONPath: String = ""
     @State private var webhookDraft: String = ""
+
+    @State private var logKeyID: String = ""
+    @State private var logCost: String = ""
+
+    @State private var openAIKeyDraft: String = ""
+    @State private var openRouterKeyDraft: String = ""
+    @State private var keysVersion: Int = 0
 
     public init(model: AppModel, width: CGFloat = 460, scrollable: Bool = true, displayStatePath: String? = nil) {
         self.model = model
@@ -32,15 +41,19 @@ public struct SettingsView: View {
             }
         }
         .frame(width: width)
-        .onAppear { webhookDraft = model.state.settings.notifyWebhook }
+        .onAppear {
+            webhookDraft = model.state.settings.notifyWebhook
+            if logKeyID.isEmpty { logKeyID = model.state.entries.first?.id ?? "" }
+        }
     }
 
     private var content: some View {
         VStack(alignment: .leading, spacing: DS.Space.lg) {
             keysSection
+            liveDataSection
+            logReadingSection
             sensitivitySection
             alertsSection
-            cliSection
             aboutSection
         }
         .padding(DS.Space.lg)
@@ -88,6 +101,20 @@ public struct SettingsView: View {
                         }
                         Spacer()
                         PrimaryButton("Add", enabled: !newName.trimmingCharacters(in: .whitespaces).isEmpty) { addKey() }
+                    }
+
+                    // Custom endpoints can name their own read-only cost URL.
+                    if newProvider == "custom" {
+                        HStack(spacing: DS.Space.sm) {
+                            TextField("https://example.com/cost.json", text: $newSpendURL)
+                                .textFieldStyle(.roundedBorder)
+                            TextField("data.total", text: $newJSONPath)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 130)
+                        }
+                        Text("Optional: a URL that returns a dollar amount, and where it sits in the JSON.")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
                     }
                 }
             }
@@ -191,37 +218,115 @@ public struct SettingsView: View {
         }
     }
 
-    // MARK: CLI
+    // MARK: Live data
 
-    private var cliSection: some View {
+    /// How the app keeps itself current: read spend straight from the provider,
+    /// or paste a number. Both are first-class; neither needs a terminal.
+    private var liveDataSection: some View {
         Card {
             VStack(alignment: .leading, spacing: DS.Space.sm) {
-                SectionHeader("Terminal", subtitle: "The same data, scriptable")
-                Text("This app and the CLI read one file, so anything you do in the terminal shows up here in seconds.")
+                SectionHeader("Live data", subtitle: "Pull spend straight from the provider") {
+                    LinkButton("Refresh now") { Task { await model.refreshLive() } }
+                }
+                Text("BurnFuse reads a read-only cost figure with a key you paste here. Keys are stored on this Mac only, owner-readable, and never leave it.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                HStack(spacing: DS.Space.sm) {
-                    Text("npx burnfuse status")
-                        .font(DS.Font.mono)
-                        .padding(.horizontal, DS.Space.sm)
-                        .padding(.vertical, DS.Space.xs)
-                        .background(RoundedRectangle(cornerRadius: DS.Radius.small).fill(Color(nsColor: .textBackgroundColor)))
-                    LinkButton("Copy") { copy("npx burnfuse status") }
-                }
-                Text(displayPath)
-                    .font(DS.Font.monoSmall)
+
+                credentialField(
+                    "OpenAI admin key",
+                    hint: "Used for the organization costs API.",
+                    draft: $openAIKeyDraft,
+                    provider: "openai"
+                )
+                credentialField(
+                    "OpenRouter key",
+                    hint: "Reads live credit usage.",
+                    draft: $openRouterKeyDraft,
+                    provider: "openrouter"
+                )
+
+                Text("Read every 60 seconds while BurnFuse is running. OpenRouter needs a standard key; OpenAI needs an Admin key.")
+                    .font(.caption2)
                     .foregroundStyle(.tertiary)
-                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .id(keysVersion)
+    }
+
+    private func credentialField(_ label: String, hint: String, draft: Binding<String>, provider: String) -> some View {
+        VStack(alignment: .leading, spacing: DS.Space.xxs) {
+            HStack(spacing: DS.Space.sm) {
+                Text(label).font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                if Credentials.key(for: provider) != nil {
+                    StatusChip(text: "Set", systemImage: "checkmark.seal.fill", tone: DS.Tone.calm)
+                }
+            }
+            HStack(spacing: DS.Space.sm) {
+                SecureField(hint, text: draft)
+                    .textFieldStyle(.roundedBorder)
+                SecondaryButton("Save") { saveCredential(provider: provider, value: draft.wrappedValue, draft: draft) }
+                if Credentials.key(for: provider) != nil {
+                    IconButton("trash", help: "Remove \(label)") {
+                        Credentials.set(nil, for: provider)
+                        draft.wrappedValue = ""
+                        keysVersion += 1
+                    }
+                }
             }
         }
     }
 
-    private var displayPath: String {
-        if let displayStatePath { return displayStatePath }
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        let path = model.stateURL.path
-        return path.hasPrefix(home) ? "~" + path.dropFirst(home.count) : path
+    private func saveCredential(provider: String, value: String, draft: Binding<String>) {
+        Credentials.set(value, for: provider)
+        draft.wrappedValue = ""
+        keysVersion += 1
+        Task { await model.refreshLive() }
+    }
+
+    // MARK: Log a reading
+
+    private var logReadingSection: some View {
+        Card {
+            VStack(alignment: .leading, spacing: DS.Space.sm) {
+                SectionHeader("Log a reading", subtitle: "Type what a key is spending per hour right now")
+                if model.state.entries.isEmpty {
+                    Text("Add a key first, then log its burn here.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    HStack(spacing: DS.Space.sm) {
+                        Picker("", selection: $logKeyID) {
+                            ForEach(model.state.entries) { key in
+                                Text(key.name).tag(key.id)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(maxWidth: 200)
+
+                        HStack(spacing: DS.Space.xs) {
+                            Text("$").font(.caption).foregroundStyle(.secondary)
+                            TextField("1.20", text: $logCost)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 80)
+                            Text("/hr").font(.caption).foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        PrimaryButton("Log", enabled: Double(logCost) != nil) { logReading() }
+                    }
+                }
+                if let message = model.lastReadMessage {
+                    Text(message)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
     }
 
     private var aboutSection: some View {
@@ -233,7 +338,18 @@ public struct SettingsView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+            Text(displayPath)
+                .font(DS.Font.monoSmall)
+                .foregroundStyle(.tertiary)
+                .textSelection(.enabled)
         }
+    }
+
+    private var displayPath: String {
+        if let displayStatePath { return displayStatePath }
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let path = model.stateURL.path
+        return path.hasPrefix(home) ? "~" + path.dropFirst(home.count) : path
     }
 
     // MARK: Actions
@@ -242,15 +358,19 @@ public struct SettingsView: View {
         let name = newName.trimmingCharacters(in: .whitespaces)
         guard !name.isEmpty else { return }
         let cap = Double(newCap) ?? 5
-        model.addKey(name: name, provider: newProvider, cap: max(0.01, cap))
+        let key = model.addKey(name: name, provider: newProvider, cap: max(0.01, cap))
+        if newProvider == "custom" && (!newSpendURL.isEmpty || !newJSONPath.isEmpty) {
+            model.setSource(keyID: key.id, spendUrl: newSpendURL, jsonPath: newJSONPath)
+        }
         newName = ""
         newCap = "5"
+        newSpendURL = ""
+        newJSONPath = ""
     }
 
-    private func copy(_ text: String) {
-        #if canImport(AppKit)
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
-        #endif
+    private func logReading() {
+        guard let cost = Double(logCost), !logKeyID.isEmpty else { return }
+        model.record(keyID: logKeyID, cost: max(0, cost))
+        logCost = ""
     }
 }

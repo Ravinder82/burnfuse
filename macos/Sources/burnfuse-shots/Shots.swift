@@ -20,6 +20,13 @@ struct BurnFuseShots {
         NSApp.finishLaunching()
         RunLoop.main.run(until: Date().addingTimeInterval(0.2))
 
+        // Screenshots must be reproducible and must never reveal a real key's
+        // presence, so ignore any provider credentials in this environment.
+        for name in ["OPENAI_ADMIN_KEY", "OPENROUTER_API_KEY", "ANTHROPIC_ADMIN_KEY",
+                     "REPLICATE_API_TOKEN", "GROQ_API_KEY", "AWS_ACCESS_KEY_ID", "BURNFUSE_KEYS"] {
+            unsetenv(name)
+        }
+
         var args = CommandLine.arguments.dropFirst()
         let command = args.popFirst() ?? "screens"
         let outDir = URL(fileURLWithPath: args.popFirst() ?? "./assets")
@@ -79,13 +86,13 @@ struct BurnFuseShots {
         let breach = demoModel(tripped: true)
 
         snapshot("panel-dark", dir, .dark, width: 340) {
-            MainPanel(model: health, width: 340, scrollable: false)
+            MainPanel(model: health, width: 340, scrollable: true)
         }
         snapshot("panel-light", dir, .light, width: 340) {
-            MainPanel(model: health, width: 340, scrollable: false)
+            MainPanel(model: health, width: 340, scrollable: true)
         }
         snapshot("breach-dark", dir, .dark, width: 340) {
-            MainPanel(model: breach, width: 340, scrollable: false)
+            MainPanel(model: breach, width: 340, scrollable: true)
         }
         snapshot("settings-dark", dir, .dark, width: 460, insets: 16) {
             SettingsView(model: health, width: 460, scrollable: false, displayStatePath: "~/.burnfuse/state.json")
