@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      :root {
+        --bg: #f5f5f7;
+        --surface: #ffffff;
+        --ink: #1d1d1f;
+        --ink2: #6e6e73;
+        --ink3: rgba(29, 29, 31, 0.42);
+        --hair: rgba(29, 29, 31, 0.12);
+        --calm: #1f9d5c;
+        --warm: #b97c07;
+        --hot: #e03a12;
+        --accent: #c47a08;
+        --round: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, sans-serif;
+        --mono: ui-monospace, "SF Mono", Menlo, monospace;
+      }
+      html,
+      body {
+        margin: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: var(--bg);
+        font-family: var(--round);
+      }
+      .scene {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: var(--bg);
+      }
+      .mono {
+        font-family: var(--mono);
+      }
+      [data-layout-ignore] {
+        pointer-events: none;
+      }
+      .section {
+        position: absolute;
+        left: 96px;
+        top: 88px;
+        font-family: var(--mono);
+        font-size: 21px;
+        letter-spacing: 0.16em;
+        color: var(--ink3);
+      }
+      .topRight {
+        position: absolute;
+        right: 96px;
+        top: 88px;
+        font-family: var(--mono);
+        font-size: 21px;
+        letter-spacing: 0.16em;
+        color: var(--ink3);
+      }
+      .grid {
+        position: absolute;
+        inset: 0;
+      }
+      .grid .v {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 1px;
+        background: rgba(29, 29, 31, 0.05);
+      }
+      .grid .h {
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: rgba(29, 29, 31, 0.05);
+      }
+
+      /* ---------- S1 ---------- */
+      #s1 h1 {
+        position: absolute;
+        left: 92px;
+        top: 320px;
+        font-size: 152px;
+        font-weight: 800;
+        letter-spacing: -0.035em;
+        line-height: 1.02;
+        color: var(--ink);
+      }
+      #s1 .states {
+        position: absolute;
+        left: 100px;
+        top: 672px;
+        display: flex;
+        gap: 26px;
+      }
+      #s1 .state {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        font-size: 42px;
+        font-weight: 600;
+        color: var(--ink);
+      }
+      #s1 .state .dot {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+      }
+      #s1 .foot {
+        position: absolute;
+        left: 96px;
+        bottom: 96px;
+        right: 96px;
+        border-top: 2px solid var(--ink);
+        padding-top: 26px;
+        display: flex;
+        justify-content: space-between;
+        font-family: var(--mono);
+        font-size: 21px;
+        letter-spacing: 0.12em;
+        color: var(--ink3);
+      }
+
+      /* ---------- S2 ---------- */
+      #s2 .rows {
+        position: absolute;
+        left: 96px;
+        right: 96px;
+        top: 252px;
+      }
+      #s2 .row {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 54px;
+        height: 218px;
+        border-bottom: 2px solid rgba(29, 29, 31, 0.1);
+      }
+      #s2 .row .block {
+        width: 400px;
+        border-radius: 18px;
+        box-shadow: 0 18px 44px rgba(29, 29, 31, 0.12);
+      }
+      #s2 .row .word {
+        width: 380px;
+        font-size: 62px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+      }
+      #s2 .row .desc {
+        font-size: 31px;
+        color: var(--ink2);
+        line-height: 1.35;
+        width: 660px;
+      }
+      #s2 .row .time {
+        margin-left: auto;
+        font-family: var(--mono);
+        font-size: 24px;
+        color: var(--ink3);
+      }
+      #s2 .r1 .word { color: var(--calm); }
+      #s2 .r2 .word { color: var(--warm); }
+      #s2 .r3 .word { color: var(--hot); }
+      #s2 .r3 .glow {
+        position: absolute;
+        left: -40px;
+        top: 50%;
+        width: 480px;
+        height: 260px;
+        transform: translateY(-50%);
+        background: radial-gradient(circle, rgba(224, 58, 18, 0.16) 0%, rgba(224, 58, 18, 0) 62%);
+      }
+
+      /* ---------- S3 ---------- */
+      #s3 h2 {
+        position: absolute;
+        left: 96px;
+        top: 300px;
+        width: 620px;
+        font-size: 68px;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        line-height: 1.06;
+        color: var(--ink);
+      }
+      #s3 .body {
+        position: absolute;
+        left: 100px;
+        top: 566px;
+        width: 560px;
+        font-size: 31px;
+        line-height: 1.45;
+        color: var(--ink2);
+      }
+      #s3 .chips {
+        position: absolute;
+        left: 100px;
+        top: 792px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 14px;
+      }
+      #s3 .chip {
+        font-family: var(--mono);
+        font-size: 21px;
+        color: var(--ink);
+        background: var(--surface);
+        border: 2px solid rgba(29, 29, 31, 0.14);
+        border-radius: 999px;
+        padding: 13px 24px;
+      }
+      #s3 .chip .up {
+        color: var(--calm);
+        font-weight: 700;
+      }
+      #s3 .shotWrap {
+        position: absolute;
+        right: 110px;
+        top: 150px;
+        width: 780px;
+        transform-origin: 50% 40%;
+      }
+      #s3 .shot {
+        width: 100%;
+        border-radius: 22px;
+        box-shadow: 0 60px 140px rgba(29, 29, 31, 0.2), 0 0 0 2px rgba(29, 29, 31, 0.06);
+      }
+      #s3 .callout {
+        position: absolute;
+        z-index: 5;
+        font-family: var(--mono);
+        font-size: 21px;
+        background: var(--ink);
+        color: #fff;
+        border-radius: 999px;
+        padding: 12px 22px;
+        box-shadow: 0 16px 40px rgba(29, 29, 31, 0.24);
+        white-space: nowrap;
+      }
+      #s3 .c1 { right: 247px; top: 240px; }
+      #s3 .c2 { right: 160px; top: 374px; }
+      #s3 .c3 { right: 124px; top: 296px; }
+
+      /* ---------- S4 ---------- */
+      #s4 h2 {
+        position: absolute;
+        left: 1020px;
+        top: 288px;
+        width: 820px;
+        font-size: 76px;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        line-height: 1.05;
+        color: var(--ink);
+      }
+      #s4 .body {
+        position: absolute;
+        left: 1024px;
+        top: 588px;
+        width: 780px;
+        font-size: 31px;
+        line-height: 1.45;
+        color: var(--ink2);
+      }
+      #s4 .chain {
+        position: absolute;
+        left: 1024px;
+        top: 748px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+      #s4 .chainRow {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      #s4 .step {
+        font-family: var(--mono);
+        font-size: 20px;
+        border-radius: 14px;
+        padding: 14px 20px;
+        border: 2px solid rgba(29, 29, 31, 0.14);
+        background: var(--surface);
+        color: var(--ink);
+        white-space: nowrap;
+      }
+      #s4 .step.hot {
+        border-color: rgba(224, 58, 18, 0.4);
+        color: var(--hot);
+      }
+      #s4 .arrow {
+        font-family: var(--mono);
+        font-size: 22px;
+        color: var(--ink3);
+      }
+      #s4 .shotWrap {
+        position: absolute;
+        left: 96px;
+        top: 190px;
+        width: 860px;
+        border-radius: 26px;
+        background: #101013;
+        padding: 26px;
+        box-shadow: 0 60px 140px rgba(29, 29, 31, 0.28);
+      }
+      #s4 .shot {
+        width: 100%;
+        border-radius: 12px;
+        display: block;
+      }
+
+      /* ---------- S5 ---------- */
+      #s5 h2 {
+        position: absolute;
+        left: 96px;
+        top: 340px;
+        width: 1100px;
+        font-size: 104px;
+        font-weight: 800;
+        letter-spacing: -0.035em;
+        line-height: 1.06;
+        color: var(--ink);
+      }
+      #s5 .body {
+        position: absolute;
+        left: 100px;
+        top: 700px;
+        width: 900px;
+        font-size: 32px;
+        line-height: 1.5;
+        color: var(--ink2);
+      }
+      #s5 .keys {
+        position: absolute;
+        right: 120px;
+        top: 372px;
+        font-family: var(--mono);
+        font-size: 30px;
+        color: var(--ink);
+        background: var(--surface);
+        border: 2px solid rgba(29, 29, 31, 0.14);
+        border-radius: 18px;
+        padding: 26px 34px;
+        box-shadow: 0 30px 80px rgba(29, 29, 31, 0.12);
+      }
+      #s5 .keys .dim {
+        display: block;
+        margin-top: 12px;
+        font-size: 21px;
+        color: var(--ink3);
+        letter-spacing: 0.08em;
+      }
+      #s5 .chips {
+        position: absolute;
+        left: 100px;
+        bottom: 108px;
+        display: flex;
+        gap: 14px;
+      }
+      #s5 .chip {
+        font-family: var(--mono);
+        font-size: 21px;
+        color: var(--ink2);
+        border: 2px solid rgba(29, 29, 31, 0.14);
+        border-radius: 999px;
+        padding: 12px 24px;
+      }
+
+      /* ---------- S6 ---------- */
+      #s6 .inner {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 190px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      #s6 .icon {
+        width: 126px;
+        border-radius: 28px;
+        box-shadow: 0 30px 80px rgba(29, 29, 31, 0.3);
+      }
+      #s6 .wordmark {
+        margin-top: 36px;
+        font-size: 124px;
+        font-weight: 900;
+        letter-spacing: -0.045em;
+        color: var(--ink);
+      }
+      #s6 .tag {
+        margin-top: 14px;
+        font-size: 34px;
+        color: var(--ink2);
+      }
+      #s6 .term {
+        margin-top: 46px;
+        width: 1020px;
+        border-radius: 20px;
+        background: #101013;
+        padding: 30px 40px 34px;
+        box-shadow: 0 40px 100px rgba(29, 29, 31, 0.3);
+      }
+      #s6 .term .line {
+        font-family: var(--mono);
+        font-size: 29px;
+        line-height: 1.75;
+        color: #e8e8ec;
+        white-space: nowrap;
+        overflow: hidden;
+      }
+      #s6 .term .pr { color: #57db94; }
+      #s6 .term .arg { color: #fccb47; }
+      #s6 .chips {
+        margin-top: 38px;
+        display: flex;
+        gap: 14px;
+      }
+      #s6 .chip {
+        font-family: var(--mono);
+        font-size: 21px;
+        color: var(--ink2);
+        border: 2px solid rgba(29, 29, 31, 0.14);
+        border-radius: 999px;
+        padding: 12px 24px;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="tour"
+      data-start="0"
+      data-duration="21.2"
+      data-fps="30"
+      data-width="1920"
+      data-height="1080"
+    >
+      <!-- ================= S1 ================= -->
+      <div id="s1" class="scene">
+        <div class="grid" data-layout-ignore>
+          <div class="v" style="left: 480px"></div>
+          <div class="v" style="left: 864px"></div>
+          <div class="v" style="left: 1248px"></div>
+          <div class="v" style="left: 1632px"></div>
+          <div class="h" style="top: 252px"></div>
+          <div class="h" style="top: 828px"></div>
+        </div>
+        <div class="section">BURNFUSE — 01</div>
+        <div class="topRight">macOS 14+</div>
+        <h1 id="t1head">One glance<br />tells you.</h1>
+        <div class="states" id="t1states">
+          <div class="state"><span class="dot" style="background: #57db94"></span>settled</div>
+          <div class="state"><span class="dot" style="background: #fccb47"></span>climbing</div>
+          <div class="state"><span class="dot" style="background: #fa5426"></span>tripped</div>
+        </div>
+        <div class="foot" id="t1foot">
+          <span>ONE NUMBER IN THE MENU BAR</span>
+          <span>A SPEND BREAKER FOR YOUR AI KEYS</span>
+        </div>
+      </div>
+
+      <!-- ================= S2 ================= -->
+      <div id="s2" class="scene" style="opacity: 0">
+        <div class="section">02 / THREE STATES</div>
+        <div class="topRight">READ AT A GLANCE</div>
+        <div class="rows">
+          <div class="row r1" id="t2r1">
+            <img class="block" src="media/block-green.png" alt="settled" />
+            <div class="word">settled</div>
+            <div class="desc">under its usual rate, under the cap you set. Nothing to do.</div>
+            <div class="time">6:40 PM</div>
+          </div>
+          <div class="row r2" id="t2r2">
+            <img class="block" src="media/block-amber.png" alt="climbing" />
+            <div class="word">climbing</div>
+            <div class="desc">past its normal rate — over the cap, or far above its own usual.</div>
+            <div class="time">7:04 PM</div>
+          </div>
+          <div class="row r3" id="t2r3">
+            <div class="glow" data-layout-ignore></div>
+            <img class="block" src="media/block-red.png" alt="tripped" />
+            <div class="word">tripped</div>
+            <div class="desc">marked, logged, and you are told — inside a minute. Not in the morning.</div>
+            <div class="time" style="color: #e03a12">7:12 PM</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= S3 ================= -->
+      <div id="s3" class="scene" style="opacity: 0">
+        <div class="section">03 / WHERE THE NUMBER COMES FROM</div>
+        <div class="topRight">EVERY ROW SAYS IT</div>
+        <h2 id="t3head">The key you already use is the key it watches.</h2>
+        <div class="body" id="t3body">
+          Paste it once. BurnFuse pulls the provider&#8217;s own cost figure every minute — no scripts, no
+          numbers typed by hand.
+        </div>
+        <div class="chips" id="t3chips">
+          <div class="chip">OpenAI · <span class="up">reads itself</span></div>
+          <div class="chip">Anthropic · <span class="up">reads itself</span></div>
+          <div class="chip">OpenRouter · <span class="up">reads itself</span></div>
+        </div>
+        <div class="callout c1" id="t3c1">live burn — $2.45/hr</div>
+        <div class="callout c2" id="t3c2">today's tokens</div>
+        <div class="callout c3" id="t3c3">the cap you set</div>
+        <div class="shotWrap" id="t3wrap">
+          <img class="shot" id="t3shot" src="media/window-overview-light.png" alt="BurnFuse overview, light appearance" />
+        </div>
+      </div>
+
+      <!-- ================= S4 ================= -->
+      <div id="s4" class="scene" style="opacity: 0">
+        <div class="section">04 / INSIDE A MINUTE</div>
+        <div class="topRight">FROM SPIKE TO STOP</div>
+        <div class="shotWrap" id="t4wrap">
+          <img class="shot" id="t4shot" src="media/window-breach-dark.png" alt="The BurnFuse window when the breaker trips" />
+        </div>
+        <h2 id="t4head">Tripped — not in the morning.</h2>
+        <div class="body" id="t4body">A trip marks the key, logs the minute, and tells you — and where the provider allows it, offers to switch the key off.</div>
+        <div class="chain" id="t4chain">
+          <div class="chainRow">
+            <div class="step hot">menu bar red</div>
+            <div class="arrow">→</div>
+            <div class="step">notification</div>
+            <div class="arrow">→</div>
+          </div>
+          <div class="chainRow">
+            <div class="step">Slack / Discord</div>
+            <div class="arrow">→</div>
+            <div class="step hot">switch off at OpenAI…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= S5 ================= -->
+      <div id="s5" class="scene" style="opacity: 0">
+        <div class="section">05 / YOUR MAC</div>
+        <div class="topRight">NOT OUR SERVER</div>
+        <h2 id="t5head">No account.<br />No telemetry.<br />No server.</h2>
+        <div class="body" id="t5body">
+          Keys live in one file, readable by you alone, and are sent only to the provider you named. No
+          analytics, nothing proxied anywhere.
+        </div>
+        <div class="keys" id="t5keys">
+          ~/.burnfuse/keys.json
+          <span class="dim">ONE FILE HOLDS YOUR DATA</span>
+        </div>
+        <div class="chips" id="t5chips">
+          <div class="chip">MIT</div>
+          <div class="chip">macOS 14+</div>
+          <div class="chip">native SwiftUI</div>
+          <div class="chip">no account</div>
+        </div>
+      </div>
+
+      <!-- ================= S6 ================= -->
+      <div id="s6" class="scene" style="opacity: 0">
+        <div class="inner">
+          <img class="icon" id="t6icon" src="media/icon_512.png" alt="BurnFuse" />
+          <div class="wordmark" id="t6word">burnfuse</div>
+          <div class="tag" id="t6tag">A spend breaker for your AI keys.</div>
+          <div class="term" id="t6term">
+            <div class="line" id="t6line1"><span class="pr">$</span> git clone github.com/<span class="arg">Ravinder82/burnfuse</span></div>
+            <div class="line" id="t6line2"><span class="pr">$</span> cd burnfuse &amp;&amp; ./scripts/install.sh</div>
+          </div>
+          <div class="chips" id="t6chips">
+            <div class="chip">MIT</div>
+            <div class="chip">macOS 14+</div>
+            <div class="chip">no account</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <audio id="score" data-start="0" data-duration="21.2" data-track-index="9" src="sound/score.m4a" data-volume="1"></audio>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+
+      /* ---------- S1 ---------- */
+      tl.fromTo("#s1 .section", { opacity: 0, x: -22 }, { opacity: 1, x: 0, duration: 0.45, ease: "power2.out" }, 0.22);
+      tl.fromTo("#s1 .topRight", { opacity: 0, x: 22 }, { opacity: 1, x: 0, duration: 0.45, ease: "power2.out" }, 0.3);
+      tl.fromTo("#t1head", { opacity: 0, y: 62, skewY: 1.4 }, { opacity: 1, y: 0, skewY: 0, duration: 0.6, ease: "power4.out" }, 0.45);
+      tl.fromTo("#t1states .state", { opacity: 0, y: 34 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.14, ease: "power3.out" }, 0.95);
+      tl.fromTo("#t1foot", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "sine.out" }, 1.35);
+      tl.fromTo("#s1 .grid .v", { scaleY: 0, transformOrigin: "top" }, { scaleY: 1, duration: 0.8, stagger: 0.08, ease: "power2.out" }, 0.3);
+      tl.fromTo("#s1 .grid .h", { scaleX: 0, transformOrigin: "left" }, { scaleX: 1, duration: 0.9, stagger: 0.1, ease: "power2.out" }, 0.4);
+
+      /* ---------- S1 -> S2 : push up ---------- */
+      tl.to("#s1", { y: -120, filter: "blur(8px)", opacity: 0, duration: 0.42, ease: "power2.in" }, 2.45);
+      tl.fromTo("#s2", { y: 120, filter: "blur(10px)", opacity: 0 }, { y: 0, filter: "blur(0px)", opacity: 1, duration: 0.5, ease: "power3.out" }, 2.63);
+
+      /* ---------- S2 ---------- */
+      tl.fromTo("#t2r1", { opacity: 0, x: -60 }, { opacity: 1, x: 0, duration: 0.5, ease: "power3.out" }, 2.85);
+      tl.fromTo("#t2r2", { opacity: 0, x: -60 }, { opacity: 1, x: 0, duration: 0.5, ease: "power3.out" }, 3.05);
+      tl.fromTo("#t2r3", { opacity: 0, x: -60 }, { opacity: 1, x: 0, duration: 0.5, ease: "power3.out" }, 3.25);
+      tl.fromTo("#s2 .row .block", { scale: 0.72, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.55, stagger: 0.16, ease: "back.out(1.7)" }, 3.05);
+      tl.fromTo("#s2 .row .desc, #s2 .row .time", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.45, stagger: 0.12, ease: "power2.out" }, 3.4);
+      tl.fromTo("#s2 .row", { borderBottomColor: "rgba(29,29,31,0)" }, { borderBottomColor: "rgba(29,29,31,0.1)", duration: 0.5, stagger: 0.14, ease: "sine.out" }, 3.3);
+      tl.fromTo("#s2 .r3 .glow", { opacity: 0, scale: 0.8 }, { opacity: 1, scale: 1, duration: 0.7, ease: "sine.out" }, 3.7);
+      tl.to("#s2 .r3 .glow", { scale: 1.06, duration: 1.6, ease: "sine.inOut", yoyo: true, repeat: 1 }, 4.5);
+      tl.fromTo("#s2 .row .word", { opacity: 0, scale: 0.94, transformOrigin: "left center" }, { opacity: 1, scale: 1, duration: 0.45, stagger: 0.16, ease: "power3.out" }, 3.2);
+      // a slow camera drift across the rows
+      tl.fromTo("#s2 .rows", { yPercent: 0 }, { yPercent: -2.6, duration: 4.6, ease: "none" }, 2.7);
+
+      /* ---------- S2 -> S3 : push left ---------- */
+      tl.to("#s2", { x: -140, filter: "blur(9px)", opacity: 0, duration: 0.44, ease: "power2.in" }, 7.45);
+      tl.fromTo("#s3", { x: 140, filter: "blur(10px)", opacity: 0 }, { x: 0, filter: "blur(0px)", opacity: 1, duration: 0.52, ease: "power3.out" }, 7.62);
+
+      /* ---------- S3 ---------- */
+      tl.fromTo("#t3head", { opacity: 0, y: 34 }, { opacity: 1, y: 0, duration: 0.55, ease: "power3.out" }, 7.9);
+      tl.fromTo("#t3body", { opacity: 0, y: 22 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 8.25);
+      tl.fromTo("#t3chips .chip", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.11, ease: "power2.out" }, 8.55);
+      tl.fromTo("#t3wrap", { opacity: 0, x: 110, y: 40, rotationY: -16 }, { opacity: 1, x: 0, y: 0, rotationY: 0, duration: 0.9, ease: "power3.out" }, 8.15);
+      tl.fromTo("#t3shot", { scale: 1.0 }, { scale: 1.03, duration: 3.6, ease: "none" }, 9.2);
+      tl.fromTo("#t3c1", { opacity: 0, x: 26 }, { opacity: 1, x: 0, duration: 0.4, ease: "power2.out" }, 9.1);
+      tl.fromTo("#t3c2", { opacity: 0, x: 26 }, { opacity: 1, x: 0, duration: 0.4, ease: "power2.out" }, 9.35);
+      tl.fromTo("#t3c3", { opacity: 0, x: 26 }, { opacity: 1, x: 0, duration: 0.4, ease: "power2.out" }, 9.6);
+      tl.fromTo("#t3c2", { y: -8 }, { y: 8, duration: 1.5, ease: "sine.inOut", yoyo: true, repeat: 2 }, 10.2);
+
+      /* ---------- S3 -> S4 : zoom through ---------- */
+      tl.to("#s3", { scale: 1.09, filter: "blur(9px)", opacity: 0, duration: 0.42, ease: "power3.in" }, 12.05);
+      tl.fromTo("#s4", { scale: 0.95, filter: "blur(11px)", opacity: 0 }, { scale: 1, filter: "blur(0px)", opacity: 1, duration: 0.5, ease: "power2.out" }, 12.24);
+
+      /* ---------- S4 ---------- */
+      tl.fromTo("#t4wrap", { opacity: 0, y: 56 }, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, 12.45);
+      tl.fromTo("#t4head", { opacity: 0, x: 40 }, { opacity: 1, x: 0, duration: 0.5, ease: "power4.out" }, 12.6);
+      tl.fromTo("#t4body", { opacity: 0, x: 30 }, { opacity: 1, x: 0, duration: 0.5, ease: "power2.out" }, 12.9);
+      tl.fromTo("#t4chain .step", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.13, ease: "power2.out" }, 13.2);
+      tl.fromTo("#t4chain .arrow", { opacity: 0 }, { opacity: 1, duration: 0.3, stagger: 0.13, ease: "sine.out" }, 13.3);
+      tl.fromTo("#t4shot", { y: -16 }, { y: 12, duration: 2.4, ease: "sine.inOut", yoyo: true, repeat: 1 }, 13.0);
+
+      /* ---------- S4 -> S5 : blur crossfade ---------- */
+      tl.to("#s4", { filter: "blur(12px)", scale: 1.02, opacity: 0, duration: 0.5, ease: "power2.inOut" }, 15.85);
+      tl.fromTo("#s5", { filter: "blur(12px)", scale: 0.985, opacity: 0 }, { filter: "blur(0px)", scale: 1, opacity: 1, duration: 0.55, ease: "power2.inOut" }, 16.02);
+
+      /* ---------- S5 ---------- */
+      tl.fromTo("#t5head", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, 16.25);
+      tl.fromTo("#t5body", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 16.6);
+      tl.fromTo("#t5keys", { opacity: 0, x: 60 }, { opacity: 1, x: 0, duration: 0.55, ease: "power3.out" }, 16.5);
+      tl.fromTo("#t5chips .chip", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.09, ease: "power2.out" }, 16.9);
+
+      /* ---------- S5 -> S6 : push up ---------- */
+      tl.to("#s5", { y: -130, filter: "blur(9px)", opacity: 0, duration: 0.42, ease: "power2.in" }, 18.55);
+      tl.fromTo("#s6", { y: 130, filter: "blur(11px)", opacity: 0 }, { y: 0, filter: "blur(0px)", opacity: 1, duration: 0.5, ease: "power3.out" }, 18.72);
+
+      /* ---------- S6 ---------- */
+      tl.fromTo("#t6icon", { opacity: 0, scale: 0.72, y: 16 }, { opacity: 1, scale: 1, y: 0, duration: 0.5, ease: "back.out(1.6)" }, 18.9);
+      tl.fromTo("#t6word", { opacity: 0, y: 32 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 19.05);
+      tl.fromTo("#t6tag", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "sine.out" }, 19.3);
+      tl.fromTo("#t6term", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 19.4);
+      tl.fromTo("#t6line1", { clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0% 0 0)", duration: 0.55, ease: "steps(24)" }, 19.6);
+      tl.fromTo("#t6line2", { clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0% 0 0)", duration: 0.5, ease: "steps(22)" }, 19.95);
+      tl.fromTo("#t6chips .chip", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.09, ease: "power2.out" }, 20.3);
+      /* final scene: fade to white-out black? keep it quiet — fade the whole scene */
+      tl.to("#s6", { opacity: 0, duration: 0.55, ease: "power1.inOut" }, 20.65);
+
+      window.__timelines["tour"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>

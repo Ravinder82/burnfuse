@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>BurnFuse — launch stills</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      :root {
+        --bg: #101013;
+        --panel: #1b1c20;
+        --ink: #f5f5f7;
+        --ink2: rgba(245, 245, 247, 0.66);
+        --ink3: rgba(245, 245, 247, 0.4);
+        --hair: rgba(245, 245, 247, 0.14);
+        --calm: #57db94;
+        --warm: #fccb47;
+        --hot: #fa5426;
+        --accent: #f59e17;
+        --round: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, sans-serif;
+        --mono: ui-monospace, "SF Mono", Menlo, monospace;
+      }
+      html,
+      body {
+        background: #101013;
+        font-family: var(--round);
+      }
+      .card {
+        position: absolute;
+        top: 0;
+        left: 0;
+        overflow: hidden;
+        background: var(--bg);
+        color: var(--ink);
+      }
+      .card.hidden {
+        display: none;
+      }
+      .glow {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(130px);
+        pointer-events: none;
+      }
+      .kick {
+        font-family: var(--mono);
+        font-size: 22px;
+        letter-spacing: 0.18em;
+        color: var(--ink3);
+      }
+      .mono {
+        font-family: var(--mono);
+      }
+      .dim {
+        color: var(--ink2);
+      }
+      .chips {
+        display: flex;
+        gap: 14px;
+      }
+      .chip {
+        font-family: var(--mono);
+        font-size: 22px;
+        color: var(--ink2);
+        border: 2px solid var(--hair);
+        border-radius: 999px;
+        padding: 12px 24px;
+      }
+      .icon {
+        border-radius: 23%;
+        box-shadow: 0 40px 100px rgba(0, 0, 0, 0.65);
+      }
+
+      /* ============ launch-16x9 / launch-square / launch-portrait ============ */
+      .launch h1 {
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        line-height: 1.05;
+      }
+      .launch .tag {
+        color: var(--ink2);
+        line-height: 1.45;
+      }
+      .launch .url {
+        font-family: var(--mono);
+        color: var(--ink2);
+      }
+      .launch .url b {
+        color: var(--accent);
+        font-weight: 400;
+      }
+      .statesPills {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+      }
+      .statesPills img {
+        height: 60px;
+        border-radius: 10px;
+      }
+      .pillCol {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+      }
+      .pillCol span {
+        font-family: var(--mono);
+        font-size: 20px;
+        letter-spacing: 0.14em;
+      }
+
+      /* ============ quote cards ============ */
+      .quote {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 96px;
+      }
+      .quote .mark {
+        font-weight: 900;
+        font-size: 120px;
+        line-height: 0.6;
+        color: var(--accent);
+        margin-bottom: 34px;
+      }
+      .quote h2 {
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        line-height: 1.08;
+      }
+      .quote .foot {
+        margin-top: 54px;
+        font-family: var(--mono);
+        font-size: 24px;
+        letter-spacing: 0.14em;
+        color: var(--ink3);
+      }
+
+      /* ============ states-16x9 ============ */
+      .states h2 {
+        font-weight: 800;
+        font-size: 72px;
+        letter-spacing: -0.03em;
+      }
+      .states .row {
+        display: flex;
+        align-items: center;
+        gap: 46px;
+        border-bottom: 2px solid rgba(245, 245, 247, 0.08);
+        padding: 26px 0;
+      }
+      .states .row img {
+        height: 132px;
+        border-radius: 14px;
+      }
+      .states .row .w {
+        font-size: 56px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        width: 300px;
+      }
+      .states .row .d {
+        font-size: 30px;
+        color: var(--ink2);
+        line-height: 1.35;
+        width: 660px;
+      }
+      .states .row .t {
+        margin-left: auto;
+        font-family: var(--mono);
+        font-size: 26px;
+        color: var(--ink3);
+        white-space: nowrap;
+      }
+
+      /* ============ providers-16x9 ============ */
+      .providers h2 {
+        font-weight: 800;
+        font-size: 72px;
+        letter-spacing: -0.03em;
+      }
+      .providers .sub {
+        margin-top: 26px;
+        font-size: 32px;
+        line-height: 1.45;
+        color: var(--ink2);
+        width: 980px;
+      }
+      .providers .sub b {
+        color: var(--calm);
+        font-weight: 600;
+      }
+      .providers .grid {
+        margin-top: 54px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        width: 1420px;
+      }
+      .providers .p {
+        font-family: var(--mono);
+        font-size: 27px;
+        color: var(--ink);
+        border: 2px solid var(--hair);
+        background: var(--panel);
+        border-radius: 16px;
+        padding: 18px 28px;
+      }
+      .providers .p.more {
+        border-style: dashed;
+        color: var(--ink3);
+      }
+
+      /* ============ trip-flow-16x9 ============ */
+      .trip h2 {
+        font-weight: 800;
+        font-size: 72px;
+        letter-spacing: -0.03em;
+      }
+      .trip .sub {
+        margin-top: 24px;
+        font-size: 32px;
+        color: var(--ink2);
+      }
+      .trip .chain {
+        margin-top: 80px;
+        display: flex;
+        flex-direction: column;
+        gap: 26px;
+      }
+      .trip .chainRow {
+        display: flex;
+        align-items: center;
+        gap: 22px;
+      }
+      .trip .step {
+        font-family: var(--mono);
+        font-size: 30px;
+        color: var(--ink);
+        background: var(--panel);
+        border: 2px solid var(--hair);
+        border-radius: 18px;
+        padding: 22px 34px;
+      }
+      .trip .step.hot {
+        border-color: rgba(250, 84, 38, 0.55);
+        color: var(--hot);
+      }
+      .trip .arrow {
+        font-family: var(--mono);
+        font-size: 32px;
+        color: var(--ink3);
+      }
+      .trip .foot {
+        margin-top: 76px;
+        font-family: var(--mono);
+        font-size: 22px;
+        letter-spacing: 0.08em;
+        color: var(--ink3);
+      }
+
+      /* ============ reel-cover ============ */
+      .cover .kick {
+        color: var(--warm);
+        font-size: 40px;
+      }
+      .cover .l1 {
+        font-size: 124px;
+        font-weight: 800;
+        letter-spacing: -0.035em;
+        line-height: 1.04;
+      }
+      .cover .l2 {
+        font-size: 124px;
+        font-weight: 800;
+        letter-spacing: -0.035em;
+        line-height: 1.04;
+        color: var(--hot);
+      }
+      .cover .seed {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        font-family: var(--mono);
+        font-size: 40px;
+        color: var(--ink2);
+      }
+      .cover .seed i {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--warm);
+      }
+
+      /* ============ yt thumbs ============ */
+      .thumb {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 70px 80px;
+      }
+      .thumb h1 {
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        line-height: 1.06;
+      }
+      .thumb .hotline {
+        font-family: var(--mono);
+        font-weight: 700;
+        color: var(--hot);
+        letter-spacing: -0.02em;
+      }
+      .thumb .wordmark {
+        position: absolute;
+        left: 80px;
+        bottom: 62px;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+      }
+      .thumb .wordmark img {
+        width: 64px;
+        border-radius: 15px;
+      }
+      .thumb .wordmark b {
+        font-size: 46px;
+        font-weight: 900;
+        letter-spacing: -0.045em;
+      }
+      .thumb .pill {
+        position: absolute;
+        border-radius: 22px;
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+      }
+      .thumb .fine {
+        position: absolute;
+        right: 80px;
+        bottom: 66px;
+        font-family: var(--mono);
+        font-size: 26px;
+        letter-spacing: 0.12em;
+        color: var(--ink3);
+      }
+
+      /* ============ og-card ============ */
+      .og .word {
+        font-size: 104px;
+        font-weight: 900;
+        letter-spacing: -0.045em;
+        color: var(--ink);
+      }
+      .og .tag {
+        margin-top: 16px;
+        font-size: 34px;
+        color: var(--ink2);
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ================= launch 16:9 ================= -->
+    <div class="card launch" data-card="launch-16x9" style="width: 1600px; height: 900px">
+      <div class="glow" style="width: 900px; height: 900px; right: -240px; top: -160px; background: rgba(245, 158, 23, 0.16)"></div>
+      <div class="glow" style="width: 700px; height: 700px; left: -260px; bottom: -300px; background: rgba(87, 219, 148, 0.1)"></div>
+      <div style="position: absolute; left: 90px; top: 84px; right: 90px">
+        <div class="kick">BURNFUSE · MACOS 14+ · MIT</div>
+        <h1 style="margin-top: 46px; font-size: 88px">One number<br />in the menu bar.</h1>
+        <p class="tag" style="margin-top: 40px; font-size: 31px; width: 640px">
+          A spend breaker for your AI keys. It reads the provider&#8217;s own cost figure every minute —
+          and tells you inside one when something is burning.
+        </p>
+        <div class="statesPills" style="margin-top: 52px; align-items: flex-start">
+          <div class="pillCol"><img src="media/block-green.png" alt="settled" /><span style="color: var(--calm)">settled</span></div>
+          <div class="pillCol"><img src="media/block-amber.png" alt="climbing" /><span style="color: var(--warm)">climbing</span></div>
+          <div class="pillCol"><img src="media/block-red.png" alt="tripped" /><span style="color: var(--hot)">tripped</span></div>
+        </div>
+        <div class="url" style="position: absolute; top: 640px; font-size: 26px">
+          github.com/<b>Ravinder82/burnfuse</b>
+        </div>
+      </div>
+      <img
+        class="icon"
+        src="media/mini-panel-dark.png"
+        alt="The BurnFuse menu-bar panel"
+        style="position: absolute; right: 110px; top: 130px; height: 620px; border-radius: 30px; box-shadow: 0 60px 140px rgba(0, 0, 0, 0.6)"
+      />
+    </div>
+
+    <!-- ================= launch square ================= -->
+    <div class="card launch" data-card="launch-square" style="width: 1080px; height: 1080px">
+      <div class="glow" style="width: 700px; height: 700px; left: 190px; top: -240px; background: rgba(245, 158, 23, 0.16)"></div>
+      <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 120px 90px 90px">
+        <img class="icon" src="media/icon_512.png" style="width: 170px" alt="BurnFuse" />
+        <div style="margin-top: 52px; font-size: 118px; font-weight: 900; letter-spacing: -0.045em">burnfuse</div>
+        <p class="tag" style="margin-top: 26px; font-size: 38px; color: var(--ink2)">A spend breaker for your AI keys.</p>
+        <div class="statesPills" style="margin-top: 74px">
+          <img src="media/block-green.png" alt="settled" style="height: 78px" />
+          <img src="media/block-amber.png" alt="climbing" style="height: 78px" />
+          <img src="media/block-red.png" alt="tripped" style="height: 78px" />
+        </div>
+        <div class="chips" style="margin-top: 56px">
+          <span class="chip">reads itself</span>
+          <span class="chip">trips in &#8804; 1 min</span>
+          <span class="chip">no account</span>
+        </div>
+        <div class="url" style="margin-top: auto; font-size: 28px">github.com/<b>Ravinder82/burnfuse</b></div>
+      </div>
+    </div>
+
+    <!-- ================= launch portrait ================= -->
+    <div class="card launch" data-card="launch-portrait" style="width: 1080px; height: 1350px">
+      <div class="glow" style="width: 700px; height: 700px; left: 190px; top: -220px; background: rgba(245, 158, 23, 0.16)"></div>
+      <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 110px 90px 80px">
+        <img class="icon" src="media/icon_512.png" style="width: 168px" alt="BurnFuse" />
+        <div style="margin-top: 48px; font-size: 116px; font-weight: 900; letter-spacing: -0.045em">burnfuse</div>
+        <p class="tag" style="margin-top: 24px; font-size: 38px; color: var(--ink2)">A spend breaker for your AI keys.</p>
+        <img
+          src="media/mini-panel-dark.png"
+          alt="The BurnFuse menu-bar panel"
+          style="margin-top: 66px; height: 560px; border-radius: 30px; box-shadow: 0 60px 140px rgba(0, 0, 0, 0.65)"
+        />
+        <div class="chips" style="margin-top: 62px">
+          <span class="chip">reads itself</span>
+          <span class="chip">trips in &#8804; 1 min</span>
+          <span class="chip">MIT</span>
+        </div>
+        <div class="url" style="margin-top: auto; font-size: 28px">github.com/<b>Ravinder82/burnfuse</b></div>
+      </div>
+    </div>
+
+    <!-- ================= quote: the key ================= -->
+    <div class="card quote" data-card="quote-key" style="width: 1080px; height: 1080px">
+      <div class="glow" style="width: 760px; height: 760px; right: -260px; top: -260px; background: rgba(245, 158, 23, 0.14)"></div>
+      <div class="mark">&#8220;</div>
+      <h2 style="font-size: 82px">The key you already use is the key it watches.</h2>
+      <div class="foot">BURNFUSE — A SPEND BREAKER FOR YOUR AI KEYS</div>
+    </div>
+
+    <!-- ================= quote: one number ================= -->
+    <div class="card quote" data-card="quote-number" style="width: 1080px; height: 1080px">
+      <div class="glow" style="width: 760px; height: 760px; left: -260px; bottom: -300px; background: rgba(87, 219, 148, 0.12)"></div>
+      <div class="mark">&#8220;</div>
+      <h2 style="font-size: 96px">One number in the menu bar. That is the whole app.</h2>
+      <div class="foot">READS THE PROVIDER&#8217;S OWN COST FIGURE EVERY MINUTE</div>
+    </div>
+
+    <!-- ================= quote: local ================= -->
+    <div class="card quote" data-card="quote-local" style="width: 1080px; height: 1080px">
+      <div class="glow" style="width: 760px; height: 760px; right: -260px; bottom: -260px; background: rgba(87, 219, 148, 0.12)"></div>
+      <div class="mark">&#8220;</div>
+      <h2 style="font-size: 96px">No account. No telemetry. No server.</h2>
+      <div class="foot">~/.BURNFUSE/KEYS.JSON — ONE FILE HOLDS YOUR DATA</div>
+    </div>
+
+    <!-- ================= states 16:9 ================= -->
+    <div class="card states" data-card="states-16x9" style="width: 1600px; height: 900px">
+      <div class="glow" style="width: 800px; height: 800px; right: -300px; top: -180px; background: rgba(250, 84, 38, 0.1)"></div>
+      <div style="position: absolute; inset: 96px 90px 90px">
+        <div class="kick">BURNFUSE — ONE GLANCE</div>
+        <h2 style="margin-top: 34px">Green. Amber. Red.</h2>
+        <div style="margin-top: 58px">
+          <div class="row">
+            <img src="media/block-green.png" alt="settled" />
+            <div class="w" style="color: var(--calm)">settled</div>
+            <div class="d">under its usual rate, under the cap you set. Nothing to do.</div>
+            <div class="t">6:40 PM</div>
+          </div>
+          <div class="row">
+            <img src="media/block-amber.png" alt="climbing" />
+            <div class="w" style="color: var(--warm)">climbing</div>
+            <div class="d">past its normal rate — over the cap, or far above its own usual.</div>
+            <div class="t">7:04 PM</div>
+          </div>
+          <div class="row" style="border-bottom: none">
+            <img src="media/block-red.png" alt="tripped" />
+            <div class="w" style="color: var(--hot)">tripped</div>
+            <div class="d">marked, logged, and you are told — inside a minute. Not in the morning.</div>
+            <div class="t" style="color: var(--hot)">7:12 PM</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= providers 16:9 ================= -->
+    <div class="card providers" data-card="providers-16x9" style="width: 1600px; height: 900px">
+      <div class="glow" style="width: 800px; height: 800px; left: -320px; top: -200px; background: rgba(87, 219, 148, 0.1)"></div>
+      <div style="position: absolute; inset: 96px 90px 90px">
+        <div class="kick">READS ITSELF — OR SAYS SO PLAINLY</div>
+        <h2 style="margin-top: 34px">Thirty providers. No dead end.</h2>
+        <p class="sub">
+          <b>Reads itself</b> — OpenAI, Anthropic, OpenRouter, or any endpoint of your own. Everywhere else the
+          row says where the number lives, and takes it.
+        </p>
+        <div class="grid">
+          <span class="p">Gemini</span><span class="p">xAI</span><span class="p">Mistral</span><span class="p">DeepSeek</span>
+          <span class="p">Groq</span><span class="p">Together</span><span class="p">Perplexity</span><span class="p">Replicate</span>
+          <span class="p">Hugging Face</span><span class="p">fal.ai</span><span class="p">ElevenLabs</span><span class="p">AWS</span>
+          <span class="p more">+ 18 more</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= trip flow 16:9 ================= -->
+    <div class="card trip" data-card="trip-flow-16x9" style="width: 1600px; height: 900px">
+      <div class="glow" style="width: 800px; height: 800px; right: -280px; bottom: -320px; background: rgba(250, 84, 38, 0.12)"></div>
+      <div style="position: absolute; inset: 96px 90px 90px">
+        <div class="kick">FROM SPIKE TO STOP</div>
+        <h2 style="margin-top: 34px">It tells you inside a minute.</h2>
+        <p class="sub">Not in the morning. This is the whole trip:</p>
+        <div class="chain">
+          <div class="chainRow">
+            <div class="step hot">menu bar red</div>
+            <div class="arrow">&#8594;</div>
+            <div class="step">notification</div>
+            <div class="arrow">&#8594;</div>
+          </div>
+          <div class="chainRow">
+            <div class="step">Slack / Discord</div>
+            <div class="arrow">&#8594;</div>
+            <div class="step hot">switch off at OpenAI&#8230;</div>
+          </div>
+        </div>
+        <div class="foot">WHERE THE PROVIDER ALLOWS IT, THE TRIP OFFERS TO SWITCH THE KEY OFF — WITH A SECOND PRESS</div>
+      </div>
+    </div>
+
+    <!-- ================= reel cover 9:16 ================= -->
+    <div class="card cover" data-card="reel-cover" style="width: 1080px; height: 1920px">
+      <div class="glow" style="width: 900px; height: 900px; right: -380px; top: -240px; background: rgba(250, 84, 38, 0.16)"></div>
+      <div style="position: absolute; inset: 0; padding: 560px 80px 140px">
+        <div class="kick">FRIDAY &#183; 11:47 PM</div>
+        <div class="l1" style="margin-top: 46px">An agent<br />is looping.</div>
+        <div class="l2" style="margin-top: 24px">You&#8217;re asleep.</div>
+        <div class="seed" style="margin-top: 66px"><i></i>$2.45/hr — and climbing</div>
+      </div>
+      <div style="position: absolute; left: 80px; bottom: 150px; display: flex; align-items: center; gap: 26px">
+        <img class="icon" src="media/icon_512.png" style="width: 120px" alt="BurnFuse" />
+        <div>
+          <div style="font-size: 76px; font-weight: 900; letter-spacing: -0.045em">burnfuse</div>
+          <div style="margin-top: 8px; font-size: 32px; color: var(--ink2)">A spend breaker for your AI keys.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= yt thumb a ================= -->
+    <div class="card thumb" data-card="yt-thumb-a" style="width: 1280px; height: 720px">
+      <div class="glow" style="width: 700px; height: 700px; right: -240px; top: -220px; background: rgba(250, 84, 38, 0.2)"></div>
+      <h1 style="font-size: 76px">Your agent can burn</h1>
+      <div class="hotline" style="margin-top: 18px; font-size: 104px">$38.90/hr.</div>
+      <div style="margin-top: 22px; font-size: 34px; color: var(--ink2)">And you&#8217;d find out in the morning.</div>
+      <div class="wordmark">
+        <img src="media/icon_512.png" alt="" style="box-shadow: none" />
+        <b>burnfuse</b>
+      </div>
+      <img class="pill" src="media/block-red.png" alt="tripped" style="right: 90px; top: 236px; height: 170px" />
+      <div class="fine">WATCH THE BURN RATE — CAP THE DAMAGE</div>
+    </div>
+
+    <!-- ================= yt thumb b ================= -->
+    <div class="card thumb" data-card="yt-thumb-b" style="width: 1280px; height: 720px">
+      <div class="glow" style="width: 700px; height: 700px; right: -240px; bottom: -260px; background: rgba(87, 219, 148, 0.14)"></div>
+      <h1 style="font-size: 76px">One number<br />in the menu bar.</h1>
+      <div style="margin-top: 26px; font-size: 34px; color: var(--ink2)">The spend breaker for your AI keys.</div>
+      <div class="wordmark">
+        <img src="media/icon_512.png" alt="" style="box-shadow: none" />
+        <b>burnfuse</b>
+      </div>
+      <img class="pill" src="media/block-green.png" alt="settled" style="right: 90px; top: 264px; height: 170px" />
+      <div class="fine">MACOS &#183; MIT &#183; NO ACCOUNT</div>
+    </div>
+
+    <!-- ================= og card ================= -->
+    <div class="card og" data-card="og-card" style="width: 1200px; height: 630px">
+      <div class="glow" style="width: 640px; height: 640px; right: -200px; top: -220px; background: rgba(245, 158, 23, 0.16)"></div>
+      <div style="position: absolute; inset: 0; padding: 84px 90px; display: flex; align-items: center; gap: 64px">
+        <img class="icon" src="media/icon_512.png" style="width: 180px" alt="BurnFuse" />
+        <div>
+          <div class="word">burnfuse</div>
+          <div class="tag">A spend breaker for your AI keys.</div>
+          <div class="chips" style="margin-top: 40px">
+            <span class="chip" style="color: var(--calm); border-color: rgba(87, 219, 148, 0.4)">$2.45/hr — settled</span>
+            <span class="chip" style="color: var(--warm); border-color: rgba(252, 203, 71, 0.4)">$12 — climbing</span>
+            <span class="chip" style="color: var(--hot); border-color: rgba(250, 84, 38, 0.4)">1 — tripped</span>
+          </div>
+          <div class="mono" style="margin-top: 40px; font-size: 24px; color: var(--ink2)">
+            github.com/Ravinder82/burnfuse &#183; macOS 14+ &#183; MIT
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const card = new URLSearchParams(location.search).get("card");
+      document.querySelectorAll(".card").forEach((el) => {
+        if (card && el.dataset.card !== card) el.remove();
+      });
+      const el = document.querySelector(".card");
+      if (el) {
+        document.body.style.width = el.offsetWidth + "px";
+        document.body.style.height = el.offsetHeight + "px";
+        document.body.style.overflow = "hidden";
+      }
+    </script>
+  </body>
+</html>

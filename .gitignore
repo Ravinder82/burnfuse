@@ -25,3 +25,8 @@ xcuserdata/
 # Local BurnFuse state
 state.json
 burnfuse-state.json
+
+# Marketing build output
+marketing/renders/
+marketing/videos/*/.hyperframes/
+__pycache__/
