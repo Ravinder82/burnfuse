@@ -258,6 +258,34 @@ public struct PrimaryButton: View {
 }
 
 /// Bordered secondary action.
+/// A one-line note under a control: small print with an optional glyph, for
+/// the sentence a row owes the reader — why a key is not read, what a button
+/// will do, what the provider just said. One definition so every screen's small
+/// print looks like the same app's.
+public struct NoteText: View {
+    let text: String
+    var icon: String?
+    var tone: AnyShapeStyle
+
+    public init(_ text: String, icon: String? = nil, tone: AnyShapeStyle = AnyShapeStyle(.secondary)) {
+        self.text = text
+        self.icon = icon
+        self.tone = tone
+    }
+
+    public var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: DS.Space.xs) {
+            if let icon {
+                Image(systemName: icon).font(.caption2)
+            }
+            Text(text)
+        }
+        .font(.caption2)
+        .foregroundStyle(tone)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
 public struct SecondaryButton: View {
     let title: String
     var systemImage: String?

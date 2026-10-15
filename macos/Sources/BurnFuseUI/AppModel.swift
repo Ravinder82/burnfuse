@@ -62,6 +62,32 @@ public final class AppModel: ObservableObject {
     /// now, instead of leaving the user to wait a minute and read a status line.
     @Published public var keyTests: [String: KeyTest] = [:]
 
+    // MARK: - Switching a key off at the provider
+
+    /// Which watched key's switch-off panel is open, if any. Anchored to the
+    /// row it was opened from, so the explanation appears exactly where it was
+    /// asked for. Opened from that row in Settings, and from the breach banner
+    /// when the tripped key's provider is one BurnFuse can act on.
+    @Published public var switchOffKeyID: String?
+    /// The account's keys, as the provider last listed them.
+    @Published public var accountKeys: [String: [Revoke.AccountKey]] = [:]
+    /// What the last listing had to say — the provider's refusal, in its own
+    /// terms, or an empty line when all is well.
+    @Published public var accountKeysMessage: [String: String] = [:]
+    /// Providers whose key list is being fetched right now.
+    @Published public var listingAccountKeys: Set<String> = []
+    /// The account key currently being switched off, so one row shows progress
+    /// and the rest are held back.
+    @Published public var switchingOffKeyID: String?
+    /// What the provider said after the last switch-off. Success or refusal, and
+    /// never a guess.
+    @Published public var switchOffOutcome: Revoke.Outcome?
+
+    /// The spend ceiling the provider itself enforces, per watched key, where it
+    /// publishes one. The answer to "can this key still spend?" that does not
+    /// need anyone's help.
+    @Published public var keyLimits: [String: SpendSource.CreditLimit] = [:]
+
     public var onIncident: ((Incident) -> Void)?
 
     public let stateURL: URL
@@ -213,6 +239,12 @@ public final class AppModel: ObservableObject {
                 messages.append("\(key.name): \(Fmt.perHour(figure))")
                 byKey[key.id] = KeyReadNote(message: "Read \(Fmt.perHour(figure)) a moment ago.", failed: false)
             }
+            // A provider cap, when the provider publishes one. Kept even after
+            // later failures: the ceiling does not stop existing because a read
+            // failed, and it is exactly the moment a person wants to know it.
+            if let limit = result.limit {
+                keyLimits[key.id] = limit
+            }
         }
 
         lastRefresh = Date()
@@ -222,6 +254,78 @@ public final class AppModel: ObservableObject {
                ? "Nothing was read this pass."
                : "No key is set up for a live read yet. Type your spend instead.")
             : messages.prefix(3).joined(separator: "\n")
+    }
+
+    // MARK: - Switching a key off at the provider
+
+    /// Open (or close) a key's switch-off panel. Nothing is fetched here — the
+    /// panel asks when it appears, so a screen that never opens it never spends
+    /// a request.
+    public func showSwitchOffPanel(keyID: String?) {
+        switchOffKeyID = keyID
+        switchOffOutcome = nil
+        guard let keyID,
+              let provider = state.entries.first(where: { $0.id == keyID })?.provider else { return }
+        accountKeysMessage[provider] = nil
+    }
+
+    /// Ask the provider for the keys on this account.
+    ///
+    /// Only asked where the app holds a credential that is allowed to ask. Where
+    /// it is not — an ordinary OpenRouter key, say — the panel says why and
+    /// shows where the switching really happens, rather than failing with the
+    /// provider's 403 and leaving it there.
+    public func loadAccountKeys(_ providerID: String, session: URLSession = .shared) async {
+        guard Revoke.ability(for: providerID).canSwitchOff else {
+            accountKeysMessage[providerID] = Revoke.explainer(for: providerID)
+            accountKeys[providerID] = nil
+            return
+        }
+        guard !listingAccountKeys.contains(providerID) else { return }
+        listingAccountKeys.insert(providerID)
+        defer { listingAccountKeys.remove(providerID) }
+
+        let resolution = Credentials.resolve(for: providerID)
+        let result = await Revoke.list(providerID: providerID, apiKey: resolution.key, session: session)
+        if result.ok { accountKeys[providerID] = result.keys }
+        accountKeysMessage[providerID] = result.message.isEmpty ? nil : result.message
+    }
+
+    /// Switch one key off, and report exactly what the provider said.
+    ///
+    /// After a success the rows are re-read straight away, because a key that no
+    /// longer exists must not keep showing the spend it had a minute ago. If the
+    /// key switched off was the one BurnFuse reads with, the read that follows
+    /// fails — and the row says so, which is the truth.
+    public func switchOff(_ accountKey: Revoke.AccountKey, providerID: String,
+                          session: URLSession = .shared) async {
+        guard switchingOffKeyID == nil else { return }
+        switchingOffKeyID = accountKey.id
+        switchOffOutcome = nil
+        defer { switchingOffKeyID = nil }
+
+        let resolution = Credentials.resolve(for: providerID)
+        let outcome = await Revoke.switchOff(providerID: providerID, key: accountKey,
+                                             apiKey: resolution.key, session: session)
+        switchOffOutcome = outcome
+        guard outcome.ok else { return }
+
+        accountKeys[providerID]?.removeAll { $0.id == accountKey.id }
+
+        // Say plainly when the key that was just switched off is the one the
+        // readings come from. The next read will confirm it; this is so the
+        // person is told now, in the place they are looking.
+        if Revoke.isTheKeyBurnFuseUses(accountKey, localKey: resolution.key) {
+            let label = Providers.label(for: providerID)
+            for key in state.entries where key.provider == providerID {
+                lastMessageByKey[key.id] = KeyReadNote(
+                    message: "The \(label) key BurnFuse was reading with has just been switched off. Paste a new Admin key to start reading \(label) again.",
+                    failed: true
+                )
+            }
+        }
+
+        await refreshLive(session: session)
     }
 
     /// Store a provider's running total against a key, and record an hourly
@@ -487,6 +591,14 @@ public final class AppModel: ObservableObject {
         Credentials.set(value, for: providerID)
         // A different key means the last verdict was about a key that is gone.
         keyTests[providerID] = nil
+        // …and a different key may mean a different account: the list of keys
+        // the last one could see is not this key's to show.
+        accountKeys[providerID] = nil
+        accountKeysMessage[providerID] = nil
+        if let keyID = switchOffKeyID,
+           state.entries.first(where: { $0.id == keyID })?.provider == providerID {
+            switchOffOutcome = nil
+        }
     }
 
     /// Did the last live read of this key come back turned down?

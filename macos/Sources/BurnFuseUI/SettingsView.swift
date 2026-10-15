@@ -355,6 +355,37 @@ public struct SettingsView: View {
             }
 
             readingBlock(key, provider: provider)
+
+            // The provider's own ceiling on this key, where it publishes one.
+            // Not a BurnFuse cap and not a BurnFuse action — read from the
+            // provider, and the only thing that stops a runaway without help.
+            if let limit = model.keyLimits[key.id], !key.isManualRead {
+                NoteText(limit.sentence,
+                         icon: limit.isSpent ? "exclamationmark.octagon.fill" : "shield.lefthalf.filled",
+                         tone: limit.isSpent ? AnyShapeStyle(DS.Tone.breach) : AnyShapeStyle(.secondary))
+            }
+
+            switchOffLine(key, provider: provider)
+        }
+    }
+
+    /// The way from "this key is hot" to "this key no longer exists" — the only
+    /// action in the app that stops the money, so it is offered on the key's own
+    /// row and carries its explanation with it.
+    ///
+    /// Where the app cannot do it, the link is still here and the panel says why
+    /// and where it *is* done: an honest answer beats a hidden one.
+    @ViewBuilder
+    private func switchOffLine(_ key: BurnKey, provider: Provider) -> some View {
+        if model.switchOffKeyID == key.id {
+            SwitchOffPanel(keyID: key.id, provider: provider, model: model)
+        } else {
+            LinkButton(Revoke.ability(for: provider.id).canSwitchOff
+                       ? "Switch a key off at \(provider.label)…"
+                       : "How to switch this key off…",
+                       systemImage: "switch.2") {
+                model.showSwitchOffPanel(keyID: key.id)
+            }
         }
     }
 
@@ -793,6 +824,9 @@ public struct SettingsView: View {
 
     /// "revoke it at <page>" / "revoke it where you issued it", as a clause.
     private func revokeSentence(for provider: Provider) -> String {
+        if Revoke.ability(for: provider.id).canSwitchOff {
+            return "switch a \(provider.label) key off right here — the link at the foot of this row does it. That is the only thing that stops the spend."
+        }
         if let whereToRevoke = provider.whereToRevoke {
             return "revoke it at \(whereToRevoke). That is the only thing that stops the spend."
         }

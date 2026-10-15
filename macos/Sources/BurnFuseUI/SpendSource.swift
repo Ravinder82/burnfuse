@@ -18,12 +18,49 @@ public enum SpendSource {
         /// The HTTP status, when the provider answered. A dead endpoint should
         /// never read as a rejected key, so the fetcher distinguishes them.
         public var status: Int?
+        /// A spend ceiling the provider itself enforces on this key, when it
+        /// publishes one.
+        public var limit: CreditLimit?
 
-        public init(ok: Bool, cost: Double? = nil, message: String, status: Int? = nil) {
+        public init(ok: Bool, cost: Double? = nil, message: String, status: Int? = nil,
+                    limit: CreditLimit? = nil) {
             self.ok = ok
             self.cost = cost
             self.message = message
             self.status = status
+            self.limit = limit
+        }
+    }
+
+    /// A cap the provider enforces, read from the provider.
+    ///
+    /// This is the one number that answers "can this key still spend?" without
+    /// anyone's help: when `remaining` reaches zero the provider refuses the
+    /// key's requests, and no amount of retrying in a runaway script changes
+    /// that. BurnFuse does not set this cap and cannot raise it — it reports it,
+    /// because a person watching a spend needs to know whether the floor they
+    /// are standing on is there.
+    public struct CreditLimit: Sendable, Equatable {
+        /// The ceiling, in dollars.
+        public var limit: Double
+        /// What is left under it. Zero or less means the provider will refuse
+        /// new requests on this key.
+        public var remaining: Double
+
+        public init(limit: Double, remaining: Double) {
+            self.limit = limit
+            self.remaining = remaining
+        }
+
+        public var isSpent: Bool { remaining <= 0 }
+
+        /// The line the interface shows, in plain words.
+        public var sentence: String {
+            let left = max(0, remaining)
+            if isSpent {
+                return "The provider caps this key at \(Fmt.money(limit)), and it is spent — new requests on this key are refused until the cap resets or you raise it."
+            }
+            return "The provider caps this key at \(Fmt.money(limit)). \(Fmt.money(left)) is left, so a runaway stops here."
         }
     }
 
@@ -152,8 +189,7 @@ public enum SpendSource {
     }
 
     /// Pull a dollar figure out of a decoded JSON body.
-    static func parse(provider: String, json: Any, jsonPath: String?) -> Double? {
-        if let jsonPath, let value = readPath(json, path: jsonPath) {
+    static func parse(provider: String, json: Any, jsonPath: String?) -> Double? {        if let jsonPath, let value = readPath(json, path: jsonPath) {
             return number(value)
         }
         switch provider {
@@ -174,6 +210,24 @@ public enum SpendSource {
         default:
             return nil
         }
+    }
+
+    /// Pull a cap the provider enforces on this key out of the same response.
+    ///
+    /// Only OpenRouter publishes one to an ordinary key: `limit` is the ceiling
+    /// on the key and `limit_remaining` is what is left under it. A key with no
+    /// limit set answers `limit: null`, which is not a cap of zero — it is no cap
+    /// at all, and says nothing here.
+    public static func parseLimit(provider: String, json: Any) -> CreditLimit? {
+        guard provider == "openrouter",
+              let object = json as? [String: Any],
+              let data = object["data"] as? [String: Any],
+              let limit = number(data["limit"]) else { return nil }
+        // A provider that reports a ceiling but not what is left under it still
+        // tells the truth about the ceiling; remaining is then taken as spent
+        // only if the usage has reached it.
+        let remaining = number(data["limit_remaining"]) ?? (limit - (number(data["usage"]) ?? 0))
+        return CreditLimit(limit: limit, remaining: remaining)
     }
 
     /// Add up one field across every result in every day bucket of a report.

@@ -6,11 +6,17 @@ public struct OverviewView: View {
     @ObservedObject var model: AppModel
     var onAddKey: () -> Void = {}
     var onSeeTrips: (() -> Void)? = nil
+    /// Called with a tripped key's id when the person asks to switch that key
+    /// off at its provider. The window answers by opening Settings on it.
+    var onSwitchOff: ((String) -> Void)? = nil
 
-    public init(model: AppModel, onAddKey: @escaping () -> Void = {}, onSeeTrips: (() -> Void)? = nil) {
+    public init(model: AppModel, onAddKey: @escaping () -> Void = {},
+                onSeeTrips: (() -> Void)? = nil,
+                onSwitchOff: ((String) -> Void)? = nil) {
         self.model = model
         self.onAddKey = onAddKey
         self.onSeeTrips = onSeeTrips
+        self.onSwitchOff = onSwitchOff
     }
 
     public var body: some View {
@@ -20,7 +26,8 @@ public struct OverviewView: View {
                     key: incident,
                     othersTripped: max(0, model.state.tripped.count - 1),
                     onArm: { model.arm(keyID: incident.id) },
-                    onSeeTrips: onSeeTrips
+                    onSeeTrips: onSeeTrips,
+                    onSwitchOff: onSwitchOff.map { handler in { handler(incident.id) } }
                 )
             }
 
@@ -204,17 +211,21 @@ public struct BreachBanner: View {
     let othersTripped: Int
     let onArm: () -> Void
     let onSeeTrips: (() -> Void)?
+    /// Present only when the provider is one BurnFuse can actually act on.
+    let onSwitchOff: (() -> Void)?
 
     public init(
         key: BurnKey,
         othersTripped: Int = 0,
         onArm: @escaping () -> Void,
-        onSeeTrips: (() -> Void)? = nil
+        onSeeTrips: (() -> Void)? = nil,
+        onSwitchOff: (() -> Void)? = nil
     ) {
         self.key = key
         self.othersTripped = othersTripped
         self.onArm = onArm
         self.onSeeTrips = onSeeTrips
+        self.onSwitchOff = onSwitchOff
     }
 
     public var body: some View {
@@ -230,11 +241,12 @@ public struct BreachBanner: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             // What BurnFuse did, then what would actually end the spend. Watching
-            // is not cutting: the app can stop reading a key, but the provider is
-            // the only party that can stop billing for it, so it says where.
+            // is not cutting: the app can stop reading a key, but only the
+            // provider can stop billing for it — and where the app holds a
+            // credential the provider accepts, it can ask for exactly that.
             Text(key.armed
-                 ? "BurnFuse is still reading it, so you can watch it come down. \(Providers.revokeHint(for: key.provider))"
-                 : "BurnFuse has stopped reading it. \(Providers.revokeHint(for: key.provider))")
+                 ? "BurnFuse is still reading it, so you can watch it come down. \(endTheSpend)"
+                 : "BurnFuse has stopped reading it. \(endTheSpend)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -251,6 +263,12 @@ public struct BreachBanner: View {
 
             HStack(spacing: DS.Space.sm) {
                 PrimaryButton("Re-arm", tint: DS.accent, action: onArm)
+                if let onSwitchOff {
+                    SecondaryButton("Switch a key off at \(Providers.label(for: key.provider))…",
+                                    systemImage: "switch.2",
+                                    tint: DS.Tone.breach,
+                                    action: onSwitchOff)
+                }
                 if let onSeeTrips {
                     SecondaryButton("All trips", action: onSeeTrips)
                 }
@@ -261,5 +279,14 @@ public struct BreachBanner: View {
         .background(DS.Tone.breach.opacity(0.10))
         .overlay(alignment: .bottom) { Divider() }
         .accessibilityElement(children: .contain)
+    }
+
+    /// The sentence that says how the money actually stops — and changes only
+    /// when the answer does.
+    private var endTheSpend: String {
+        if Revoke.ability(for: key.provider).canSwitchOff {
+            return "Only \(Providers.label(for: key.provider)) can stop the billing, and BurnFuse can ask it to: switch the key off and it cannot bill again."
+        }
+        return Providers.revokeHint(for: key.provider)
     }
 }

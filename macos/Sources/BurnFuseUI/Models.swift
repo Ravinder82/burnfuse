@@ -398,4 +398,12 @@ public enum Fmt {
         guard baseline > 0 else { return "—" }
         return String(format: "%.1f×", current / baseline)
     }
+
+    /// "2 minutes ago", in the reader's own words, for the timestamps providers
+    /// hand back — when a key was last used, when one was made.
+    public static func ago(_ date: Date, now: Date = Date()) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        return formatter.localizedString(for: date, relativeTo: now)
+    }
 }

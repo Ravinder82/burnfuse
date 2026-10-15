@@ -127,7 +127,11 @@ public enum SpendPoller {
                 message: SpendSource.measuresTotal(key)
                     ? "Read a running total of \(Fmt.money(cost))."
                     : "Read \(Fmt.perHour(cost)).",
-                status: status
+                status: status,
+                // A ceiling the provider itself enforces on this key, where it
+                // publishes one. BurnFuse cannot set it — reading it is the
+                // difference between "this key is capped" and "it is not".
+                limit: SpendSource.parseLimit(provider: key.provider, json: json)
             )
         } catch let error as URLError {
             return SpendSource.LiveResult(ok: false, message: message(for: error, key: key), status: nil)

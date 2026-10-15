@@ -141,6 +141,34 @@ struct BurnFuseShots {
         write("window-settings-light", to: dir,
               captureWindow(.settings, health, .light, height: 1180, displayStatePath: Self.canonicalStatePath))
 
+        // The one action that ends the spend, shown where it lives: the switch-off
+        // panel open on the OpenAI key's own row, with the account's keys exactly
+        // as the provider describes them. The list is seeded rather than fetched,
+        // so this shot is the same everywhere and no request leaves the machine.
+        let switchOff = demoModel(tripped: false)
+        if let openaiKey = switchOff.state.entries.first(where: { $0.provider == "openai" }) {
+            switchOff.showSwitchOffPanel(keyID: openaiKey.id)
+            switchOff.accountKeys["openai"] = [
+                Revoke.AccountKey(id: "key_01J8ZQ4K7F2M9T3B6N5R8V1X4C7D0G3H6",
+                                  name: "OpenAI prod",
+                                  hint: "sk-admin…G3H6",
+                                  lastUsed: Date().addingTimeInterval(-120),
+                                  createdAt: Date().addingTimeInterval(-86_400 * 30)),
+                Revoke.AccountKey(id: "key_2M4P6R8T0V2X4Z6B8D0F2H4J6L8N0P2R",
+                                  name: "Batch worker",
+                                  hint: "sk-proj…T4J8",
+                                  lastUsed: Date().addingTimeInterval(-3600 * 20),
+                                  createdAt: Date().addingTimeInterval(-86_400 * 6)),
+                Revoke.AccountKey(id: "key_3N5Q7S9U1W3Y5A7C9E1G3I5K7M9O1Q3S",
+                                  name: "Friday experiment",
+                                  hint: "sk-proj…Y1W3",
+                                  createdAt: Date().addingTimeInterval(-86_400 * 2),
+                                  status: "inactive"),
+            ]
+        }
+        write("window-switchoff-dark", to: dir,
+              captureWindow(.settings, switchOff, .dark, height: 1300, displayStatePath: Self.canonicalStatePath))
+
         // Marketing: the menu-bar glance, and a social card built from the real
         // window render.
         write("menubar-dark", to: dir, captureMenuBar(colorScheme: .dark))

@@ -36,6 +36,7 @@ rm -f "$ASSETS/_gallery.png"
 expected=(
   window-overview-dark window-overview-light window-breach-dark
   window-insights-dark window-settings-dark window-settings-light
+  window-switchoff-dark
   menubar-dark menubar-light menubar-climbing-dark menubar-breached-dark
   mini-panel-dark mini-panel-breach-dark
   social-card icon_512 icon_1024

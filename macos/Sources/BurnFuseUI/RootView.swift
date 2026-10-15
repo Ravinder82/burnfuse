@@ -128,7 +128,11 @@ public struct RootView: View {
                 OverviewView(
                     model: model,
                     onAddKey: { nav.section = .settings },
-                    onSeeTrips: { nav.section = .insights }
+                    onSeeTrips: { nav.section = .insights },
+                    onSwitchOff: { keyID in
+                        nav.section = .settings
+                        model.showSwitchOffPanel(keyID: keyID)
+                    }
                 )
             }
         case .insights:
