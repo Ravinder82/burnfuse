@@ -52,8 +52,9 @@ from the product. Run `./scripts/screenshots.sh` to regenerate the whole set.
   OpenRouter and BurnFuse pulls spend from the provider's own cost endpoint every minute.
   No scripts, no terminal, no pasting a number by hand every hour.
 - **"Press Test and know now."** A key you paste can be tried against the provider on the
-  spot. It says what came back in plain words, and a read-only test never moves a burn
-  figure. Each stored key shows only its two ends, so you can tell which one is in there.
+  spot — before you commit to saving it. It says what came back in plain words, and a
+  read-only test never moves a burn figure. Each stored key shows only its two ends, so
+  you can tell which one is in there.
 - **"It tells you the two things that break a key."** The Settings row that takes your
   OpenAI key knows the difference between an Admin key and a standard project key, and
   says so where you typed it — before a failing read a minute later. Anthropic says out

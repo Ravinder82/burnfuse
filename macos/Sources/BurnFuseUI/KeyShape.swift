@@ -36,6 +36,16 @@ public enum KeyShape {
             return fine
         }
 
+        // A stand-in copied out of a `.env.example`, a README snippet, or a doc
+        // page. It is long enough to look like a key, which is exactly why it
+        // "does not work" for no visible reason.
+        if looksLikeAPlaceholder(key) {
+            return KeyVerdict(
+                severity: .warning,
+                message: "That looks like the placeholder from a sample file, not a real key. Copy the key itself from your provider's console."
+            )
+        }
+
         switch provider {
         case "openai":
             if !key.hasPrefix("sk-admin-"), key.hasPrefix("sk-") {
@@ -67,5 +77,22 @@ public enum KeyShape {
 
         // Unrecognised shapes stay quiet: the provider has the last word.
         return fine
+    }
+
+    /// Does this look like a value written for a human to replace, rather than
+    /// a key? Kept to fragments that cannot plausibly appear inside a real key,
+    /// because a warning that fires on good keys is worse than no warning.
+    private static func looksLikeAPlaceholder(_ key: String) -> Bool {
+        let fragments = [
+            "your_api", "your_key", "yourapi", "yourkey", "your-openai", "your_openrouter",
+            "api_key_here", "apikeyhere", "token_here", "changeme", "change_me",
+            "replace_me", "replaceme", "placeholder", "example", "insert_your",
+        ]
+        let lowered = key.lowercased()
+        if fragments.contains(where: { lowered.contains($0) }) { return true }
+        // Bracketed or elided values straight out of a doc: <YOUR_KEY>, sk-…,
+        // sk-xxxxxxxxxxxx.
+        return lowered.contains("<") || lowered.contains(">")
+            || lowered.contains("...") || lowered.contains("xxxx")
     }
 }

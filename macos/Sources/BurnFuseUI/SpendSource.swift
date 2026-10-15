@@ -101,6 +101,21 @@ public enum SpendSource {
         }
     }
 
+    /// Whether the provider turns down a request that carries no key at all.
+    ///
+    /// The three live providers do. A custom endpoint is left out on purpose:
+    /// it may be a public page of your own, and only the user can know that.
+    /// Knowing this is what lets a read say "you have not given me a key yet"
+    /// instead of relaying a 401 that reads like the key was rejected.
+    public static func requiresKey(_ key: BurnKey) -> Bool {
+        switch key.provider {
+        case "openai", "anthropic", "openrouter":
+            return true
+        default:
+            return false
+        }
+    }
+
     static func headers(for key: BurnKey, apiKey: String?) -> [String: String] {
         var headers: [String: String] = [:]
 

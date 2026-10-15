@@ -58,7 +58,7 @@ final class StateContractTests: XCTestCase {
         let copy = FileManager.default.temporaryDirectory
             .appendingPathComponent("burnfuse-state-\(UUID().uuidString).json")
         try FileManager.default.copyItem(at: url, to: copy)
-        try MainActor.assumeIsolated {
+        MainActor.assumeIsolated {
             let model = AppModel(stateURL: copy, pollInterval: 0)
             XCTAssertEqual(model.state.entries.count, 3)
             XCTAssertTrue(model.state.hasBreach)

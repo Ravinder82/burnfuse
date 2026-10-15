@@ -12,6 +12,18 @@ public enum SpendPoller {
         timeout: TimeInterval = 8,
         session: URLSession = .shared
     ) async -> SpendSource.LiveResult {
+        // Nothing was ever given to read with. Asking anyway gets a 401, which
+        // reads exactly like a rejected key — the single most confusing thing
+        // this app could say to someone who simply has not pasted a key yet.
+        if SpendSource.requiresKey(key),
+           apiKey?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true {
+            let label = Providers.label(for: key.provider)
+            return SpendSource.LiveResult(
+                ok: false,
+                message: "No \(label) key stored yet. Paste one in Settings to read spend live."
+            )
+        }
+
         let candidates = [SpendSource.endpoint(for: key)].compactMap { $0 }
             + SpendSource.fallbackEndpoints(for: key)
 

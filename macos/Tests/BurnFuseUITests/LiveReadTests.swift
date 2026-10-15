@@ -120,6 +120,9 @@ final class LiveReadTests: XCTestCase {
         // custom source with the same counting-up behaviour.
         m.setSource(keyID: m.state.entries[0].id, spendUrl: "https://example.com/cost.json",
                     jsonPath: "total", header: nil, measures: "total")
+        // A watched OpenAI key with no key pasted is a different failure, so give
+        // it one: this test is about what the number does, not the key.
+        Credentials.set("sk-admin-test", for: "openai")
 
         var total = 50.0
         StubURLProtocol.responder = { _ in (200, Data("{\"total\": \(total)}".utf8)) }
@@ -152,6 +155,9 @@ final class LiveReadTests: XCTestCase {
 
         let m = model()
         m.addKey(name: "OpenRouter", provider: "openrouter", cap: 5)
+        // A key exists and the provider turns it down — which is not the same
+        // thing as never having pasted one.
+        Credentials.set("sk-or-bad", for: "openrouter")
         StubURLProtocol.responder = { _ in (401, Data()) }
 
         await m.refreshLive(session: StubURLProtocol.session())
@@ -336,5 +342,48 @@ final class LiveReadTests: XCTestCase {
 
         let test = try XCTUnwrap(m.keyTests["custom"])
         XCTAssertTrue(test.isWorking, "\(test)")
+    }
+
+    /// Someone who pastes a key and presses Test means "try this one", so the
+    /// field is honoured — and still not saved, because Test only reads.
+    func testATestUsesTheKeyInTheFieldBeforeItIsSaved() async throws {
+        let keysURL = try isolate()
+        defer { restore(keysURL) }
+
+        StubURLProtocol.reset()
+        defer { StubURLProtocol.reset() }
+
+        let m = model()
+        var sentAuth: String?
+        StubURLProtocol.responder = { request in
+            sentAuth = request.value(forHTTPHeaderField: "Authorization")
+            return (200, Data(#"{"data":{"usage":1.5}}"#.utf8))
+        }
+
+        // Pasted with the usual junk still attached, as a real paste arrives.
+        await m.testCredential("openrouter", using: "  \"Bearer sk-or-draft-1\"  ",
+                               session: StubURLProtocol.session())
+
+        let test = try XCTUnwrap(m.keyTests["openrouter"])
+        XCTAssertTrue(test.isWorking, "\(test)")
+        XCTAssertEqual(sentAuth, "Bearer sk-or-draft-1", "the pasted key is what gets tried")
+        XCTAssertNil(Credentials.key(for: "openrouter"), "a test must never save the key")
+    }
+
+    /// The poll path must not tell someone their key is bad when they simply
+    /// have not pasted one yet — the exact confusion Phase 3 exists to remove.
+    func testAPollWithNoKeySaysSoRatherThanBlamingTheKey() async throws {
+        let keysURL = try isolate()
+        defer { restore(keysURL) }
+
+        StubURLProtocol.reset()
+        defer { StubURLProtocol.reset() }
+
+        let m = model()
+        m.addKey(name: "OpenAI prod", provider: "openai", cap: 5)
+        await m.refreshLive(session: StubURLProtocol.session())
+
+        XCTAssertTrue(m.lastReadMessage?.contains("No OpenAI key stored yet") ?? false, m.lastReadMessage ?? "")
+        XCTAssertFalse(m.lastReadMessage?.contains("not valid") ?? true, m.lastReadMessage ?? "")
     }
 }

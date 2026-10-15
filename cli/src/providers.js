@@ -22,6 +22,8 @@ export const providers = {
     // since UTC midnight. It climbs monotonically, which means two reads a
     // little apart give a clean hourly rate.
     measuresTotal: true,
+    // Turns down a request that carries no key at all.
+    requiresKey: true,
     fallbackUrls: [],
     spendUrl: () =>
       `https://api.openai.com/v1/organization/costs?start_time=${Math.floor(Date.now() / 1000) - 3600}&bucket_width=1d&limit=1`,
@@ -39,6 +41,8 @@ export const providers = {
     blurb: "Reads your organization's cost report. Needs an Admin key on an organization account.",
     signal: "ANTHROPIC_ADMIN_KEY",
     measuresTotal: true,
+    // Turns down a request that carries no key at all.
+    requiresKey: true,
     fallbackUrls: [],
     // The cost report is daily-only and wants an RFC 3339 window: ask for the
     // day we are in, so the single bucket it returns is today's running total.
@@ -68,6 +72,8 @@ export const providers = {
     blurb: "Reads live credit usage. A standard OpenRouter key is enough.",
     signal: "OPENROUTER_API_KEY",
     measuresTotal: true,
+    // Turns down a request that carries no key at all.
+    requiresKey: true,
     // The path OpenRouter used before it settled on /api/v1/key.
     fallbackUrls: ["https://openrouter.ai/api/v1/auth/key"],
     spendUrl: () => "https://openrouter.ai/api/v1/key",

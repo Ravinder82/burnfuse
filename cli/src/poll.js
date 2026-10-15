@@ -12,6 +12,15 @@ export function measuresTotal(entry) {
 }
 
 /**
+ * Whether the provider turns down a request carrying no key at all. Asking
+ * anyway gets a 401 that reads exactly like a rejected key, which is the most
+ * confusing thing we could say to someone who simply has not given us one.
+ */
+export function requiresKey(entry) {
+  return getProvider(entry.provider).requiresKey === true;
+}
+
+/**
  * Turn a running total into dollars per hour, using the entry's own last
  * reading of that total. Mirrors the Swift side so the CLI and the app agree.
  * Returns null when there is nothing to compare against yet.
@@ -32,6 +41,17 @@ export function rateFromTotal(total, previous, previousAt, nowMs) {
  */
 export async function fetchSpend(entry, apiKey, timeoutMs = 8000) {
   const provider = getProvider(entry.provider);
+
+  // Nothing to read with. Say that plainly rather than letting the provider's
+  // 401 stand in for it.
+  if (requiresKey(entry) && !apiKey) {
+    return {
+      ok: false,
+      reason: "no-key",
+      message: `No ${provider.label} key given yet. Pass --key or set BURNFUSE_API_KEY to read spend live.`,
+    };
+  }
+
   const url =
     entry.source?.spendUrl ||
     (typeof provider.spendUrl === "function" ? provider.spendUrl(entry) : null);

@@ -88,8 +88,9 @@ BurnFuse reads spend straight from your provider — no scripts, no terminal:
 
 1. **Provider keys → OpenAI, Anthropic, OpenRouter.** Paste a read-only key and press
    **Test** to have the provider's own cost endpoint answer right then, instead of
-   waiting a minute to find out. After that BurnFuse asks again every minute. Keys are
-   stored on your Mac only, owner-readable, and are sent nowhere except that provider;
+   waiting a minute to find out. Test tries the key sitting in the field, so you can
+   check one before committing to it. After that BurnFuse asks again every minute. Keys
+   are stored on your Mac only, owner-readable, and are sent nowhere except that provider;
    the row shows just the two ends of the key (`sk-o…0000`), so you can tell which one
    is stored without it being usable.
 2. **Log a reading.** For any key — a provider without a public spend endpoint,
@@ -103,8 +104,14 @@ provider's own reason rather than a status code: a standard OpenAI key instead o
 Admin one, or an OpenAI key pasted into the OpenRouter row, is named where you typed
 it rather than failing silently a minute later. Anthropic needs an Admin key on an
 organization account — individual accounts have no Admin API at all — and the app
-says exactly that. A provider that has since moved its cost endpoint is tried at its
-other address before BurnFuse will suggest anything is wrong.
+says exactly that. A value that is really the placeholder from a sample file is called
+out as one. A provider that has since moved its cost endpoint is tried at its other
+address before BurnFuse will suggest anything is wrong.
+
+And a key you have never pasted is never reported as invalid: the app says it has
+nothing to read with, which is a different problem from a key that was turned down.
+Saving an empty field will not quietly delete a key you already have — removing one is
+its own button, on purpose.
 
 Some providers count money up instead of reporting an hourly figure. Those need
 two reads — the first saves a baseline, the next one gives you a rate — and the

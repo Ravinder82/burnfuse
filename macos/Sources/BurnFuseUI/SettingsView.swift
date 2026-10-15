@@ -11,6 +11,9 @@ public struct SettingsView: View {
     /// points the model at a throwaway temp file, so it passes the canonical
     /// `~/.burnfuse/state.json` here instead of leaking that temp path.
     var displayStatePath: String? = nil
+    /// Seeds the key fields for an offscreen render only, so a screenshot can
+    /// show a key being pasted and tested. Never set in the running app.
+    var previewKeyDrafts: [String: String] = [:]
 
     @State private var newName: String = ""
     @State private var newProvider: String = "openai"
@@ -29,11 +32,13 @@ public struct SettingsView: View {
     @State private var keyDrafts: [String: String] = [:]
     @State private var keysVersion: Int = 0
 
-    public init(model: AppModel, width: CGFloat? = 460, scrollable: Bool = true, displayStatePath: String? = nil) {
+    public init(model: AppModel, width: CGFloat? = 460, scrollable: Bool = true,
+                displayStatePath: String? = nil, previewKeyDrafts: [String: String] = [:]) {
         self.model = model
         self.width = width
         self.scrollable = scrollable
         self.displayStatePath = displayStatePath
+        self.previewKeyDrafts = previewKeyDrafts
     }
 
     public var body: some View {
@@ -49,6 +54,7 @@ public struct SettingsView: View {
         .onAppear {
             webhookDraft = model.state.settings.notifyWebhook
             if logKeyID.isEmpty { logKeyID = model.state.entries.first?.id ?? "" }
+            if keyDrafts.isEmpty { keyDrafts = previewKeyDrafts }
         }
     }
 
@@ -267,7 +273,10 @@ public struct SettingsView: View {
         Card {
             VStack(alignment: .leading, spacing: DS.Space.md) {
                 SectionHeader("Provider keys", subtitle: "What BurnFuse reads spend with") {
-                    LinkButton("Refresh now") { Task { await model.refreshLive() } }
+                    LinkButton(model.isRefreshing ? "Refreshing…" : "Refresh now",
+                               enabled: !model.isRefreshing) {
+                        Task { await model.refreshLive() }
+                    }
                 }
                 Text("BurnFuse reads a read-only cost figure with a key you paste here. Keys are stored on this Mac only, owner-readable, and never leave it.")
                     .font(.caption)
@@ -301,7 +310,9 @@ public struct SettingsView: View {
     private func credentialRow(_ provider: Provider) -> some View {
         let stored = Credentials.key(for: provider.id)
         let fromEnvironment = Credentials.isFromEnvironment(for: provider.id)
-        let verdict = KeyShape.check(keyDrafts[provider.id] ?? "", for: provider.id)
+        let draft = keyDrafts[provider.id] ?? ""
+        let hasDraft = Credentials.sanitize(draft) != nil
+        let verdict = KeyShape.check(draft, for: provider.id)
         let test = model.keyTests[provider.id]
 
         return VStack(alignment: .leading, spacing: DS.Space.xxs) {
@@ -326,12 +337,16 @@ public struct SettingsView: View {
             HStack(spacing: DS.Space.sm) {
                 SecureField(provider.keyLabel, text: draftBinding(for: provider.id))
                     .textFieldStyle(.roundedBorder)
-                SecondaryButton("Save") { saveCredential(provider: provider) }
+                // Save is live only with something in the field: an empty field
+                // plus Save used to mean "delete my key" without saying so. The
+                // trash button is the one honest way to remove a key.
+                SecondaryButton("Save", enabled: hasDraft) { saveCredential(provider: provider) }
                 // Test is always live: pressing it with nothing stored gets a
-                // sentence about that, which is more use than a dead button.
+                // sentence about that, which is more use than a dead button. A
+                // key already typed but not saved is the one that gets tried.
                 SecondaryButton(test?.isTesting == true ? "Testing…" : "Test",
                                 enabled: test?.isTesting != true) {
-                    Task { await model.testCredential(provider.id) }
+                    Task { await model.testCredential(provider.id, using: draft) }
                 }
                 if stored != nil {
                     IconButton("trash", help: "Remove the \(provider.label) key") { removeCredential(provider: provider) }
@@ -339,7 +354,7 @@ public struct SettingsView: View {
             }
 
             statusLine(provider: provider, test: test, verdict: verdict,
-                       stored: stored, fromEnvironment: fromEnvironment)
+                       stored: stored, fromEnvironment: fromEnvironment, hasDraft: hasDraft)
         }
     }
 
@@ -352,7 +367,8 @@ public struct SettingsView: View {
         test: KeyTest?,
         verdict: KeyVerdict,
         stored: String?,
-        fromEnvironment: Bool
+        fromEnvironment: Bool,
+        hasDraft: Bool
     ) -> some View {
         if let test {
             switch test {
@@ -369,7 +385,16 @@ public struct SettingsView: View {
         } else {
             VStack(alignment: .leading, spacing: DS.Space.xxs) {
                 note(provider.keyHint, icon: nil, tone: AnyShapeStyle(.tertiary))
-                if stored == nil, let whereToGet = provider.whereToGet {
+                if hasDraft {
+                    // A key in the field is not being used for anything yet, and
+                    // pressing Test is how you find out it works without first
+                    // committing to it.
+                    note(stored == nil
+                         ? "Press Test to try this key before you save it."
+                         : "Press Test to try the key in the field. Save replaces the one stored.",
+                         icon: "wand.and.stars", tone: AnyShapeStyle(.tertiary))
+                }
+                if stored == nil, !hasDraft, let whereToGet = provider.whereToGet {
                     note(whereToGet, icon: "mappin.and.ellipse", tone: AnyShapeStyle(.tertiary))
                 }
                 if stored != nil, fromEnvironment,

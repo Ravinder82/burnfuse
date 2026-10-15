@@ -184,14 +184,16 @@ public struct LinkButton: View {
     let title: String
     var systemImage: String?
     var tint: Color
+    var enabled: Bool
     let action: () -> Void
 
     @State private var hovering = false
 
-    public init(_ title: String, systemImage: String? = nil, tint: Color = .accentColor, action: @escaping () -> Void) {
+    public init(_ title: String, systemImage: String? = nil, tint: Color = .accentColor, enabled: Bool = true, action: @escaping () -> Void) {
         self.title = title
         self.systemImage = systemImage
         self.tint = tint
+        self.enabled = enabled
         self.action = action
     }
 
@@ -205,10 +207,11 @@ public struct LinkButton: View {
             }
             .font(.caption.weight(.medium))
             .foregroundStyle(tint)
-            .opacity(hovering ? 1 : 0.85)
+            .opacity(enabled ? (hovering ? 1 : 0.85) : 0.5)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .disabled(!enabled)
         .onHover { hovering = $0 }
     }
 }
@@ -325,6 +328,9 @@ public struct IconButton: View {
         }
         .buttonStyle(.plain)
         .help(help)
+        // A bare symbol has no name to read out, so VoiceOver would announce the
+        // SF Symbol ("trash") rather than what the button does.
+        .accessibilityLabel(Text(help.isEmpty ? systemImage : help))
         .onHover { hovering = $0 }
     }
 }

@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { assess, evaluate, isOverCap, isSpike, mean, stdDev, sigma, projectBurn } from "../src/stats.js";
 import { readPath, getProvider, providers } from "../src/providers.js";
+import { requiresKey, fetchSpend } from "../src/poll.js";
 import { mask } from "../src/env.js";
 
 test("mean and stdDev behave", () => {
@@ -107,6 +108,24 @@ test("a provider with no public read says so", () => {
   for (const id of ["replicate", "groq", "aws"]) {
     assert.equal(providers[id].spendUrl, null, `${id} has no endpoint`);
   }
+});
+
+test("a read with no key says so instead of blaming the key", async () => {
+  const entry = { id: "a", provider: "openai" };
+  assert.equal(requiresKey(entry), true);
+
+  const result = await fetchSpend(entry, null);
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, "no-key");
+  assert.match(result.message, /No OpenAI key given yet/);
+  // It never reached the network, so there is no status to misread as a 401.
+  assert.equal(result.status, undefined);
+});
+
+test("a custom endpoint is still tried without a key", () => {
+  // A custom address may be public, so only the user can know whether it wants one.
+  assert.equal(requiresKey({ id: "d", provider: "custom" }), false);
+  assert.equal(requiresKey({ id: "d", provider: "unknown-thing" }), false);
 });
 
 test("unknown provider falls back to custom", () => {

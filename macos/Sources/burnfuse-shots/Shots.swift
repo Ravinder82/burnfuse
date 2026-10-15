@@ -162,7 +162,17 @@ struct BurnFuseShots {
         // Settings prints the state file's location, and the renderer points the
         // model at a throwaway temp file. Show the real one instead of leaking
         // a path that exists on nobody's Mac.
-        let settings = SettingsView(model: model, scrollable: true, displayStatePath: displayStatePath)
+        //
+        // The custom row gets a key already typed into it, so the capture shows
+        // a paste in progress: an enabled Save, and Test offered before saving.
+        // Custom is the one row with nothing else to lose from it — it has no
+        // "where to get this key" line to hide.
+        let settings = SettingsView(
+            model: model,
+            scrollable: true,
+            displayStatePath: displayStatePath,
+            previewKeyDrafts: ["custom": "sk-live-0123456789abcdef"]
+        )
         let view = WindowChrome(title: "BurnFuse", scheme: scheme) {
             switch section {
             case .settings:

@@ -292,6 +292,50 @@ final class SpendSourceTests: XCTestCase {
         XCTAssertEqual(try? XCTUnwrap(SpendSource.parse(provider: "openrouter", json: dailyOnly, jsonPath: nil)),
                        0.4)
     }
+
+    // MARK: - A key that was never given
+
+    func testOnlyTheLiveProvidersInsistOnAKey() {
+        for id in ["openai", "anthropic", "openrouter"] {
+            XCTAssertTrue(SpendSource.requiresKey(BurnKey(id: id, name: id, provider: id)), id)
+        }
+        // A custom endpoint may be a public page of your own, so only the user
+        // can know whether it wants a key.
+        XCTAssertFalse(SpendSource.requiresKey(BurnKey(id: "d", name: "d", provider: "custom")))
+    }
+
+    /// The whole point: someone who has not pasted a key yet must not be told
+    /// their key is invalid. Nothing is asked of the provider at all.
+    func testAReadWithNoKeySaysSoInsteadOfBlamingTheKey() async {
+        // A responder that would fail loudly if it were ever reached.
+        StubURLProtocol.reset()
+        let key = BurnKey(id: "a", name: "a", provider: "openai")
+
+        let result = await SpendPoller.fetch(key, apiKey: nil, session: StubURLProtocol.session())
+        XCTAssertFalse(result.ok)
+        XCTAssertNil(result.status, "no request should have been made")
+        XCTAssertTrue(result.message.contains("No OpenAI key stored yet"), result.message)
+        XCTAssertTrue(result.message.contains("Settings"), result.message)
+        XCTAssertFalse(result.message.contains("401"), result.message)
+
+        // A blank string is the same as no key.
+        let blank = await SpendPoller.fetch(key, apiKey: "   ", session: StubURLProtocol.session())
+        XCTAssertTrue(blank.message.contains("No OpenAI key stored yet"), blank.message)
+    }
+
+    /// A custom endpoint is still tried with no key, because it may not want one.
+    func testACustomEndpointIsStillTriedWithoutAKey() async {
+        StubURLProtocol.reset()
+        defer { StubURLProtocol.reset() }
+        StubURLProtocol.responder = { _ in (200, Data(#"{"total":1.5}"#.utf8)) }
+
+        var key = BurnKey(id: "d", name: "d", provider: "custom")
+        key.source = KeySource(spendUrl: "https://example.com/cost.json", jsonPath: "total", measures: "rate")
+
+        let result = await SpendPoller.fetch(key, apiKey: nil, session: StubURLProtocol.session())
+        XCTAssertTrue(result.ok, result.message)
+        XCTAssertEqual(try? XCTUnwrap(result.cost), 1.5)
+    }
 }
 
 /// A tiny URLProtocol that answers every request from a closure, so the live

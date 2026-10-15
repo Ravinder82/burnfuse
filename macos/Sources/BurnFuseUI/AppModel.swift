@@ -227,8 +227,13 @@ public final class AppModel: ObservableObject {
     /// Test and gets the provider's own verdict, with the reason attached when
     /// there is one. It reads, and only reads — nothing is recorded, so a test
     /// can never move a burn figure.
-    public func testCredential(_ providerID: String, session: URLSession = .shared) async {
-        let apiKey = Credentials.key(for: providerID)
+    ///
+    /// - Parameter draft: a key the user has typed but not saved yet. Someone
+    ///   who pastes a key and presses Test plainly means "try this one", so the
+    ///   field is honoured ahead of the store — still without storing anything.
+    public func testCredential(_ providerID: String, using draft: String = "", session: URLSession = .shared) async {
+        let typed = Credentials.sanitize(draft)
+        let apiKey = typed ?? Credentials.key(for: providerID)
         var probe = BurnKey(id: "test-\(providerID)", name: Providers.label(for: providerID), provider: providerID)
 
         if providerID == "custom" {

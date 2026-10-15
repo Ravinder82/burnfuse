@@ -115,4 +115,30 @@ final class KeyShapeTests: XCTestCase {
     func testTheCheckLooksPastPasteJunk() {
         XCTAssertEqual(KeyShape.check("\"Bearer sk-proj-abc\"", for: "openai").severity, .warning)
     }
+
+    /// The second most common reason a pasted key "does not work": it is the
+    /// stand-in from a `.env.example` or a doc snippet, copied verbatim.
+    func testThePlaceholderFromASampleFileIsNamedForWhatItIs() {
+        for placeholder in [
+            "your_openrouter_api_key_here",
+            "your_api_key",
+            "<YOUR_OPENAI_ADMIN_KEY>",
+            "sk-or-v1-...",
+            "sk-xxxxxxxxxxxxxxxx",
+            "changeme",
+            "REPLACE_ME",
+        ] {
+            let verdict = KeyShape.check(placeholder, for: "openrouter")
+            XCTAssertEqual(verdict.severity, .warning, placeholder)
+            XCTAssertTrue(verdict.message?.contains("placeholder") ?? false, "\(placeholder): \(verdict.message ?? "")")
+        }
+    }
+
+    /// A warning on a good key is worse than no warning, so real shapes stay
+    /// quiet even though they are long and made-up looking.
+    func testARealLookingKeyIsNotMistakenForAPlaceholder() {
+        XCTAssertEqual(KeyShape.check("sk-or-v1-0123456789abcdef0123456789abcdef", for: "openrouter"), KeyShape.fine)
+        XCTAssertEqual(KeyShape.check("sk-ant-admin01-abcDEF123", for: "anthropic"), KeyShape.fine)
+        XCTAssertEqual(KeyShape.check("gsk_0123456789abcdef", for: "groq"), KeyShape.fine)
+    }
 }
