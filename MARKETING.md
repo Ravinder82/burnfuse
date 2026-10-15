@@ -21,8 +21,8 @@ from the product. Run `./scripts/screenshots.sh` to regenerate the whole set.
 | `assets/window-overview-light.png` | 900×620 | Light-mode shot |
 | `assets/window-breach-dark.png` | 900×700 | "The moment it matters" — the trip |
 | `assets/window-insights-dark.png` | 900×620 | What the breaker saved you |
-| `assets/window-settings-dark.png` | 900×980 | Feature shot — caps, live data, sensitivity |
-| `assets/window-settings-light.png` | 900×980 | Light-mode feature shot |
+| `assets/window-settings-dark.png` | 900×1600 | Feature shot — provider keys, caps, readings, sensitivity |
+| `assets/window-settings-light.png` | 900×1600 | Light-mode feature shot |
 
 ## Where each one is used
 
@@ -45,3 +45,18 @@ from the product. Run `./scripts/screenshots.sh` to regenerate the whole set.
 - Click it and you get a miniature of the app — live burn, the trend, every watched key —
   without leaving what you were doing.
 - Native macOS, everything on your Mac. No account, no telemetry, no server.
+
+## What to lead with
+
+- **"It reads the number itself."** Paste a read-only key for OpenAI or OpenRouter and
+  BurnFuse pulls spend from the provider's own cost endpoint every minute. No scripts, no
+  terminal, no pasting a number by hand every hour.
+- **"It tells you the two things that break a key."** The Settings row that takes your
+  OpenAI key knows the difference between an Admin key and a standard project key, and
+  says so where you typed it — before a failing read a minute later. A provider that has
+  moved its cost endpoint is tried at its other address before BurnFuse blames anything.
+- **"Count-up providers tell you they are measuring."** Some endpoints return a running
+  total rather than a rate, so BurnFuse takes a baseline and shows your first real hourly
+  figure on the second read, saying so while it works it out instead of inventing a number.
+- **"Nothing is a dead end."** Providers with no public cost read are listed with what to
+  do instead — log a reading, or point BurnFuse at a cost endpoint of your own.

@@ -35,32 +35,85 @@ public enum Credentials {
     /// The key for a provider, preferring the environment over the local file.
     public static func key(for provider: String) -> String? {
         if let name = environmentVariable(for: provider),
-           let value = ProcessInfo.processInfo.environment[name],
-           !value.isEmpty {
+           let value = sanitize(ProcessInfo.processInfo.environment[name] ?? "") {
             return value
         }
-        let stored = readAll()[provider]
-        return (stored?.isEmpty == false) ? stored : nil
+        let stored = sanitize(readAll()[provider] ?? "")
+        return stored
+    }
+
+    /// Whether this provider's key came from the environment rather than the
+    /// key file. The settings row says so: a key you cannot see being quietly
+    /// overridden is a "my pasted key does not work" bug report waiting to
+    /// happen.
+    public static func isFromEnvironment(for provider: String) -> Bool {
+        guard let name = environmentVariable(for: provider) else { return false }
+        return sanitize(ProcessInfo.processInfo.environment[name] ?? "") != nil
     }
 
     public static func hasAny() -> Bool {
         !readAll().isEmpty
             || Providers.all.contains { provider in
                 guard let name = environmentVariable(for: provider.id) else { return false }
-                return !(ProcessInfo.processInfo.environment[name]?.isEmpty ?? true)
+                return sanitize(ProcessInfo.processInfo.environment[name] ?? "") != nil
             }
     }
 
     /// Store (or clear, when empty) a provider's key.
     public static func set(_ value: String?, for provider: String) {
         var all = readAll()
-        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if trimmed.isEmpty {
+        let cleaned = sanitize(value ?? "")
+        if cleaned == nil {
             all.removeValue(forKey: provider)
         } else {
-            all[provider] = trimmed
+            all[provider] = cleaned
         }
         write(all)
+    }
+
+    /// Normalise a pasted key so the junk people actually paste becomes a key
+    /// the provider will accept:
+    ///
+    ///   - surrounding whitespace and newlines from a copy-paste
+    ///   - a `Bearer ` scheme already on the clipboard
+    ///   - wrapping quotes, straight, smart, or mismatched, from a JSON file or
+    ///     a chat message
+    ///
+    /// A real key cannot carry any of those, so stripping them can only ever
+    /// help. They arrive together in either order — `"Bearer sk-…"` — so this
+    /// keeps going until nothing more comes off. Returns nil when nothing is
+    /// left.
+    public static func sanitize(_ raw: String) -> String? {
+        var value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if value.isEmpty { return nil }
+
+        let schemes = ["Bearer ", "bearer ", "BEARER ", "Token ", "token ", "TOKEN "]
+        let quotes: Set<Character> = ["\"", "'", "\u{201C}", "\u{201D}", "\u{2018}", "\u{2019}", "«", "»"]
+
+        var changed = true
+        while changed {
+            changed = false
+
+            for scheme in schemes where value.hasPrefix(scheme) {
+                value = value.dropFirst(scheme.count).trimmingCharacters(in: .whitespaces)
+                changed = true
+            }
+
+            if value.count > 1,
+               let first = value.first, let last = value.last,
+               quotes.contains(first), quotes.contains(last) {
+                value = String(value.dropFirst().dropLast()).trimmingCharacters(in: .whitespaces)
+                changed = true
+            }
+        }
+
+        // An inner newline is always a mis-paste of two things, and would make
+        // the request itself malformed.
+        value = value
+            .replacingOccurrences(of: "\r", with: "")
+            .replacingOccurrences(of: "\n", with: "")
+
+        return value.isEmpty ? nil : value
     }
 
     // MARK: - Disk

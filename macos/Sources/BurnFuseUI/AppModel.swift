@@ -31,6 +31,10 @@ public final class AppModel: ObservableObject {
     private var pollTick: Timer?
     private var pollSeconds: TimeInterval = 0
 
+    /// Injectable clock, so the rate maths can be shown to work without waiting
+    /// an hour to find out.
+    public var clock: () -> Date = { Date() }
+
     public init(stateURL: URL? = nil, pollInterval: TimeInterval = 4) {
         self.stateURL = stateURL ?? AppModel.defaultStateURL()
         self.state = AppModel.read(from: self.stateURL)
@@ -130,23 +134,31 @@ public final class AppModel: ObservableObject {
 
     private var lastLiveRead: Date?
 
-    /// Read live spend for every key that supports it, then record the results.
-    public func refreshLive() async {
+    /// Read live spend for every key that supports it, then record what we
+    /// learned.
+    ///
+    /// Providers that report a running total rather than a rate need two reads:
+    /// the first saves a baseline and records nothing, the next one turns the
+    /// difference into an hourly figure the engine can compare against a cap.
+    public func refreshLive(session: URLSession = .shared) async {
         guard !isRefreshing else { return }
         isRefreshing = true
         defer { isRefreshing = false; lastLiveRead = Date(); pollProgress = 0 }
 
         var messages: [String] = []
-        var readAny = false
         for key in state.entries where key.armed && !key.isTripped {
             guard SpendSource.canReadLive(key) else { continue }
-            let result = await SpendPoller.fetch(key, apiKey: Credentials.key(for: key.provider))
-            if result.ok, let cost = result.cost {
-                record(keyID: key.id, cost: cost)
-                readAny = true
-                messages.append("\(key.name): \(Fmt.perHour(cost))")
-            } else {
+            let result = await SpendPoller.fetch(key, apiKey: Credentials.key(for: key.provider), session: session)
+            guard result.ok, let figure = result.cost else {
                 messages.append("\(key.name): \(result.message)")
+                continue
+            }
+
+            if SpendSource.measuresTotal(key) {
+                messages.append(absorb(keyID: key.id, total: figure))
+            } else {
+                record(keyID: key.id, cost: figure)
+                messages.append("\(key.name): \(Fmt.perHour(figure))")
             }
         }
 
@@ -154,7 +166,33 @@ public final class AppModel: ObservableObject {
         lastReadMessage = messages.isEmpty
             ? "No key is set up for a live read yet. Log a reading instead."
             : messages.prefix(3).joined(separator: "\n")
-        _ = readAny
+    }
+
+    /// Store a provider's running total against a key, and record an hourly
+    /// rate as soon as there are two to compare. Returns the line the user
+    /// should see for this key.
+    @discardableResult
+    private func absorb(keyID: String, total: Double) -> String {
+        guard let index = state.entries.firstIndex(where: { $0.id == keyID }) else { return "" }
+        let name = state.entries[index].name
+        let nowMs = clock().timeIntervalSince1970 * 1000
+        let rate = state.entries[index].burnRate(fromCumulative: total, at: nowMs)
+
+        state.entries[index].lastCumulative = total
+        state.entries[index].lastCumulativeAt = nowMs
+        persist()
+
+        switch rate {
+        case .hours(let hourly):
+            record(keyID: keyID, cost: hourly)
+            return "\(name): \(Fmt.perHour(hourly))"
+        case .rebased:
+            // A billing day rolled over mid-session. Re-baseline rather than
+            // record a negative rate.
+            return "\(name): its counter reset — first rate comes on the next check"
+        case .unmeasured:
+            return "\(name): baseline saved — first rate comes on the next check"
+        }
     }
 
     // MARK: - Queries
@@ -214,20 +252,24 @@ public final class AppModel: ObservableObject {
         Task { await SpendPoller.notify(webhook: webhook, text: text) }
     }
 
-    /// Point a key at a custom cost endpoint (and optional JSON path).
-    public func setSource(keyID: String, spendUrl: String?, jsonPath: String?) {
+    /// Point a key at a custom cost endpoint. An empty string clears that
+    /// field; nil leaves whatever is already there alone.
+    public func setSource(keyID: String, spendUrl: String?, jsonPath: String?, header: String? = nil, measures: String? = nil) {
         guard let index = state.entries.firstIndex(where: { $0.id == keyID }) else { return }
-        let trimmedURL = spendUrl?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedPath = jsonPath?.trimmingCharacters(in: .whitespacesAndNewlines)
-        if (trimmedURL?.isEmpty ?? true) && (trimmedPath?.isEmpty ?? true) {
-            state.entries[index].source = nil
-        } else {
-            state.entries[index].source = KeySource(
-                spendUrl: trimmedURL?.isEmpty == true ? nil : trimmedURL,
-                jsonPath: trimmedPath?.isEmpty == true ? nil : trimmedPath
-            )
-        }
+        var source = state.entries[index].source ?? KeySource()
+
+        if let spendUrl { source.spendUrl = emptyToNil(spendUrl) }
+        if let jsonPath { source.jsonPath = emptyToNil(jsonPath) }
+        if let header { source.header = emptyToNil(header) }
+        if let measures { source.measures = emptyToNil(measures) }
+
+        state.entries[index].source = source.isEmpty ? nil : source
         persist()
+    }
+
+    private func emptyToNil(_ value: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     public func setCap(keyID: String, cap: Double) {
@@ -266,12 +308,21 @@ public final class AppModel: ObservableObject {
     }
 
     @discardableResult
-    public func addKey(name: String, provider: String, cap: Double, spendUrl: String? = nil, jsonPath: String? = nil) -> BurnKey {
+    public func addKey(
+        name: String,
+        provider: String,
+        cap: Double,
+        spendUrl: String? = nil,
+        jsonPath: String? = nil,
+        header: String? = nil,
+        measures: String? = nil
+    ) -> BurnKey {
         var key = BurnEngine.addKey(&state, name: name, provider: provider, cap: cap)
-        if spendUrl != nil || jsonPath != nil {
-            key.source = KeySource(spendUrl: spendUrl, jsonPath: jsonPath)
+        let source = KeySource(spendUrl: spendUrl, jsonPath: jsonPath, header: header, measures: measures)
+        if !source.isEmpty {
+            key.source = source
             if let index = state.entries.firstIndex(where: { $0.id == key.id }) {
-                state.entries[index].source = key.source
+                state.entries[index].source = source
             }
         }
         persist()

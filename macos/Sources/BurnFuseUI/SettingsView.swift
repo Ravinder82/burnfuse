@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Settings: the whole app's configuration in one scroll. Keys, live data,
-/// sensitivity, and alerts — nothing hidden behind submenus.
+/// Settings: the whole app's configuration in one scroll. Keys, provider
+/// credentials, live data, sensitivity, and alerts — nothing hidden behind
+/// submenus.
 public struct SettingsView: View {
     @ObservedObject var model: AppModel
     var width: CGFloat? = 460
@@ -16,13 +17,16 @@ public struct SettingsView: View {
     @State private var newCap: String = "5"
     @State private var newSpendURL: String = ""
     @State private var newJSONPath: String = ""
+    @State private var newHeader: String = ""
+    @State private var newMeasures: String = "rate"
     @State private var webhookDraft: String = ""
 
     @State private var logKeyID: String = ""
     @State private var logCost: String = ""
 
-    @State private var openAIKeyDraft: String = ""
-    @State private var openRouterKeyDraft: String = ""
+    /// One draft per provider, so the credential rows are generated from the
+    /// provider list rather than hand-written one at a time.
+    @State private var keyDrafts: [String: String] = [:]
     @State private var keysVersion: Int = 0
 
     public init(model: AppModel, width: CGFloat? = 460, scrollable: Bool = true, displayStatePath: String? = nil) {
@@ -51,7 +55,7 @@ public struct SettingsView: View {
     private var content: some View {
         VStack(alignment: .leading, spacing: DS.Space.lg) {
             keysSection
-            liveDataSection
+            providerKeysSection
             logReadingSection
             sensitivitySection
             alertsSection
@@ -80,7 +84,10 @@ public struct SettingsView: View {
 
             Card(padding: DS.Space.md) {
                 VStack(alignment: .leading, spacing: DS.Space.sm) {
-                    Text("Add a key").font(.subheadline.weight(.semibold))
+                    Text("Watch a key").font(.subheadline.weight(.semibold))
+                    Text("Name the thing you want a breaker on, then give it a cap in dollars an hour.")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
                     HStack(spacing: DS.Space.sm) {
                         TextField("Name", text: $newName)
                             .textFieldStyle(.roundedBorder)
@@ -104,21 +111,49 @@ public struct SettingsView: View {
                         PrimaryButton("Add", enabled: !newName.trimmingCharacters(in: .whitespaces).isEmpty) { addKey() }
                     }
 
-                    // Custom endpoints can name their own read-only cost URL.
+                    // A custom endpoint names its own read-only cost URL.
                     if newProvider == "custom" {
-                        HStack(spacing: DS.Space.sm) {
-                            TextField("https://example.com/cost.json", text: $newSpendURL)
-                                .textFieldStyle(.roundedBorder)
-                            TextField("data.total", text: $newJSONPath)
-                                .textFieldStyle(.roundedBorder)
-                                .frame(width: 130)
-                        }
-                        Text("Optional: a URL that returns a dollar amount, and where it sits in the JSON.")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
+                        customEndpointFields
                     }
                 }
             }
+        }
+    }
+
+    /// The extra fields a custom endpoint needs: where to read, where the dollar
+    /// figure sits, how to send the key, and whether it counts up.
+    private var customEndpointFields: some View {
+        VStack(alignment: .leading, spacing: DS.Space.sm) {
+            HStack(spacing: DS.Space.sm) {
+                TextField("https://example.com/cost.json", text: $newSpendURL)
+                    .textFieldStyle(.roundedBorder)
+                TextField("data.total", text: $newJSONPath)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 130)
+            }
+            if let warning = urlWarning {
+                Text(warning)
+                    .font(.caption2)
+                    .foregroundStyle(DS.Tone.watch)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            HStack(spacing: DS.Space.sm) {
+                Text("Header").font(.caption).foregroundStyle(.secondary)
+                TextField("Authorization", text: $newHeader)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 130)
+                Spacer(minLength: DS.Space.sm)
+                Picker("", selection: $newMeasures) {
+                    Text("Reports a rate").tag("rate")
+                    Text("Counts up").tag("total")
+                }
+                .labelsHidden()
+                .frame(width: 150)
+            }
+            Text("A URL that returns a dollar amount, and where it sits in the JSON. The key is sent as Bearer under Authorization, or on its own under any other header you name — that is how an endpoint wanting x-api-key gets wired up. If it counts money up rather than reporting an hourly figure, say so and BurnFuse will work the rate out from two reads.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -219,14 +254,19 @@ public struct SettingsView: View {
         }
     }
 
-    // MARK: Live data
+    // MARK: Provider credentials
 
     /// How the app keeps itself current: read spend straight from the provider,
     /// or paste a number. Both are first-class; neither needs a terminal.
-    private var liveDataSection: some View {
+    ///
+    /// The rows are generated from the provider list, so adding a provider means
+    /// adding it there — not a new hand-written block here. Every provider we
+    /// know about gets a place to put its key, and every row says plainly what
+    /// that key will and will not do.
+    private var providerKeysSection: some View {
         Card {
-            VStack(alignment: .leading, spacing: DS.Space.sm) {
-                SectionHeader("Live data", subtitle: "Pull spend straight from the provider") {
+            VStack(alignment: .leading, spacing: DS.Space.md) {
+                SectionHeader("Provider keys", subtitle: "What BurnFuse reads spend with") {
                     LinkButton("Refresh now") { Task { await model.refreshLive() } }
                 }
                 Text("BurnFuse reads a read-only cost figure with a key you paste here. Keys are stored on this Mac only, owner-readable, and never leave it.")
@@ -234,20 +274,22 @@ public struct SettingsView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                credentialField(
-                    "OpenAI admin key",
-                    hint: "Used for the organization costs API.",
-                    draft: $openAIKeyDraft,
-                    provider: "openai"
-                )
-                credentialField(
-                    "OpenRouter key",
-                    hint: "Reads live credit usage.",
-                    draft: $openRouterKeyDraft,
-                    provider: "openrouter"
-                )
+                ForEach(Providers.all.filter(\.supportsLiveSpend)) { provider in
+                    credentialRow(provider)
+                }
 
-                Text("Read every 60 seconds while BurnFuse is running. OpenRouter needs a standard key; OpenAI needs an Admin key.")
+                Divider().opacity(0.6)
+
+                Text("These have no public spend read, so a key would do nothing here. Watch the key anyway and log its readings instead — or point a custom endpoint at a number of your own.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ForEach(Providers.all.filter { !$0.supportsLiveSpend }) { provider in
+                    manualOnlyRow(provider)
+                }
+
+                Text("Read every 60 seconds while BurnFuse is running. Providers that count spend up rather than reporting an hourly figure need two reads: the first saves a baseline, the next one gives you a rate.")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -256,35 +298,112 @@ public struct SettingsView: View {
         .id(keysVersion)
     }
 
-    private func credentialField(_ label: String, hint: String, draft: Binding<String>, provider: String) -> some View {
-        VStack(alignment: .leading, spacing: DS.Space.xxs) {
+    private func credentialRow(_ provider: Provider) -> some View {
+        let stored = Credentials.key(for: provider.id)
+        let fromEnvironment = Credentials.isFromEnvironment(for: provider.id)
+        let verdict = KeyShape.check(keyDrafts[provider.id] ?? "", for: provider.id)
+
+        return VStack(alignment: .leading, spacing: DS.Space.xxs) {
             HStack(spacing: DS.Space.sm) {
-                Text(label).font(.caption).foregroundStyle(.secondary)
+                Image(systemName: provider.symbol)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 14)
+                Text(provider.label).font(.caption.weight(.medium))
                 Spacer()
-                if Credentials.key(for: provider) != nil {
-                    StatusChip(text: "Set", systemImage: "checkmark.seal.fill", tone: DS.Tone.calm)
+                if stored != nil {
+                    StatusChip(text: "Stored", systemImage: "checkmark.seal.fill", tone: DS.Tone.calm)
                 }
             }
+
             HStack(spacing: DS.Space.sm) {
-                SecureField(hint, text: draft)
+                SecureField(provider.keyLabel, text: draftBinding(for: provider.id))
                     .textFieldStyle(.roundedBorder)
-                SecondaryButton("Save") { saveCredential(provider: provider, value: draft.wrappedValue, draft: draft) }
-                if Credentials.key(for: provider) != nil {
-                    IconButton("trash", help: "Remove \(label)") {
-                        Credentials.set(nil, for: provider)
-                        draft.wrappedValue = ""
-                        keysVersion += 1
-                    }
+                SecondaryButton("Save") { saveCredential(provider: provider) }
+                if stored != nil {
+                    IconButton("trash", help: "Remove the \(provider.label) key") { removeCredential(provider: provider) }
+                }
+            }
+
+            // Warn about a key that is the wrong kind before it costs a failed
+            // read; otherwise say what this key is actually for.
+            if verdict.severity == .warning, let message = verdict.message {
+                Text(message)
+                    .font(.caption2)
+                    .foregroundStyle(DS.Tone.watch)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Text(provider.keyHint)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if stored != nil, fromEnvironment,
+                   let variable = Credentials.environmentVariable(for: provider.id) {
+                    Text("Using \(variable) from your environment.")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
     }
 
-    private func saveCredential(provider: String, value: String, draft: Binding<String>) {
-        Credentials.set(value, for: provider)
-        draft.wrappedValue = ""
+    /// A provider with no public spend read. No key field on purpose: a Save
+    /// button beside "log a reading instead" would be a control that does
+    /// nothing, and that is worse than saying plainly what to do.
+    private func manualOnlyRow(_ provider: Provider) -> some View {
+        VStack(alignment: .leading, spacing: DS.Space.xxs) {
+            HStack(spacing: DS.Space.sm) {
+                Image(systemName: provider.symbol)
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .frame(width: 14)
+                Text(provider.label).font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                Spacer()
+                Text("Manual only")
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.tertiary)
+            }
+            Text(provider.keyHint)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func draftBinding(for provider: String) -> Binding<String> {
+        Binding(
+            get: { keyDrafts[provider] ?? "" },
+            set: { keyDrafts[provider] = $0 }
+        )
+    }
+
+    /// macOS blocks a plain-HTTP read before it ever leaves this machine, so a
+    /// custom endpoint that would be silently refused should be said out loud
+    /// rather than looking like a broken key.
+    private var urlWarning: String? {
+        let trimmed = newSpendURL.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return nil }
+        guard let url = URL(string: trimmed), url.host?.isEmpty == false else {
+            return "That is not a web address a Mac can open."
+        }
+        if url.scheme?.lowercased() == "http" {
+            return "Plain HTTP is blocked by macOS, so this would never be read. Use https, or an address on your own machine."
+        }
+        return nil
+    }
+
+    private func saveCredential(provider: Provider) {
+        Credentials.set(keyDrafts[provider.id] ?? "", for: provider.id)
+        keyDrafts[provider.id] = ""
         keysVersion += 1
         Task { await model.refreshLive() }
+    }
+
+    private func removeCredential(provider: Provider) {
+        Credentials.set(nil, for: provider.id)
+        keyDrafts[provider.id] = ""
+        keysVersion += 1
     }
 
     // MARK: Log a reading
@@ -294,7 +413,7 @@ public struct SettingsView: View {
             VStack(alignment: .leading, spacing: DS.Space.sm) {
                 SectionHeader("Log a reading", subtitle: "Type what a key is spending per hour right now")
                 if model.state.entries.isEmpty {
-                    Text("Add a key first, then log its burn here.")
+                    Text("Watch a key first, then log its burn here.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
@@ -359,14 +478,21 @@ public struct SettingsView: View {
         let name = newName.trimmingCharacters(in: .whitespaces)
         guard !name.isEmpty else { return }
         let cap = Double(newCap) ?? 5
-        let key = model.addKey(name: name, provider: newProvider, cap: max(0.01, cap))
-        if newProvider == "custom" && (!newSpendURL.isEmpty || !newJSONPath.isEmpty) {
-            model.setSource(keyID: key.id, spendUrl: newSpendURL, jsonPath: newJSONPath)
-        }
+        let isCustom = newProvider == "custom"
+        model.addKey(
+            name: name,
+            provider: newProvider,
+            cap: max(0.01, cap),
+            spendUrl: isCustom ? newSpendURL : nil,
+            jsonPath: isCustom ? newJSONPath : nil,
+            header: isCustom ? newHeader : nil,
+            measures: isCustom ? newMeasures : nil
+        )
         newName = ""
         newCap = "5"
         newSpendURL = ""
         newJSONPath = ""
+        newHeader = ""
     }
 
     private func logReading() {

@@ -18,8 +18,13 @@ export const providers = {
     blurb: "Organization costs API (read-only). Requires an Admin API key.",
     signal: "OPENAI_ADMIN_KEY",
     needsAdminKey: true,
+    // The costs API only buckets by day, so a 1d bucket is the money spent
+    // since UTC midnight. It climbs monotonically, which means two reads a
+    // little apart give a clean hourly rate.
+    measuresTotal: true,
+    fallbackUrls: [],
     spendUrl: () =>
-      `https://api.openai.com/v1/organization/costs?start_time=${Math.floor(Date.now() / 1000) - 3600}&bucket_width=1h&limit=1`,
+      `https://api.openai.com/v1/organization/costs?start_time=${Math.floor(Date.now() / 1000) - 3600}&bucket_width=1d&limit=1`,
     spendHeaders: (key) => ({ Authorization: `Bearer ${key}` }),
     parse: (json) => {
       const buckets = json?.data || [];
@@ -42,6 +47,8 @@ export const providers = {
     label: "OpenRouter",
     blurb: "Reads live credit usage. A standard OpenRouter key is enough.",
     signal: "OPENROUTER_API_KEY",
+    measuresTotal: true,
+    fallbackUrls: ["https://openrouter.ai/api/v1/key"],
     spendUrl: () => "https://openrouter.ai/api/v1/auth/key",
     spendHeaders: (key) => ({ Authorization: `Bearer ${key}` }),
     parse: (json) => Number(json?.data?.usage || 0),
@@ -75,8 +82,18 @@ export const providers = {
     label: "Custom endpoint",
     blurb: "Any URL that returns a dollar number. Point BurnFuse at a JSON path.",
     signal: null,
+    // Set by the user when they add the key: "rate" (the endpoint already
+    // reports $/hr) or "total" (it counts up and needs two reads).
+    measuresTotal: false,
+    fallbackUrls: [],
     spendUrl: (entry) => entry.source?.spendUrl || null,
-    spendHeaders: (key) => (key ? { Authorization: `Bearer ${key}` } : {}),
+    // A source may name its own header, which is how an endpoint wanting
+    // x-api-key instead of a bearer token gets wired up.
+    spendHeaders: (key, entry) => {
+      if (!key) return {};
+      const header = entry?.source?.header?.trim() || "Authorization";
+      return { [header]: header.toLowerCase() === "authorization" ? `Bearer ${key}` : key };
+    },
     parse: null,
     killUrl: (entry) => entry.source?.killUrl || null,
     killMethod: "POST",

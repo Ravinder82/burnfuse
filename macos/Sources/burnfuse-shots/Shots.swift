@@ -97,10 +97,12 @@ struct BurnFuseShots {
               captureWindow(.overview, breach, .dark, height: 700))
         write("window-insights-dark", to: dir,
               captureWindow(.insights, breach, .dark, height: 620))
+        // Settings is the tallest section, and the pane is a scroll: capture
+        // enough of it that every section in it is on show.
         write("window-settings-dark", to: dir,
-              captureWindow(.settings, health, .dark, height: 980))
+              captureWindow(.settings, health, .dark, height: 1600, displayStatePath: Self.canonicalStatePath))
         write("window-settings-light", to: dir,
-              captureWindow(.settings, health, .light, height: 980))
+              captureWindow(.settings, health, .light, height: 1600, displayStatePath: Self.canonicalStatePath))
 
         // Marketing: the menu-bar glance, and a social card built from the real
         // window render.
@@ -127,14 +129,32 @@ struct BurnFuseShots {
         _ model: AppModel,
         _ scheme: ColorScheme,
         width: CGFloat = 900,
-        height: CGFloat
+        height: CGFloat,
+        displayStatePath: String? = nil
     ) -> NSImage? {
         let nav = AppNavigation(section: section)
+        // Settings prints the state file's location, and the renderer points the
+        // model at a throwaway temp file. Show the real one instead of leaking
+        // a path that exists on nobody's Mac.
+        let settings = SettingsView(model: model, scrollable: true, displayStatePath: displayStatePath)
         let view = WindowChrome(title: "BurnFuse", scheme: scheme) {
-            RootView(model: model, nav: nav)
+            switch section {
+            case .settings:
+                AnyView(settings)
+            default:
+                AnyView(RootView(model: model, nav: nav))
+            }
         }
         return capture(AnyView(view), scheme: scheme, width: width, height: height)
     }
+
+    /// Where the app really writes state, so an explainer screenshot can say so
+    /// without leaking the temp file the renderer actually used.
+    static let canonicalStatePath: String = {
+        let home = NSHomeDirectory()
+        let path = home + "/.burnfuse/state.json"
+        return path.hasPrefix(home) ? "~" + path.dropFirst(home.count) : path
+    }()
 
     /// A realistic macOS menu bar with the live BurnFuse item in place.
     @MainActor static func captureMenuBar(colorScheme: ColorScheme, breached: Bool = false, model: AppModel? = nil) -> NSImage? {

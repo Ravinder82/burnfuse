@@ -34,12 +34,41 @@ public struct KeySource: Codable, Hashable, Sendable {
     public var spendUrl: String?
     public var jsonPath: String?
     public var killUrl: String?
+    /// A request header to send the key under, for endpoints that do not want
+    /// `Authorization: Bearer …`.
+    public var header: String?
+    /// "rate" when the endpoint already reports dollars per hour, or "total"
+    /// when it counts money up and BurnFuse has to divide by the time between
+    /// two reads.
+    public var measures: String?
 
-    public init(spendUrl: String? = nil, jsonPath: String? = nil, killUrl: String? = nil) {
+    public init(spendUrl: String? = nil, jsonPath: String? = nil, killUrl: String? = nil, header: String? = nil, measures: String? = nil) {
         self.spendUrl = spendUrl
         self.jsonPath = jsonPath
         self.killUrl = killUrl
+        self.header = header
+        self.measures = measures
     }
+
+    /// True when nothing here configures a live read.
+    public var isEmpty: Bool {
+        [spendUrl, jsonPath, killUrl, header, measures].allSatisfy { $0?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true }
+    }
+}
+
+/// What a provider's latest running total says about the burn rate.
+///
+/// Both OpenAI and OpenRouter count money up rather than reporting a rate, so a
+/// single read means nothing. Two reads a little apart give a clean number.
+public enum BurnRate: Equatable, Sendable {
+    /// The first read for this key, or two reads that landed in the same
+    /// instant. Nothing to compare against yet.
+    case unmeasured
+    /// The provider's counter went backwards — a billing day rolled over — so
+    /// the comparison would be meaningless.
+    case rebased
+    /// Dollars per hour.
+    case hours(Double)
 }
 
 public struct BurnKey: Codable, Identifiable, Hashable, Sendable {
@@ -55,6 +84,10 @@ public struct BurnKey: Codable, Identifiable, Hashable, Sendable {
     public var trippedAt: Double?
     public var createdAt: Double
     public var source: KeySource?
+    /// The last running total the provider reported, for providers that count
+    /// money up. Kept so an hourly rate survives an app restart.
+    public var lastCumulative: Double?
+    public var lastCumulativeAt: Double?
 
     public var isTripped: Bool { status == "tripped" }
     public var isArmed: Bool { armed && !isTripped }
@@ -66,6 +99,22 @@ public struct BurnKey: Codable, Identifiable, Hashable, Sendable {
     }
 
     public var burnHistory: [Double] { readings.map(\.cost) }
+
+    /// What a provider's latest running total says about the hourly rate.
+    public func burnRate(fromCumulative total: Double, at nowMs: Double) -> BurnRate {
+        guard let previous = lastCumulative, let previousAt = lastCumulativeAt,
+              previousAt < nowMs else {
+            return .unmeasured
+        }
+
+        let change = total - previous
+        guard change >= 0 else { return .rebased }
+
+        let hours = (nowMs - previousAt) / 3_600_000
+        guard hours > 0 else { return .unmeasured }
+
+        return .hours(change / hours)
+    }
 
     public init(
         id: String,
@@ -79,7 +128,9 @@ public struct BurnKey: Codable, Identifiable, Hashable, Sendable {
         lastReading: Double = 0,
         trippedAt: Double? = nil,
         createdAt: Double = Date().timeIntervalSince1970 * 1000,
-        source: KeySource? = nil
+        source: KeySource? = nil,
+        lastCumulative: Double? = nil,
+        lastCumulativeAt: Double? = nil
     ) {
         self.id = id
         self.name = name
@@ -93,11 +144,14 @@ public struct BurnKey: Codable, Identifiable, Hashable, Sendable {
         self.trippedAt = trippedAt
         self.createdAt = createdAt
         self.source = source
+        self.lastCumulative = lastCumulative
+        self.lastCumulativeAt = lastCumulativeAt
     }
 
     enum CodingKeys: String, CodingKey {
         case id, name, provider, hourlyLimit, armed, autoKill, status
         case readings, lastReading, trippedAt, createdAt, source
+        case lastCumulative, lastCumulativeAt
     }
 
     public init(from decoder: Decoder) throws {
@@ -114,6 +168,8 @@ public struct BurnKey: Codable, Identifiable, Hashable, Sendable {
         trippedAt = try c.decodeIfPresent(Double.self, forKey: .trippedAt)
         createdAt = try c.decodeIfPresent(Double.self, forKey: .createdAt) ?? 0
         source = try c.decodeIfPresent(KeySource.self, forKey: .source)
+        lastCumulative = try c.decodeIfPresent(Double.self, forKey: .lastCumulative)
+        lastCumulativeAt = try c.decodeIfPresent(Double.self, forKey: .lastCumulativeAt)
     }
 }
 

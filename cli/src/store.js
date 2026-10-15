@@ -54,6 +54,8 @@ function normalizeEntry(e) {
     lastReading: num(e.lastReading, 0),
     trippedAt: e.trippedAt || null,
     createdAt: e.createdAt || Date.now(),
+    lastCumulative: Number.isFinite(Number(e.lastCumulative)) ? Number(e.lastCumulative) : null,
+    lastCumulativeAt: Number.isFinite(Number(e.lastCumulativeAt)) ? Number(e.lastCumulativeAt) : null,
   };
 }
 

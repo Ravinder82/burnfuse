@@ -9,7 +9,7 @@ import {
   resolveEntry,
 } from "./store.js";
 import { assess, money, multiple, projectBurn } from "./stats.js";
-import { fetchSpend, notify } from "./poll.js";
+import { fetchSpend, measuresTotal, rateFromTotal, notify } from "./poll.js";
 import { scanEnvFiles } from "./env.js";
 import { providerList, getProvider } from "./providers.js";
 import {
@@ -289,6 +289,20 @@ async function cmdPoll(state, positional, flags) {
         console.log(note(`Use ${c.bold(`burnfuse record ${entry.id} <$/hr>`)} instead.`));
       }
       continue;
+    }
+    // A count-up endpoint reports a running total, not an hourly rate. Record
+    // the total as a baseline first; the next poll turns the difference into a
+    // rate. Reporting the raw total as $/hr is what made a key look broken.
+    if (measuresTotal(entry)) {
+      const now = Date.now();
+      const rate = rateFromTotal(result.cost, entry.lastTotal, entry.lastTotalAt, now);
+      entry.lastTotal = result.cost;
+      entry.lastTotalAt = now;
+      if (rate === null) {
+        console.log(`  ${c.blue("·")} ${entry.name} ${c.gray("— baseline saved, first rate on the next check")}`);
+        continue;
+      }
+      result.cost = rate;
     }
     entry.readings.push({ at: Date.now(), cost: result.cost, model: "live" });
     entry.readings = entry.readings.slice(-500);

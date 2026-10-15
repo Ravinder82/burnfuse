@@ -10,13 +10,20 @@ public enum SpendSource {
     /// The outcome of a live read. Never throws: the UI shows the message.
     public struct LiveResult: Sendable {
         public var ok: Bool
+        /// The dollar figure the provider returned. For a provider that counts
+        /// money up rather than reporting a rate — see `measuresTotal` — this is
+        /// that running total, and turning it into `$/hr` is the model's job.
         public var cost: Double?
         public var message: String
+        /// The HTTP status, when the provider answered. A dead endpoint should
+        /// never read as a rejected key, so the fetcher distinguishes them.
+        public var status: Int?
 
-        public init(ok: Bool, cost: Double? = nil, message: String) {
+        public init(ok: Bool, cost: Double? = nil, message: String, status: Int? = nil) {
             self.ok = ok
             self.cost = cost
             self.message = message
+            self.status = status
         }
     }
 
@@ -24,17 +31,37 @@ public enum SpendSource {
     public static func endpoint(for key: BurnKey) -> URL? {
         // An explicit source on the key always wins.
         if let raw = key.source?.spendUrl?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !raw.isEmpty, let url = URL(string: raw) {
+            !raw.isEmpty, let url = URL(string: raw) {
             return url
         }
         switch key.provider {
         case "openai":
+            // The costs API only buckets by day. A 1-day bucket is the money
+            // spent since UTC midnight, which climbs monotonically — so two
+            // reads a little apart give a clean hourly rate. Asking for an
+            // hourly bucket is rejected outright.
             let since = Int(Date().timeIntervalSince1970) - 3600
-            return URL(string: "https://api.openai.com/v1/organization/costs?start_time=\(since)&bucket_width=1h&limit=1")
+            return URL(string: "https://api.openai.com/v1/organization/costs?start_time=\(since)&bucket_width=1d&limit=1")
         case "openrouter":
             return URL(string: "https://openrouter.ai/api/v1/auth/key")
         default:
             return nil
+        }
+    }
+
+    /// Where else to try if the primary endpoint has moved. Providers relocate
+    /// these paths without telling anyone, and a 404 there is a dead address,
+    /// not a dead key.
+    public static func fallbackEndpoints(for key: BurnKey) -> [URL] {
+        guard key.source?.spendUrl?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true else {
+            return []
+        }
+        switch key.provider {
+        case "openrouter":
+            if let url = URL(string: "https://openrouter.ai/api/v1/key") { return [url] }
+            return []
+        default:
+            return []
         }
     }
 
@@ -43,9 +70,48 @@ public enum SpendSource {
         endpoint(for: key) != nil
     }
 
-    static func headers(for provider: String, apiKey: String?) -> [String: String] {
-        guard let apiKey, !apiKey.isEmpty else { return [:] }
-        return ["Authorization": "Bearer \(apiKey)"]
+    /// Whether this provider counts money up rather than reporting an hourly
+    /// figure. Both are dollar numbers to the model; only one of them needs
+    /// two reads before it means anything.
+    public static func measuresTotal(_ key: BurnKey) -> Bool {
+        if let measures = key.source?.measures?.trimmingCharacters(in: .whitespaces) {
+            return measures == "total"
+        }
+        switch key.provider {
+        case "openai", "openrouter":
+            return true
+        default:
+            return false
+        }
+    }
+
+    static func headers(for key: BurnKey, apiKey: String?) -> [String: String] {
+        var headers: [String: String] = [:]
+
+        // Anthropic authenticates with a header of its own, and asks for a
+        // version alongside it.
+        if key.provider == "anthropic" {
+            headers["anthropic-version"] = "2023-06-01"
+        }
+
+        guard let apiKey, !apiKey.isEmpty else { return headers }
+
+        // A custom source can name its own header, which is how endpoints that
+        // want `x-api-key` or `api-key` instead of a bearer token get wired up.
+        if let custom = key.source?.header?.trimmingCharacters(in: .whitespaces), !custom.isEmpty {
+            headers[custom] = custom.caseInsensitiveCompare("Authorization") == .orderedSame
+                ? "Bearer \(apiKey)"
+                : apiKey
+            return headers
+        }
+
+        switch key.provider {
+        case "anthropic":
+            headers["x-api-key"] = apiKey
+        default:
+            headers["Authorization"] = "Bearer \(apiKey)"
+        }
+        return headers
     }
 
     /// Pull a dollar figure out of a decoded JSON body.

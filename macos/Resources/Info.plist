@@ -28,5 +28,15 @@
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>MIT licensed. burnfuse — a spend breaker for your AI keys.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<!--
+			A custom cost endpoint is the only place an unencrypted read is
+			ever useful — a dashboard you host on your own machine. Anything on
+			the open internet stays HTTPS-only.
+		-->
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 </dict>
 </plist>
