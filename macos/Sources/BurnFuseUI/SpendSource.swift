@@ -42,8 +42,19 @@ public enum SpendSource {
             // hourly bucket is rejected outright.
             let since = Int(Date().timeIntervalSince1970) - 3600
             return URL(string: "https://api.openai.com/v1/organization/costs?start_time=\(since)&bucket_width=1d&limit=1")
+        case "anthropic":
+            // The cost report is daily-only too, and wants an RFC 3339 window.
+            // Ask for the day we are in, so the single bucket it returns is
+            // today's running total.
+            let dayStart = Date(timeIntervalSince1970: (Date().timeIntervalSince1970 / 86_400).rounded(.down) * 86_400)
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime]
+            let startingAt = formatter.string(from: dayStart)
+            return URL(string: "https://api.anthropic.com/v1/organizations/cost_report?starting_at=\(startingAt)&bucket_width=1d&limit=1")
         case "openrouter":
-            return URL(string: "https://openrouter.ai/api/v1/auth/key")
+            // The documented endpoint. An older path (/auth/key) still answers
+            // on some accounts and is kept as a fallback.
+            return URL(string: "https://openrouter.ai/api/v1/key")
         default:
             return nil
         }
@@ -58,7 +69,9 @@ public enum SpendSource {
         }
         switch key.provider {
         case "openrouter":
-            if let url = URL(string: "https://openrouter.ai/api/v1/key") { return [url] }
+            // The path OpenRouter used before it settled on /api/v1/key. Old
+            // keys and older deployments may still answer here.
+            if let url = URL(string: "https://openrouter.ai/api/v1/auth/key") { return [url] }
             return []
         default:
             return []
@@ -73,12 +86,15 @@ public enum SpendSource {
     /// Whether this provider counts money up rather than reporting an hourly
     /// figure. Both are dollar numbers to the model; only one of them needs
     /// two reads before it means anything.
+    ///
+    /// All three live providers report a running total: OpenAI by day,
+    /// Anthropic by day, OpenRouter for the life of the account.
     public static func measuresTotal(_ key: BurnKey) -> Bool {
         if let measures = key.source?.measures?.trimmingCharacters(in: .whitespaces) {
             return measures == "total"
         }
         switch key.provider {
-        case "openai", "openrouter":
+        case "openai", "anthropic", "openrouter":
             return true
         default:
             return false
@@ -121,22 +137,35 @@ public enum SpendSource {
         }
         switch provider {
         case "openai":
-            guard let object = json as? [String: Any],
-                  let buckets = object["data"] as? [[String: Any]] else { return nil }
-            let total = buckets.reduce(0.0) { sum, bucket in
-                let results = bucket["results"] as? [[String: Any]] ?? []
-                return sum + results.reduce(0.0) { inner, result in
-                    let amount = result["amount"] as? [String: Any]
-                    return inner + (number(amount?["value"]) ?? 0)
-                }
-            }
-            return total
+            // A day bucket whose results each carry `amount.value`, already USD.
+            return sumDayResults(json) { number(($0["amount"] as? [String: Any])?["value"]) }
+        case "anthropic":
+            // The same day-bucket envelope, but the amount is a decimal string
+            // in cents — "123.45" is $1.23 — so a day total is a hundredth.
+            return sumDayResults(json) { number($0["amount"]) }.map { $0 / 100 }
         case "openrouter":
             guard let object = json as? [String: Any],
                   let data = object["data"] as? [String: Any] else { return nil }
-            return number(data["usage"])
+            // `usage` is all-time credits used, which only ever climbs — the
+            // most robust number to take a difference from. Older responses
+            // only carried the daily figure.
+            return number(data["usage"]) ?? number(data["usage_daily"])
         default:
             return nil
+        }
+    }
+
+    /// Add up one field across every result in every day bucket of a report.
+    /// OpenAI's and Anthropic's cost APIs share this envelope; only the field
+    /// holding the amount differs.
+    private static func sumDayResults(_ json: Any, _ extract: ([String: Any]) -> Double?) -> Double? {
+        guard let object = json as? [String: Any],
+              let buckets = object["data"] as? [[String: Any]] else { return nil }
+        return buckets.reduce(0.0) { sum, bucket in
+            let results = bucket["results"] as? [[String: Any]] ?? []
+            return sum + results.reduce(0.0) { inner, result in
+                inner + (extract(result) ?? 0)
+            }
         }
     }
 

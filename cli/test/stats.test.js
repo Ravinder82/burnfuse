@@ -72,6 +72,41 @@ test("providers parse their documented shapes", () => {
     2,
   );
   assert.equal(providers.openrouter.parse({ data: { usage: 4.2 } }), 4.2);
+  // Older OpenRouter responses only carried the daily counter.
+  assert.equal(providers.openrouter.parse({ data: { usage_daily: 0.4 } }), 0.4);
+  // Anthropic reports decimal strings in cents, so two results are a hundredth.
+  assert.equal(
+    providers.anthropic.parse({
+      data: [{ results: [{ amount: "123.45" }, { amount: "76.55" }] }],
+    }),
+    2,
+  );
+  assert.equal(providers.anthropic.parse({ data: [] }), 0);
+});
+
+test("the live providers report an endpoint and count money up", () => {
+  for (const id of ["openai", "anthropic", "openrouter"]) {
+    assert.equal(providers[id].measuresTotal, true, `${id} counts up`);
+    assert.equal(typeof providers[id].spendUrl, "function", `${id} has an address`);
+    assert.ok(providers[id].spendUrl(), `${id} builds its address`);
+  }
+
+  // Anthropic's cost report is daily-only and needs an explicit day window.
+  const url = providers.anthropic.spendUrl();
+  assert.ok(url.includes("/v1/organizations/cost_report"));
+  assert.ok(url.includes("bucket_width=1d"));
+  assert.ok(url.includes("starting_at="));
+
+  // ...and authenticates with its own header rather than a bearer token.
+  assert.equal(providers.anthropic.spendHeaders("sk-ant-admin").Authorization, undefined);
+  assert.equal(providers.anthropic.spendHeaders("sk-ant-admin")["x-api-key"], "sk-ant-admin");
+  assert.equal(providers.anthropic.spendHeaders("sk-ant-admin")["anthropic-version"], "2023-06-01");
+});
+
+test("a provider with no public read says so", () => {
+  for (const id of ["replicate", "groq", "aws"]) {
+    assert.equal(providers[id].spendUrl, null, `${id} has no endpoint`);
+  }
 });
 
 test("unknown provider falls back to custom", () => {

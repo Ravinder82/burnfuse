@@ -48,12 +48,16 @@ from the product. Run `./scripts/screenshots.sh` to regenerate the whole set.
 
 ## What to lead with
 
-- **"It reads the number itself."** Paste a read-only key for OpenAI or OpenRouter and
-  BurnFuse pulls spend from the provider's own cost endpoint every minute. No scripts, no
-  terminal, no pasting a number by hand every hour.
+- **"It reads the number itself."** Paste a read-only key for OpenAI, Anthropic or
+  OpenRouter and BurnFuse pulls spend from the provider's own cost endpoint every minute.
+  No scripts, no terminal, no pasting a number by hand every hour.
+- **"Press Test and know now."** A key you paste can be tried against the provider on the
+  spot. It says what came back in plain words, and a read-only test never moves a burn
+  figure. Each stored key shows only its two ends, so you can tell which one is in there.
 - **"It tells you the two things that break a key."** The Settings row that takes your
   OpenAI key knows the difference between an Admin key and a standard project key, and
-  says so where you typed it — before a failing read a minute later. A provider that has
+  says so where you typed it — before a failing read a minute later. Anthropic says out
+  loud that only an organization account has an Admin API at all. A provider that has
   moved its cost endpoint is tried at its other address before BurnFuse blames anything.
 - **"Count-up providers tell you they are measuring."** Some endpoints return a running
   total rather than a rate, so BurnFuse takes a baseline and shows your first real hourly

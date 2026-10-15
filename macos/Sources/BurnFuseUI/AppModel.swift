@@ -1,6 +1,26 @@
 import Foundation
 import Combine
 
+/// What the last connection test for a provider had to say.
+///
+/// A test is a read and nothing more: it never records a reading, so pressing
+/// it cannot change what the app thinks a key is spending.
+public enum KeyTest: Equatable, Sendable {
+    case testing
+    case working(String)
+    case failed(String)
+
+    public var isWorking: Bool {
+        if case .working = self { return true }
+        return false
+    }
+
+    public var isTesting: Bool {
+        if case .testing = self { return true }
+        return false
+    }
+}
+
 /// Owns the state file and keeps a live picture of it.
 ///
 /// Deliberately GUI-free so the screenshot renderer and tests can drive it.
@@ -21,6 +41,9 @@ public final class AppModel: ObservableObject {
     @Published public var lastReadMessage: String?
     /// Progress toward the next automatic live read, 0...1.
     @Published public var pollProgress: Double = 0
+    /// The last Test result per provider. A key that cannot work says why here,
+    /// now, instead of leaving the user to wait a minute and read a status line.
+    @Published public var keyTests: [String: KeyTest] = [:]
 
     public var onIncident: ((Incident) -> Void)?
 
@@ -193,6 +216,54 @@ public final class AppModel: ObservableObject {
         case .unmeasured:
             return "\(name): baseline saved — first rate comes on the next check"
         }
+    }
+
+    // MARK: - Connection test
+
+    /// Try a provider's key right now and say what happened.
+    ///
+    /// This is the answer to "I added my key and nothing happened": rather than
+    /// waiting for the next poll and reading a status line, the user presses
+    /// Test and gets the provider's own verdict, with the reason attached when
+    /// there is one. It reads, and only reads — nothing is recorded, so a test
+    /// can never move a burn figure.
+    public func testCredential(_ providerID: String, session: URLSession = .shared) async {
+        let apiKey = Credentials.key(for: providerID)
+        var probe = BurnKey(id: "test-\(providerID)", name: Providers.label(for: providerID), provider: providerID)
+
+        if providerID == "custom" {
+            // A custom endpoint's address lives on the watched key rather than
+            // on the provider, so borrow the first one that has a URL.
+            guard let entry = state.entries.first(where: { entry in
+                entry.provider == "custom"
+                    && !(entry.source?.spendUrl?.trimmingCharacters(in: .whitespaces).isEmpty ?? true)
+            }) else {
+                keyTests[providerID] = .failed("Add a watched key with a cost URL first, then test it.")
+                return
+            }
+            probe.source = entry.source
+        } else if apiKey == nil {
+            keyTests[providerID] = .failed("No key stored yet — paste one above and save it first.")
+            return
+        }
+
+        guard SpendSource.canReadLive(probe) else {
+            keyTests[providerID] = .failed("\(Providers.label(for: providerID)) has no live spend read to test.")
+            return
+        }
+
+        keyTests[providerID] = .testing
+        let result = await SpendPoller.fetch(probe, apiKey: apiKey, session: session)
+        guard result.ok, let figure = result.cost else {
+            keyTests[providerID] = .failed(result.message)
+            return
+        }
+
+        keyTests[providerID] = .working(
+            SpendSource.measuresTotal(probe)
+                ? "Works. Read a running total of \(Fmt.money(figure))."
+                : "Works. Read \(Fmt.perHour(figure))."
+        )
     }
 
     // MARK: - Queries

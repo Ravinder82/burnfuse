@@ -28,6 +28,13 @@ struct BurnFuseShots {
             unsetenv(name)
         }
 
+        // Unsetting the override above is not enough on its own: it would let
+        // the renderer fall through to a real ~/.burnfuse/keys.json. Point the
+        // store at a throwaway file of obviously fake keys instead, so a shot
+        // is the same on every machine and the Settings capture can show what a
+        // stored key looks like without ever touching a real one.
+        seedFakeKeys()
+
         var args = CommandLine.arguments.dropFirst()
         let command = args.popFirst() ?? "screens"
         let outDir = URL(fileURLWithPath: args.popFirst() ?? "./assets")
@@ -41,6 +48,25 @@ struct BurnFuseShots {
         default:
             FileHandle.standardError.write(Data("usage: burnfuse-shots <icon|screens> <outdir>\n".utf8))
         }
+    }
+
+    /// Point the key store at a throwaway file holding obviously fake keys.
+    ///
+    /// Only the live providers get one, so the Settings capture shows both
+    /// states at once: a stored key with its masked ends, and a provider still
+    /// telling you where to get one.
+    @MainActor static func seedFakeKeys() {
+        let fake = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("burnfuse-shot-keys.json")
+        let seeded: [String: String] = [
+            "openrouter": "sk-or-v1-EXAMPLEFORTHEGUIDE00000000000000",
+        ]
+        guard let data = try? JSONSerialization.data(
+            withJSONObject: seeded,
+            options: [.prettyPrinted, .sortedKeys]
+        ) else { return }
+        try? data.write(to: fake)
+        setenv("BURNFUSE_KEYS", fake.path, 1)
     }
 
     // MARK: - App icon
@@ -100,9 +126,9 @@ struct BurnFuseShots {
         // Settings is the tallest section, and the pane is a scroll: capture
         // enough of it that every section in it is on show.
         write("window-settings-dark", to: dir,
-              captureWindow(.settings, health, .dark, height: 1600, displayStatePath: Self.canonicalStatePath))
+              captureWindow(.settings, health, .dark, height: 1760, displayStatePath: Self.canonicalStatePath))
         write("window-settings-light", to: dir,
-              captureWindow(.settings, health, .light, height: 1600, displayStatePath: Self.canonicalStatePath))
+              captureWindow(.settings, health, .light, height: 1760, displayStatePath: Self.canonicalStatePath))
 
         // Marketing: the menu-bar glance, and a social card built from the real
         // window render.

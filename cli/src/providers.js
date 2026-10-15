@@ -36,10 +36,30 @@ export const providers = {
   },
   anthropic: {
     label: "Anthropic",
-    blurb: "Anthropic exposes cost reports to Admin API keys. Paste a reading if you use a standard key.",
+    blurb: "Reads your organization's cost report. Needs an Admin key on an organization account.",
     signal: "ANTHROPIC_ADMIN_KEY",
-    spendUrl: null,
-    parse: null,
+    measuresTotal: true,
+    fallbackUrls: [],
+    // The cost report is daily-only and wants an RFC 3339 window: ask for the
+    // day we are in, so the single bucket it returns is today's running total.
+    spendUrl: () => {
+      const dayStart = new Date(Math.floor(Date.now() / 86_400_000) * 86_400_000)
+        .toISOString()
+        .replace(/\.\d{3}Z$/, "Z");
+      return `https://api.anthropic.com/v1/organizations/cost_report?starting_at=${dayStart}&bucket_width=1d&limit=1`;
+    },
+    // `x-api-key` rather than a bearer token, plus the API version.
+    spendHeaders: (key) => {
+      const headers = { "anthropic-version": "2023-06-01" };
+      if (key) headers["x-api-key"] = key;
+      return headers;
+    },
+    // Amounts are decimal strings in *cents*, so a day total is a hundredth.
+    parse: (json) =>
+      (json?.data || []).reduce(
+        (acc, b) => acc + (b?.results || []).reduce((s, r) => s + (Number(r?.amount) || 0), 0),
+        0,
+      ) / 100,
     killUrl: (entry) => (entry.providerKeyId ? `https://api.anthropic.com/v1/organizations/api_keys/${entry.providerKeyId}` : null),
     killMethod: "POST",
   },
@@ -48,10 +68,14 @@ export const providers = {
     blurb: "Reads live credit usage. A standard OpenRouter key is enough.",
     signal: "OPENROUTER_API_KEY",
     measuresTotal: true,
-    fallbackUrls: ["https://openrouter.ai/api/v1/key"],
-    spendUrl: () => "https://openrouter.ai/api/v1/auth/key",
+    // The path OpenRouter used before it settled on /api/v1/key.
+    fallbackUrls: ["https://openrouter.ai/api/v1/auth/key"],
+    spendUrl: () => "https://openrouter.ai/api/v1/key",
     spendHeaders: (key) => ({ Authorization: `Bearer ${key}` }),
-    parse: (json) => Number(json?.data?.usage || 0),
+    // `usage` is all-time credits used, which only ever climbs — the most
+    // robust number to take a difference from. Older responses only carried
+    // the daily figure.
+    parse: (json) => Number(json?.data?.usage ?? json?.data?.usage_daily ?? 0),
     killUrl: () => null,
   },
   replicate: {

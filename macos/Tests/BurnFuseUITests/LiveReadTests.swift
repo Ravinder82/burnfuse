@@ -216,7 +216,7 @@ final class LiveReadTests: XCTestCase {
         // The settings rows are generated from this flag, so it must not drift
         // from what the fetcher can actually reach.
         let live = Set(Providers.all.filter(\.supportsLiveSpend).map(\.id))
-        XCTAssertEqual(live, ["openai", "openrouter", "custom"])
+        XCTAssertEqual(live, ["openai", "anthropic", "openrouter", "custom"])
     }
 
     func testAProviderWeDoNotKnowIsDescribedAsItself() {
@@ -227,5 +227,114 @@ final class LiveReadTests: XCTestCase {
         XCTAssertEqual(Providers.label(for: "mistral"), "Mistral",
                        "both ways of naming a provider must agree")
         XCTAssertFalse(provider.supportsLiveSpend)
+    }
+
+    // MARK: - Test connection
+
+    /// The answer to "I pasted my key and nothing happened". A test reads and
+    /// reports, and must leave every burn figure exactly where it was.
+    func testATestSaysItWorksAndRecordsNothing() async throws {
+        let keysURL = try isolate()
+        defer { restore(keysURL) }
+
+        StubURLProtocol.reset()
+        defer { StubURLProtocol.reset() }
+
+        let m = model()
+        m.addKey(name: "OpenRouter", provider: "openrouter", cap: 5)
+        Credentials.set("sk-or-1", for: "openrouter")
+        StubURLProtocol.responder = { _ in (200, Data(#"{"data":{"usage":4.25}}"#.utf8)) }
+
+        await m.testCredential("openrouter", session: StubURLProtocol.session())
+
+        let test = try XCTUnwrap(m.keyTests["openrouter"])
+        XCTAssertTrue(test.isWorking, "\(test)")
+        guard case .working(let message) = test else { return XCTFail("not working") }
+        XCTAssertTrue(message.contains("Works"), message)
+        XCTAssertTrue(message.contains("4.25"), message)
+
+        // A test is not a reading.
+        XCTAssertEqual(m.state.entries[0].lastReading, 0, accuracy: 0.0001)
+        XCTAssertNil(m.state.entries[0].lastCumulative)
+        XCTAssertTrue(m.state.entries[0].readings.isEmpty)
+    }
+
+    /// A failed test carries the provider's own reason, not "it did not work".
+    func testATestReportsTheProvidersOwnReason() async throws {
+        let keysURL = try isolate()
+        defer { restore(keysURL) }
+
+        StubURLProtocol.reset()
+        defer { StubURLProtocol.reset() }
+
+        let m = model()
+        Credentials.set("sk-ant-api03-x", for: "anthropic")
+        StubURLProtocol.responder = { _ in (401, Data()) }
+
+        await m.testCredential("anthropic", session: StubURLProtocol.session())
+
+        let test = try XCTUnwrap(m.keyTests["anthropic"])
+        guard case .failed(let message) = test else { return XCTFail("expected failed, got \(test)") }
+        XCTAssertTrue(message.contains("Admin key"), message)
+        XCTAssertTrue(message.contains("individual accounts"), message)
+    }
+
+    func testATestWithNoKeySaysSoRatherThanReading() async throws {
+        let keysURL = try isolate()
+        defer { restore(keysURL) }
+
+        let m = model()
+        await m.testCredential("openai", session: StubURLProtocol.session())
+
+        let test = try XCTUnwrap(m.keyTests["openai"])
+        guard case .failed(let message) = test else { return XCTFail("expected failed, got \(test)") }
+        XCTAssertTrue(message.contains("No key stored yet"), message)
+    }
+
+    /// A provider with no live read is explained, never left looking broken.
+    func testATestForAProviderWithNoEndpointExplainsItself() async throws {
+        let keysURL = try isolate()
+        defer { restore(keysURL) }
+
+        let m = model()
+        Credentials.set("gsk-abc", for: "groq")
+        await m.testCredential("groq", session: StubURLProtocol.session())
+
+        let test = try XCTUnwrap(m.keyTests["groq"])
+        guard case .failed(let message) = test else { return XCTFail("expected failed, got \(test)") }
+        XCTAssertTrue(message.contains("no live spend read"), message)
+    }
+
+    /// A custom endpoint has no address until a watched key supplies one, so
+    /// the honest answer is to say what to do first.
+    func testATestForCustomWithoutAURLPointsAtTheWatchedKey() async throws {
+        let keysURL = try isolate()
+        defer { restore(keysURL) }
+
+        let m = model()
+        await m.testCredential("custom", session: StubURLProtocol.session())
+
+        let test = try XCTUnwrap(m.keyTests["custom"])
+        guard case .failed(let message) = test else { return XCTFail("expected failed, got \(test)") }
+        XCTAssertTrue(message.contains("cost URL"), message)
+    }
+
+    /// With a watched custom key set up, its address is what gets tested.
+    func testATestForCustomUsesTheWatchedKeysAddress() async throws {
+        let keysURL = try isolate()
+        defer { restore(keysURL) }
+
+        StubURLProtocol.reset()
+        defer { StubURLProtocol.reset() }
+
+        let m = model()
+        m.addKey(name: "Custom", provider: "custom", cap: 3,
+                 spendUrl: "https://example.com/cost.json", jsonPath: "total", measures: "rate")
+        StubURLProtocol.responder = { _ in (200, Data(#"{"total":2.5}"#.utf8)) }
+
+        await m.testCredential("custom", session: StubURLProtocol.session())
+
+        let test = try XCTUnwrap(m.keyTests["custom"])
+        XCTAssertTrue(test.isWorking, "\(test)")
     }
 }

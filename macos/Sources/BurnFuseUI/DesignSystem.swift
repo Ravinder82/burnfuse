@@ -259,14 +259,16 @@ public struct SecondaryButton: View {
     let title: String
     var systemImage: String?
     var tint: Color
+    var enabled: Bool
     let action: () -> Void
 
     @State private var hovering = false
 
-    public init(_ title: String, systemImage: String? = nil, tint: Color = .primary, action: @escaping () -> Void) {
+    public init(_ title: String, systemImage: String? = nil, tint: Color = .primary, enabled: Bool = true, action: @escaping () -> Void) {
         self.title = title
         self.systemImage = systemImage
         self.tint = tint
+        self.enabled = enabled
         self.action = action
     }
 
@@ -287,6 +289,8 @@ public struct SecondaryButton: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .disabled(!enabled)
+        .opacity(enabled ? 1 : 0.5)
         .onHover { hovering = $0 }
     }
 }

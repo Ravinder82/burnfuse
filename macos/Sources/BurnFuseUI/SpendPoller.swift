@@ -112,10 +112,8 @@ public enum SpendPoller {
         switch status {
         case 400:
             return "\(label) did not accept that request (400)."
-        case 401:
-            return "\(label) said this key is not valid (401). Check it in Settings."
-        case 403:
-            return "\(label) refused this key (403). It may not have access to billing."
+        case 401, 403:
+            return rejected(status, key: key)
         case 404:
             return "\(label) could not find that endpoint (404)."
         case 429:
@@ -124,6 +122,31 @@ public enum SpendPoller {
             return "\(label) is having trouble (\(status)). It will retry in a minute."
         default:
             return "\(label) returned HTTP \(status)."
+        }
+    }
+
+    /// A key the provider turned down. The most common failure in this app is a
+    /// perfectly good key of the wrong kind, so each provider says which kind it
+    /// wanted rather than leaving the user to guess at a status code.
+    private static func rejected(_ status: Int, key: BurnKey) -> String {
+        let invalid = status == 401
+        switch key.provider {
+        case "openai":
+            return invalid
+                ? "OpenAI said this key is not valid (401). The costs API only answers an Admin key — one that starts with sk-admin-."
+                : "OpenAI refused this key (403). An Admin key without access to organization costs reads nothing."
+        case "anthropic":
+            return invalid
+                ? "Anthropic said this key is not valid (401). Reading spend needs an Admin key on an organization account — individual accounts have no Admin API."
+                : "Anthropic refused this key (403). An Admin key on an individual account cannot read spend."
+        case "openrouter":
+            return invalid
+                ? "OpenRouter said this key is not valid (401). Check it in Settings — OpenRouter keys start with sk-or-."
+                : "OpenRouter refused this key (403). Check it in Settings."
+        default:
+            return invalid
+                ? "The provider said this key is not valid (\(status)). Check it in Settings."
+                : "The provider refused this key (\(status)). It may not have access to billing."
         }
     }
 

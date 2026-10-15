@@ -13,6 +13,10 @@ public struct Provider: Identifiable, Hashable, Sendable {
     /// One line on what the key does, and what to do instead when this provider
     /// has no public spend read. Never a silent dead end.
     public let keyHint: String
+    /// Where in the provider's own console this key comes from, in plain words.
+    /// Nobody knows where an "admin key" lives the first time; saying so here is
+    /// the difference between adding a key and giving up.
+    public let whereToGet: String?
 
     public init(
         id: String,
@@ -20,7 +24,8 @@ public struct Provider: Identifiable, Hashable, Sendable {
         supportsLiveSpend: Bool,
         symbol: String,
         keyLabel: String,
-        keyHint: String
+        keyHint: String,
+        whereToGet: String? = nil
     ) {
         self.id = id
         self.label = label
@@ -28,6 +33,7 @@ public struct Provider: Identifiable, Hashable, Sendable {
         self.symbol = symbol
         self.keyLabel = keyLabel
         self.keyHint = keyHint
+        self.whereToGet = whereToGet
     }
 }
 
@@ -43,7 +49,17 @@ public enum Providers {
             supportsLiveSpend: true,
             symbol: "sparkles",
             keyLabel: "OpenAI admin key",
-            keyHint: "Reads your organization's costs. Stored on this Mac only."
+            keyHint: "Reads your organization's costs. Stored on this Mac only.",
+            whereToGet: "OpenAI dashboard → Settings → Organization → Admin keys"
+        ),
+        Provider(
+            id: "anthropic",
+            label: "Anthropic",
+            supportsLiveSpend: true,
+            symbol: "text.book.closed",
+            keyLabel: "Anthropic admin key",
+            keyHint: "Reads your organization's costs. Needs an Admin key on an organization account — individual accounts have no Admin API.",
+            whereToGet: "Claude Console → Settings → Admin keys"
         ),
         Provider(
             id: "openrouter",
@@ -51,7 +67,8 @@ public enum Providers {
             supportsLiveSpend: true,
             symbol: "arrow.triangle.branch",
             keyLabel: "OpenRouter key",
-            keyHint: "Reads your credit usage. Stored on this Mac only."
+            keyHint: "Reads your credit usage. Stored on this Mac only.",
+            whereToGet: "OpenRouter → Settings → Keys"
         ),
         Provider(
             id: "custom",
@@ -60,14 +77,6 @@ public enum Providers {
             symbol: "point.3.connected.trianglepath.dotted",
             keyLabel: "Custom endpoint key",
             keyHint: "Optional. Sent with your own cost endpoint when it asks for one."
-        ),
-        Provider(
-            id: "anthropic",
-            label: "Anthropic",
-            supportsLiveSpend: false,
-            symbol: "text.book.closed",
-            keyLabel: "Anthropic admin key",
-            keyHint: "No public spend read yet. Log a reading, or point a custom endpoint at one."
         ),
         Provider(
             id: "replicate",

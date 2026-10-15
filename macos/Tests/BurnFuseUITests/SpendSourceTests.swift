@@ -51,13 +51,15 @@ final class SpendSourceTests: XCTestCase {
         let openAI = BurnKey(id: "a", name: "a", provider: "openai")
         let openRouter = BurnKey(id: "b", name: "b", provider: "openrouter")
         let anthropic = BurnKey(id: "c", name: "c", provider: "anthropic")
+        let groq = BurnKey(id: "d", name: "d", provider: "groq")
 
         XCTAssertTrue(SpendSource.canReadLive(openAI))
         XCTAssertTrue(SpendSource.canReadLive(openRouter))
-        XCTAssertFalse(SpendSource.canReadLive(anthropic), "no public endpoint — log a reading instead")
+        XCTAssertTrue(SpendSource.canReadLive(anthropic))
+        XCTAssertFalse(SpendSource.canReadLive(groq), "no public endpoint — log a reading instead")
 
         XCTAssertEqual(SpendSource.endpoint(for: openRouter)?.absoluteString,
-                       "https://openrouter.ai/api/v1/auth/key")
+                       "https://openrouter.ai/api/v1/key")
         XCTAssertNotNil(SpendSource.endpoint(for: openAI)?.absoluteString.range(of: "organization/costs"))
     }
 
@@ -72,8 +74,10 @@ final class SpendSourceTests: XCTestCase {
 
     func testAProviderWithAMovedEndpointHasAFallback() {
         let openRouter = BurnKey(id: "b", name: "b", provider: "openrouter")
-        XCTAssertEqual(SpendSource.fallbackEndpoints(for: openRouter).first?.absoluteString,
+        XCTAssertEqual(SpendSource.endpoint(for: openRouter)?.absoluteString,
                        "https://openrouter.ai/api/v1/key")
+        XCTAssertEqual(SpendSource.fallbackEndpoints(for: openRouter).first?.absoluteString,
+                       "https://openrouter.ai/api/v1/auth/key")
 
         // A custom endpoint has no second address to try.
         var custom = BurnKey(id: "d", name: "d", provider: "custom")
@@ -96,7 +100,9 @@ final class SpendSourceTests: XCTestCase {
     func testCumulativeProvidersNeedTwoReads() {
         XCTAssertTrue(SpendSource.measuresTotal(BurnKey(id: "a", name: "a", provider: "openai")))
         XCTAssertTrue(SpendSource.measuresTotal(BurnKey(id: "b", name: "b", provider: "openrouter")))
-        XCTAssertFalse(SpendSource.measuresTotal(BurnKey(id: "c", name: "c", provider: "anthropic")))
+        XCTAssertTrue(SpendSource.measuresTotal(BurnKey(id: "c", name: "c", provider: "anthropic")))
+        XCTAssertFalse(SpendSource.measuresTotal(BurnKey(id: "d", name: "d", provider: "groq")),
+                       "Groq has no public spend endpoint — log a reading instead")
     }
 
     func testACustomSourceSaysWhichKindOfNumberItReports() {
@@ -167,11 +173,12 @@ final class SpendSourceTests: XCTestCase {
     /// not be reported as one.
     func testA404FallsThroughToTheFallbackEndpoint() async {
         StubURLProtocol.reset()
+        // The documented path has moved; the older one still answers.
         StubURLProtocol.responder = { request in
             guard request.url?.absoluteString.contains("/api/v1/auth/key") == true else {
-                return (200, Data(#"{"data":{"usage":4.25,"label":"key"}}"#.utf8))
+                return (404, Data())
             }
-            return (404, Data())
+            return (200, Data(#"{"data":{"usage":4.25,"label":"key"}}"#.utf8))
         }
         let key = BurnKey(id: "b", name: "b", provider: "openrouter")
 
@@ -200,10 +207,90 @@ final class SpendSourceTests: XCTestCase {
     }
 
     func testFetchExplainsWhenAProviderHasNoEndpoint() async {
-        let key = BurnKey(id: "c", name: "c", provider: "anthropic")
+        let key = BurnKey(id: "c", name: "c", provider: "groq")
         let result = await SpendPoller.fetch(key, apiKey: nil, session: StubURLProtocol.session())
         XCTAssertFalse(result.ok)
         XCTAssertTrue(result.message.contains("Log a reading"), result.message)
+    }
+
+    // MARK: - Anthropic
+
+    func testAnthropicReadsADayBucketForToday() {
+        let url = SpendSource.endpoint(for: BurnKey(id: "c", name: "c", provider: "anthropic"))
+        let text = url?.absoluteString ?? ""
+        XCTAssertTrue(text.contains("/v1/organizations/cost_report"), text)
+        XCTAssertTrue(text.contains("bucket_width=1d"), "the cost report is daily only, like OpenAI's")
+        XCTAssertTrue(text.contains("starting_at="), "the report needs an explicit window")
+    }
+
+    /// Anthropic reports costs as decimal strings in cents, so a day total has
+    /// to be divided by a hundred or every figure is a hundred times too big.
+    func testAnthropicAmountsAreCents() {
+        let body: [String: Any] = [
+            "data": [
+                [
+                    "starting_at": "2025-08-01T00:00:00Z",
+                    "ending_at": "2025-08-02T00:00:00Z",
+                    "results": [
+                        ["amount": "123.45", "currency": "USD", "cost_type": "tokens"],
+                        ["amount": "76.55", "currency": "USD", "cost_type": "web_search"],
+                    ],
+                ]
+            ],
+            "has_more": false,
+        ]
+        // 123.45 + 76.55 cents = 200 cents = $2.00.
+        XCTAssertEqual(try XCTUnwrap(SpendSource.parse(provider: "anthropic", json: body, jsonPath: nil)),
+                       2.0, accuracy: 0.0001)
+    }
+
+    func testAnthropicWithNoCostsReadsZeroRatherThanFailing() {
+        let body: [String: Any] = [
+            "data": [["starting_at": "2025-08-01T00:00:00Z", "ending_at": "2025-08-02T00:00:00Z", "results": [Any]()]],
+            "has_more": false,
+        ]
+        XCTAssertEqual(try XCTUnwrap(SpendSource.parse(provider: "anthropic", json: body, jsonPath: nil)),
+                       0, accuracy: 0.0001)
+    }
+
+    func testAnthropicCountsUpLikeOpenAI() {
+        XCTAssertTrue(SpendSource.measuresTotal(BurnKey(id: "c", name: "c", provider: "anthropic")))
+    }
+
+    /// The single most likely failure for an Anthropic key: a personal account
+    /// has no Admin API at all, so the message has to say that rather than
+    /// leaving the user to guess what "401" means.
+    func testAnAnthropicRejectionNamesTheAdminRequirement() async {
+        StubURLProtocol.reset()
+        StubURLProtocol.responder = { _ in (401, Data()) }
+        let key = BurnKey(id: "c", name: "c", provider: "anthropic")
+
+        let result = await SpendPoller.fetch(key, apiKey: "sk-ant-api03-x", session: StubURLProtocol.session())
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.message.contains("(401)"), result.message)
+        XCTAssertTrue(result.message.contains("Admin key"), result.message)
+        XCTAssertTrue(result.message.contains("individual accounts"), result.message)
+    }
+
+    func testAnOpenAIRejectionNamesTheAdminKeyPrefix() async {
+        StubURLProtocol.reset()
+        StubURLProtocol.responder = { _ in (401, Data()) }
+        let key = BurnKey(id: "a", name: "a", provider: "openai")
+
+        let result = await SpendPoller.fetch(key, apiKey: "sk-proj-x", session: StubURLProtocol.session())
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.message.contains("sk-admin-"), result.message)
+    }
+
+    func testOpenRouterReadsAllTimeUsageWithADailyFallback() {
+        let allTime: [String: Any] = ["data": ["usage": 12.5, "usage_daily": 0.4]]
+        XCTAssertEqual(try? XCTUnwrap(SpendSource.parse(provider: "openrouter", json: allTime, jsonPath: nil)),
+                       12.5)
+
+        // Older responses only carried the daily counter.
+        let dailyOnly: [String: Any] = ["data": ["usage_daily": 0.4]]
+        XCTAssertEqual(try? XCTUnwrap(SpendSource.parse(provider: "openrouter", json: dailyOnly, jsonPath: nil)),
+                       0.4)
     }
 }
 
@@ -343,6 +430,34 @@ final class CredentialsTests: XCTestCase {
 
         Credentials.set("\"Bearer sk-or-pasted\"", for: "openrouter")
         XCTAssertEqual(Credentials.key(for: "openrouter"), "sk-or-pasted")
+    }
+
+    // MARK: - Masking
+
+    func testAMaskedKeyShowsOnlyItsEnds() {
+        XCTAssertEqual(Credentials.mask("sk-or-v1-0123456789abcdef"), "sk-o…cdef")
+    }
+
+    func testAMaskedShortValueRevealsLessNotMore() {
+        // There is nothing to recognise in a short value, so a mask must not
+        // suddenly show all of it.
+        XCTAssertEqual(Credentials.mask("short"), "sh…")
+        XCTAssertEqual(Credentials.mask("12345678"), "12…")
+        XCTAssertEqual(Credentials.mask("123456789"), "1234…6789")
+    }
+
+    func testMaskedIsNilWithoutAKeyAndTheEndsWithOne() {
+        let url = tempKeysURL()
+        setenv("BURNFUSE_KEYS", url.path, 1)
+        unsetenv("OPENROUTER_API_KEY")
+        defer {
+            unsetenv("BURNFUSE_KEYS")
+            try? FileManager.default.removeItem(at: url)
+        }
+
+        XCTAssertNil(Credentials.masked(for: "openrouter"))
+        Credentials.set("sk-or-v1-0123456789abcdef", for: "openrouter")
+        XCTAssertEqual(Credentials.masked(for: "openrouter"), "sk-o…cdef")
     }
 
     func testTheAppSaysWhenAKeyComesFromTheEnvironment() {

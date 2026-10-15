@@ -86,28 +86,33 @@ Add a key, give it an hourly cap, and choose whether it should auto-cut when it 
 
 BurnFuse reads spend straight from your provider — no scripts, no terminal:
 
-1. **Provider keys → OpenAI, OpenRouter.** Paste a read-only key. BurnFuse asks the
-   provider's own cost endpoint every minute. Keys are stored on your Mac only,
-   owner-readable, and are sent nowhere except that provider.
+1. **Provider keys → OpenAI, Anthropic, OpenRouter.** Paste a read-only key and press
+   **Test** to have the provider's own cost endpoint answer right then, instead of
+   waiting a minute to find out. After that BurnFuse asks again every minute. Keys are
+   stored on your Mac only, owner-readable, and are sent nowhere except that provider;
+   the row shows just the two ends of the key (`sk-o…0000`), so you can tell which one
+   is stored without it being usable.
 2. **Log a reading.** For any key — a provider without a public spend endpoint,
    or a number you read somewhere else — type what it is spending per hour. That
    is all a reading is: one dollar figure per hour.
 3. **Custom endpoint.** Any URL that returns a dollar amount. Name where the
    figure sits in the JSON, and say whether it counts up.
 
-A key you paste is checked before BurnFuse uses it: something that looks like a
-standard OpenAI key instead of an Admin one, or an OpenAI key pasted into the
-OpenRouter row, gets told to you where you typed it rather than failing silently
-a minute later. A provider that has since moved its cost endpoint is tried at its
+A key you paste is checked before BurnFuse uses it, and a failed read gives the
+provider's own reason rather than a status code: a standard OpenAI key instead of an
+Admin one, or an OpenAI key pasted into the OpenRouter row, is named where you typed
+it rather than failing silently a minute later. Anthropic needs an Admin key on an
+organization account — individual accounts have no Admin API at all — and the app
+says exactly that. A provider that has since moved its cost endpoint is tried at its
 other address before BurnFuse will suggest anything is wrong.
 
 Some providers count money up instead of reporting an hourly figure. Those need
 two reads — the first saves a baseline, the next one gives you a rate — and the
 app says so while it is measuring, rather than showing a number it cannot back up.
 
-Providers without a live endpoint (Anthropic, Replicate, Groq, AWS) work fully
-through a logged reading. The settings list says plainly which providers read
-themselves and which need a number from you, so nothing is a dead end.
+Providers without a live endpoint (Replicate, Groq, AWS) work fully through a
+logged reading. The settings list says plainly which providers read themselves and
+which need a number from you, so nothing is a dead end.
 
 ## How it works
 
@@ -145,9 +150,10 @@ have cost, and the honest framing that billing emails arrive late.
 | Provider | Live spend | How |
 |---|---|---|
 | OpenAI | ✅ | Organization costs API (needs an Admin key) |
+| Anthropic | ✅ | Organization cost report (needs an Admin key on an organization account) |
 | OpenRouter | ✅ | Reads your credit usage with a standard key |
 | Custom endpoint | ✅ | Point it at any URL that returns a dollar amount |
-| Anthropic · Replicate · Groq · AWS | — | Log a reading per hour |
+| Replicate · Groq · AWS | — | Log a reading per hour |
 
 Everything else in BurnFuse reads its spend from one number you type. The only
 front-end BurnFuse provides to that is Settings → **Watch a key**, and the only

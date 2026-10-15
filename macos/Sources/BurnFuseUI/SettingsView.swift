@@ -302,6 +302,7 @@ public struct SettingsView: View {
         let stored = Credentials.key(for: provider.id)
         let fromEnvironment = Credentials.isFromEnvironment(for: provider.id)
         let verdict = KeyShape.check(keyDrafts[provider.id] ?? "", for: provider.id)
+        let test = model.keyTests[provider.id]
 
         return VStack(alignment: .leading, spacing: DS.Space.xxs) {
             HStack(spacing: DS.Space.sm) {
@@ -311,6 +312,12 @@ public struct SettingsView: View {
                     .frame(width: 14)
                 Text(provider.label).font(.caption.weight(.medium))
                 Spacer()
+                if let masked = Credentials.masked(for: provider.id) {
+                    Text(masked)
+                        .font(DS.Font.monoSmall)
+                        .foregroundStyle(.tertiary)
+                        .help("The two ends of the stored key, so you can tell which one it is")
+                }
                 if stored != nil {
                     StatusChip(text: "Stored", systemImage: "checkmark.seal.fill", tone: DS.Tone.calm)
                 }
@@ -320,32 +327,69 @@ public struct SettingsView: View {
                 SecureField(provider.keyLabel, text: draftBinding(for: provider.id))
                     .textFieldStyle(.roundedBorder)
                 SecondaryButton("Save") { saveCredential(provider: provider) }
+                // Test is always live: pressing it with nothing stored gets a
+                // sentence about that, which is more use than a dead button.
+                SecondaryButton(test?.isTesting == true ? "Testing…" : "Test",
+                                enabled: test?.isTesting != true) {
+                    Task { await model.testCredential(provider.id) }
+                }
                 if stored != nil {
                     IconButton("trash", help: "Remove the \(provider.label) key") { removeCredential(provider: provider) }
                 }
             }
 
-            // Warn about a key that is the wrong kind before it costs a failed
-            // read; otherwise say what this key is actually for.
-            if verdict.severity == .warning, let message = verdict.message {
-                Text(message)
-                    .font(.caption2)
-                    .foregroundStyle(DS.Tone.watch)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else {
-                Text(provider.keyHint)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .fixedSize(horizontal: false, vertical: true)
+            statusLine(provider: provider, test: test, verdict: verdict,
+                       stored: stored, fromEnvironment: fromEnvironment)
+        }
+    }
+
+    /// The one line under a credential field. The test's verdict comes first —
+    /// it is the answer to the question the user actually has — then a warning
+    /// about the shape of the key, then what the key is for.
+    @ViewBuilder
+    private func statusLine(
+        provider: Provider,
+        test: KeyTest?,
+        verdict: KeyVerdict,
+        stored: String?,
+        fromEnvironment: Bool
+    ) -> some View {
+        if let test {
+            switch test {
+            case .testing:
+                note("Trying this key with \(provider.label)…", icon: "ellipsis.circle", tone: AnyShapeStyle(.secondary))
+            case .working(let message):
+                note(message, icon: "checkmark.circle.fill", tone: AnyShapeStyle(DS.Tone.calm))
+            case .failed(let message):
+                note(message, icon: "exclamationmark.triangle.fill", tone: AnyShapeStyle(DS.Tone.watch))
+            }
+        } else if verdict.severity == .warning, let message = verdict.message {
+            // The wrong kind of key, caught before it costs a failed read.
+            note(message, icon: "exclamationmark.triangle.fill", tone: AnyShapeStyle(DS.Tone.watch))
+        } else {
+            VStack(alignment: .leading, spacing: DS.Space.xxs) {
+                note(provider.keyHint, icon: nil, tone: AnyShapeStyle(.tertiary))
+                if stored == nil, let whereToGet = provider.whereToGet {
+                    note(whereToGet, icon: "mappin.and.ellipse", tone: AnyShapeStyle(.tertiary))
+                }
                 if stored != nil, fromEnvironment,
                    let variable = Credentials.environmentVariable(for: provider.id) {
-                    Text("Using \(variable) from your environment.")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    note("Using \(variable) from your environment.", icon: "terminal", tone: AnyShapeStyle(.tertiary))
                 }
             }
         }
+    }
+
+    private func note(_ text: String, icon: String?, tone: AnyShapeStyle) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: DS.Space.xs) {
+            if let icon {
+                Image(systemName: icon).font(.caption2)
+            }
+            Text(text)
+        }
+        .font(.caption2)
+        .foregroundStyle(tone)
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     /// A provider with no public spend read. No key field on purpose: a Save
@@ -396,6 +440,8 @@ public struct SettingsView: View {
     private func saveCredential(provider: Provider) {
         Credentials.set(keyDrafts[provider.id] ?? "", for: provider.id)
         keyDrafts[provider.id] = ""
+        // A different key means the old verdict is about a key that is gone.
+        model.keyTests[provider.id] = nil
         keysVersion += 1
         Task { await model.refreshLive() }
     }
@@ -403,6 +449,7 @@ public struct SettingsView: View {
     private func removeCredential(provider: Provider) {
         Credentials.set(nil, for: provider.id)
         keyDrafts[provider.id] = ""
+        model.keyTests[provider.id] = nil
         keysVersion += 1
     }
 

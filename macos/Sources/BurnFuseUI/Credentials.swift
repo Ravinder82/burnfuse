@@ -42,6 +42,21 @@ public enum Credentials {
         return stored
     }
 
+    /// A key you can recognise without it being usable: the two ends only, with
+    /// the middle dropped. Shown in Settings next to "Stored", so the chip means
+    /// something specific rather than being a black box.
+    public static func masked(for provider: String) -> String? {
+        guard let key = key(for: provider) else { return nil }
+        return mask(key)
+    }
+
+    /// The masked form of a key. A short value is deliberately *less* revealing
+    /// rather than more — there is nothing to recognise in it anyway.
+    public static func mask(_ key: String) -> String {
+        guard key.count > 8 else { return String(key.prefix(2)) + "…" }
+        return "\(key.prefix(4))…\(key.suffix(4))"
+    }
+
     /// Whether this provider's key came from the environment rather than the
     /// key file. The settings row says so: a key you cannot see being quietly
     /// overridden is a "my pasted key does not work" bug report waiting to
