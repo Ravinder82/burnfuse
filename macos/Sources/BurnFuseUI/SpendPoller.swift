@@ -77,6 +77,44 @@ public enum SpendPoller {
         return failure
     }
 
+    /// A second, quieter read: what the provider says this key used in tokens
+    /// over the same window as its dollar figure.
+    ///
+    /// Deliberately the same shape as a spend read and deliberately silent about
+    /// failing. A key whose spend came back fine must never turn red because a
+    /// token report could not be read — the money is the load-bearing number and
+    /// this is context. It returns nil and the screen says nothing, rather than
+    /// showing a figure the app made up.
+    public static func fetchTokens(
+        _ key: BurnKey,
+        apiKey: String?,
+        timeout: TimeInterval = 8,
+        session: URLSession = .shared
+    ) async -> TokenUse? {
+        guard let url = SpendSource.tokenEndpoint(for: key) else { return nil }
+        if SpendSource.requiresKey(key),
+           apiKey?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true {
+            return nil
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = timeout
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        for (field, value) in SpendSource.headers(for: key, apiKey: apiKey) {
+            request.setValue(value, forHTTPHeaderField: field)
+        }
+
+        guard let (data, response) = try? await session.data(for: request),
+              let status = (response as? HTTPURLResponse)?.statusCode,
+              (200..<300).contains(status),
+              let json = try? JSONSerialization.jsonObject(with: data),
+              let use = SpendSource.parseTokens(provider: key.provider, json: json) else {
+            return nil
+        }
+        return use
+    }
+
     /// One address, one request.
     private static func read(
         _ key: BurnKey,

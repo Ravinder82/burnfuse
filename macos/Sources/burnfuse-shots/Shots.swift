@@ -120,13 +120,14 @@ struct BurnFuseShots {
         let breach = demoModel(tripped: true)
 
         // The unified window, one screenshot per section. This is the whole app:
-        // there are no other windows to capture.
+        // there are no other windows to capture. Overview grew a tokens card, so
+        // its window is taller to keep the third key and the footer on show.
         let overview = write("window-overview-dark", to: dir,
-                             captureWindow(.overview, health, .dark, height: 780))
+                             captureWindow(.overview, health, .dark, height: 930))
         write("window-overview-light", to: dir,
-              captureWindow(.overview, health, .light, height: 780))
+              captureWindow(.overview, health, .light, height: 930))
         write("window-breach-dark", to: dir,
-              captureWindow(.overview, breach, .dark, height: 860))
+              captureWindow(.overview, breach, .dark, height: 1010))
         // Insights holds one trip in the demo, so the window is sized to the
         // content rather than left with a screenful of nothing under it.
         write("window-insights-dark", to: dir,

@@ -213,6 +213,7 @@ public final class AppModel: ObservableObject {
 
         var messages: [String] = []
         var byKey: [String: KeyReadNote] = [:]
+        var tokensChanged = false
         for key in state.entries where key.armed && !key.isTripped {
             guard SpendSource.canReadLive(key) else { continue }
             let resolution = Credentials.resolve(for: key.provider)
@@ -245,7 +246,20 @@ public final class AppModel: ObservableObject {
             if let limit = result.limit {
                 keyLimits[key.id] = limit
             }
+
+            // And what the same window used in tokens, where the provider counts
+            // them. A second request, and a quiet one: it can only ever add — the
+            // money was already read, and a token report that is missing must not
+            // turn a healthy key amber.
+            if SpendSource.reportsTokens(key.provider),
+               let use = await SpendPoller.fetchTokens(key, apiKey: resolution.key, session: session),
+               let index = state.entries.firstIndex(where: { $0.id == key.id }) {
+                state.entries[index].tokenUse = use
+                tokensChanged = true
+            }
         }
+
+        if tokensChanged { persist() }
 
         lastRefresh = Date()
         lastMessageByKey = byKey
@@ -628,11 +642,18 @@ public final class AppModel: ObservableObject {
                 Reading(at: now - Double(values.count - index) * 3_600_000, cost: cost)
             }
         }
+        let dayStart = TokenUse.dayStart(for: Date())
         let seeds: [BurnKey] = [
             BurnKey(id: BurnEngine.makeID(seed: "OpenAI prod"), name: "OpenAI prod", provider: "openai",
-                    hourlyLimit: 5, readings: history([1.12, 1.28, 1.19, 1.34, 1.22, 1.31]), lastReading: 1.31),
+                    hourlyLimit: 5, readings: history([1.12, 1.28, 1.19, 1.34, 1.22, 1.31]), lastReading: 1.31,
+                    lastCumulative: 11.30, lastCumulativeAt: now,
+                    tokenUse: TokenUse(input: 4_700_000, output: 184_000, cachedInput: 3_900_000,
+                                       requests: 1_240, windowStart: dayStart)),
             BurnKey(id: BurnEngine.makeID(seed: "Claude batch"), name: "Claude batch", provider: "anthropic",
-                    hourlyLimit: 8, readings: history([0.62, 0.58, 0.71, 0.66, 0.69, 0.63]), lastReading: 0.63),
+                    hourlyLimit: 8, readings: history([0.62, 0.58, 0.71, 0.66, 0.69, 0.63]), lastReading: 0.63,
+                    lastCumulative: 4.60, lastCumulativeAt: now,
+                    tokenUse: TokenUse(input: 1_240_000, output: 96_000, cachedInput: 900_000,
+                                       windowStart: dayStart)),
             BurnKey(id: BurnEngine.makeID(seed: "Fal images"), name: "Fal images", provider: "fal",
                     hourlyLimit: 3, readings: history([0.4, 0.5, 0.45, 0.52, 0.48, 0.51]), lastReading: 0.51),
         ]

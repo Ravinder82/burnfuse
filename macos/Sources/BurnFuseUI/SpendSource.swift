@@ -115,6 +115,119 @@ public enum SpendSource {
         }
     }
 
+    /// Where a provider reports tokens, or nil where it does not.
+    ///
+    /// The same credential that reads the money reads this: OpenAI's usage
+    /// report and Anthropic's usage report are both the Admin-key reports their
+    /// costs come from, bucketed the same way — so the token figure and the
+    /// dollar figure always cover the same day. OpenRouter publishes no token
+    /// counts to an ordinary key, and nothing here invents any.
+    public static func tokenEndpoint(for key: BurnKey) -> URL? {
+        // A key wired to the reader's own endpoint has no second path to ask.
+        guard key.source?.spendUrl?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true,
+              !key.isManualRead else { return nil }
+        let dayStart = Date(timeIntervalSince1970: TokenUse.dayStart(for: Date()) / 1000)
+
+        switch key.provider {
+        case "openai":
+            // Daily buckets, the same granularity the costs API offers.
+            let since = Int(dayStart.timeIntervalSince1970)
+            return URL(string: "https://api.openai.com/v1/organization/usage/completions?start_time=\(since)&bucket_width=1d&limit=1")
+        case "anthropic":
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime]
+            let startingAt = formatter.string(from: dayStart)
+            return URL(string: "https://api.anthropic.com/v1/organizations/usage_report/messages?starting_at=\(startingAt)&bucket_width=1d&limit=1")
+        default:
+            return nil
+        }
+    }
+
+    /// Whether this provider publishes token counts at all — what the token card
+    /// uses to name who answered, and who was never able to.
+    public static func reportsTokens(_ providerID: String) -> Bool {
+        providerID == "openai" || providerID == "anthropic"
+    }
+
+    /// Pull a token report out of a decoded usage response.
+    ///
+    /// Both providers answer the same envelope — day buckets, each holding
+    /// results — so one reader covers them, with the per-provider field names
+    /// spelled out here. Returns nil only when there is no envelope at all: a
+    /// day with *no* usage is an answer of zero, and is reported as zero.
+    static func parseTokens(provider: String, json: Any, now: Date = Date()) -> TokenUse? {
+        guard let object = json as? [String: Any],
+              let buckets = object["data"] as? [[String: Any]] else { return nil }
+
+        var input = 0, output = 0, cached = 0, requests = 0
+        var sawCached = false, sawRequests = false
+        var windowStart: Double?
+
+        for bucket in buckets {
+            if windowStart == nil {
+                if let seconds = number(bucket["start_time"]) {
+                    windowStart = seconds * 1000
+                } else if let text = bucket["starting_at"] as? String {
+                    let formatter = ISO8601DateFormatter()
+                    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                    let date = formatter.date(from: text) ?? {
+                        formatter.formatOptions = [.withInternetDateTime]
+                        return formatter.date(from: text)
+                    }()
+                    windowStart = date.map { $0.timeIntervalSince1970 * 1000 }
+                }
+            }
+
+            for result in bucket["results"] as? [[String: Any]] ?? [] {
+                switch provider {
+                case "openai":
+                    // `input_tokens` already includes what came from the cache;
+                    // `input_cached_tokens` breaks out a part of it.
+                    input += integer(result["input_tokens"])
+                    output += integer(result["output_tokens"])
+                    if let cachedValue = result["input_cached_tokens"] {
+                        cached += integer(cachedValue)
+                        sawCached = true
+                    }
+                    if let count = result["num_model_requests"] {
+                        requests += integer(count)
+                        sawRequests = true
+                    }
+                case "anthropic":
+                    // Anthropic splits input three ways and none of them
+                    // overlaps: uncached, served from cache, and written into
+                    // the cache. Added up, that is the day's input.
+                    input += integer(result["uncached_input_tokens"])
+                    input += integer(result["cache_read_input_tokens"])
+                    if let creation = result["cache_creation"] as? [String: Any] {
+                        input += integer(creation["ephemeral_1h_input_tokens"])
+                        input += integer(creation["ephemeral_5m_input_tokens"])
+                    }
+                    output += integer(result["output_tokens"])
+                    if let cacheReads = result["cache_read_input_tokens"] {
+                        cached += integer(cacheReads)
+                        sawCached = true
+                    }
+                default:
+                    return nil
+                }
+            }
+        }
+
+        return TokenUse(
+            input: input,
+            output: output,
+            cachedInput: sawCached ? cached : nil,
+            requests: sawRequests ? requests : nil,
+            windowStart: windowStart ?? TokenUse.dayStart(for: now)
+        )
+    }
+
+    static func integer(_ value: Any?) -> Int {
+        guard let number = number(value) else { return 0 }
+        return Int(number.rounded())
+    }
+
     /// Whether a key can be read live, or needs a manual reading.
     ///
     /// A manual key is a decision, not a failure: either the provider publishes

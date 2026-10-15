@@ -60,6 +60,13 @@ public struct KeyRow: View {
         "\(key.effectiveCategory.title) · \(Providers.label(for: key.provider)) · \(key.readingSourcePhrase)"
     }
 
+    /// What the key used today in tokens, where its provider counts them.
+    /// Input first, because a runaway is nearly always feeding tokens in.
+    private var tokenLine: String? {
+        guard !key.isManualRead, let use = key.tokenUse, use.isCurrent() else { return nil }
+        return "\(Fmt.tokens(use.input)) in · \(Fmt.tokens(use.output)) out today"
+    }
+
     private var stateSymbol: String {
         if key.isTripped { return "exclamationmark.octagon.fill" }
         if waitsForYou { return "keyboard" }
@@ -103,6 +110,15 @@ public struct KeyRow: View {
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
+                        // The "why" behind the figure on the right, where the
+                        // provider counts tokens. Today's reading only: a count
+                        // from another day belongs under another heading.
+                        if let tokens = tokenLine {
+                            Text(tokens)
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                                .lineLimit(1)
+                        }
                     }
                 }
 

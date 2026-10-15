@@ -30,8 +30,60 @@ public struct Reading: Codable, Identifiable, Hashable, Sendable {
     }
 }
 
-public struct KeySource: Codable, Hashable, Sendable {
-    public var spendUrl: String?
+/// What a provider says this key used in tokens, over a window.
+///
+/// This is the *why* behind a dollar figure. Models do not cost the same per
+/// token — they differ by orders of magnitude — so "this key is burning $9.90 an
+/// hour" becomes actionable the moment it can be read next to "it is pushing 4
+/// million tokens an hour".
+///
+/// Only some providers publish it, so it is optional everywhere it appears and
+/// the screen names which providers the numbers came from. Nothing here is ever
+/// derived: a provider that does not report tokens shows nothing, rather than a
+/// figure the app made up from a price list.
+public struct TokenUse: Codable, Hashable, Sendable {
+    /// Input tokens for the window, cache reads included.
+    public var input: Int
+    /// Output tokens for the window.
+    public var output: Int
+    /// The part of `input` that was served from the provider's cache, where the
+    /// provider says so. A subset of `input` — never added to it.
+    public var cachedInput: Int?
+    /// Model requests, where the provider counts them.
+    public var requests: Int?
+    /// The start of the window these numbers cover, in milliseconds since the
+    /// epoch: a day, and the same day the hear-and-now spend figure covers.
+    public var windowStart: Double
+    /// When the read happened, so a figure that is a little behind can say so.
+    public var at: Double
+
+    public init(input: Int, output: Int, cachedInput: Int? = nil, requests: Int? = nil,
+                windowStart: Double, at: Double = Date().timeIntervalSince1970 * 1000) {
+        self.input = input
+        self.output = output
+        self.cachedInput = cachedInput
+        self.requests = requests
+        self.windowStart = windowStart
+        self.at = at
+    }
+
+    public var total: Int { input + output }
+    public var date: Date { Date(timeIntervalSince1970: at / 1000) }
+
+    /// Is this reading from the day we are in? A figure from yesterday must
+    /// never be shown under today's heading.
+    public func isCurrent(now: Date = Date()) -> Bool {
+        abs(TokenUse.dayStart(for: now) - windowStart) < 1
+    }
+
+    /// Midnight UTC, in milliseconds — the boundary the providers themselves
+    /// bucket by.
+    public static func dayStart(for date: Date) -> Double {
+        (date.timeIntervalSince1970 / 86_400).rounded(.down) * 86_400 * 1000
+    }
+}
+
+public struct KeySource: Codable, Hashable, Sendable {    public var spendUrl: String?
     public var jsonPath: String?
     /// A request header to send the key under, for endpoints that do not want
     /// `Authorization: Bearer …`.
@@ -110,6 +162,10 @@ public struct BurnKey: Codable, Identifiable, Hashable, Sendable {
     /// money up. Kept so an hourly rate survives an app restart.
     public var lastCumulative: Double?
     public var lastCumulativeAt: Double?
+    /// The last token report the provider gave for this key, where it publishes
+    /// one. Only ever what the provider said, and only shown while its window is
+    /// the day we are in.
+    public var tokenUse: TokenUse?
 
     public var isTripped: Bool { status == "tripped" }
     public var isArmed: Bool { armed && !isTripped }
@@ -169,7 +225,8 @@ public struct BurnKey: Codable, Identifiable, Hashable, Sendable {
         createdAt: Double = Date().timeIntervalSince1970 * 1000,
         source: KeySource? = nil,
         lastCumulative: Double? = nil,
-        lastCumulativeAt: Double? = nil
+        lastCumulativeAt: Double? = nil,
+        tokenUse: TokenUse? = nil
     ) {
         self.id = id
         self.name = name
@@ -187,12 +244,13 @@ public struct BurnKey: Codable, Identifiable, Hashable, Sendable {
         self.source = source
         self.lastCumulative = lastCumulative
         self.lastCumulativeAt = lastCumulativeAt
+        self.tokenUse = tokenUse
     }
 
     enum CodingKeys: String, CodingKey {
         case id, name, provider, category, readMode, hourlyLimit, armed, autoKill, status
         case readings, lastReading, trippedAt, createdAt, source
-        case lastCumulative, lastCumulativeAt
+        case lastCumulative, lastCumulativeAt, tokenUse
     }
 
     public init(from decoder: Decoder) throws {
@@ -213,6 +271,7 @@ public struct BurnKey: Codable, Identifiable, Hashable, Sendable {
         source = try c.decodeIfPresent(KeySource.self, forKey: .source)
         lastCumulative = try c.decodeIfPresent(Double.self, forKey: .lastCumulative)
         lastCumulativeAt = try c.decodeIfPresent(Double.self, forKey: .lastCumulativeAt)
+        tokenUse = try c.decodeIfPresent(TokenUse.self, forKey: .tokenUse)
     }
 }
 
@@ -405,5 +464,21 @@ public enum Fmt {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .full
         return formatter.localizedString(for: date, relativeTo: now)
+    }
+
+    /// "1.2M", "184.2K", "812" — token counts at the size a person can compare
+    /// at a glance, using the system's own compact style so it reads the way
+    /// every other number on their Mac does.
+    public static func tokens(_ count: Int) -> String {
+        count.formatted(.number.notation(.compactName))
+    }
+
+    /// The one derived figure in the app's token card: what today's spend on the
+    /// keys that report tokens works out to per million of them. It says so in
+    /// words, because it is an average over whatever mix of models ran — not a
+    /// price list.
+    public static func perMillionTokens(spend: Double, tokens: Int) -> String {
+        guard tokens > 0 else { return "—" }
+        return "\(money(spend / Double(tokens) * 1_000_000)) per million tokens"
     }
 }
