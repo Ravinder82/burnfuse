@@ -21,8 +21,8 @@ from the product. Run `./scripts/screenshots.sh` to regenerate the whole set.
 | `assets/window-overview-light.png` | 900×780 | Light-mode shot |
 | `assets/window-breach-dark.png` | 900×860 | "The moment it matters" — the trip |
 | `assets/window-insights-dark.png` | 900×581 | What the trips were on track to spend |
-| `assets/window-settings-dark.png` | 900×1130 | Feature shot — one list of keys, each saying how its number gets in |
-| `assets/window-settings-light.png` | 900×1130 | Light-mode feature shot |
+| `assets/window-settings-dark.png` | 900×1180 | Feature shot — one list of keys, each saying how its number gets in |
+| `assets/window-settings-light.png` | 900×1180 | Light-mode feature shot |
 
 ## Where each one is used
 

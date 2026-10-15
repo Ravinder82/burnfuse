@@ -44,10 +44,23 @@ public final class AppNavigation: ObservableObject {
 public struct RootView: View {
     @ObservedObject var model: AppModel
     @ObservedObject var nav: AppNavigation
+    /// Renderer-only, like the same parameters on `SettingsView`: seeds the
+    /// add-a-key field so a screenshot can show a pasted key being recognised,
+    /// and shows the real state path instead of the renderer's temp file. Never
+    /// set in the running app.
+    var previewAddKey: String = ""
+    var displayStatePath: String? = nil
 
-    public init(model: AppModel, nav: AppNavigation = AppNavigation()) {
+    public init(
+        model: AppModel,
+        nav: AppNavigation = AppNavigation(),
+        previewAddKey: String = "",
+        displayStatePath: String? = nil
+    ) {
         self.model = model
         self.nav = nav
+        self.previewAddKey = previewAddKey
+        self.displayStatePath = displayStatePath
     }
 
     public var body: some View {
@@ -121,7 +134,14 @@ public struct RootView: View {
         case .insights:
             scrollable { InsightsView(model: model, width: nil) }
         case .settings:
-            scrollable { SettingsView(model: model, width: nil) }
+            scrollable {
+                SettingsView(
+                    model: model,
+                    width: nil,
+                    displayStatePath: displayStatePath,
+                    previewAddKey: previewAddKey
+                )
+            }
         }
     }
 

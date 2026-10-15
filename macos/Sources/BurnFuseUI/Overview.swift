@@ -119,6 +119,7 @@ public struct WatchedKeys: View {
                             KeyRow(
                                 key: key,
                                 assessment: model.assessment(for: key),
+                                readFailed: model.lastReadFailed(key.id),
                                 onTrip: { model.trip(keyID: key.id) },
                                 onArm: { model.arm(keyID: key.id) },
                                 onOpen: onAdd

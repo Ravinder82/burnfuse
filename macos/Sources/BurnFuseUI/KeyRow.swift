@@ -9,14 +9,26 @@ public struct KeyRow: View {
     let onArm: () -> Void
     let onOpen: () -> Void
     var compact: Bool = false
+    /// The last live read of this key came back turned down. Not a calm key: it
+    /// is a key BurnFuse has no figure for, and the row says so.
+    var readFailed: Bool = false
 
     private var tone: Color {
-        waitsForYou ? DS.Tone.idle : DS.Tone.forAssessment(overCap: assessment.overCap, spike: assessment.spike)
+        if waitsForYou { return DS.Tone.idle }
+        if readFailed, !key.isTripped { return DS.Tone.watch }
+        return DS.Tone.forAssessment(overCap: assessment.overCap, spike: assessment.spike)
+    }
+
+    /// Nothing to show as a figure: either the number is one nobody has typed
+    /// yet, or the read failed and there is no reading to fall back on.
+    private var hasNoFigure: Bool {
+        waitsForYou || (readFailed && key.readings.isEmpty)
     }
 
     private var stateLabel: String {
         if key.isTripped { return "Tripped" }
         if waitsForYou { return "No reading yet" }
+        if readFailed { return "Read failed" }
         if !key.armed { return "Paused" }
         if assessment.overCap { return "Over cap" }
         if assessment.spike { return "Spiking" }
@@ -51,6 +63,7 @@ public struct KeyRow: View {
     private var stateSymbol: String {
         if key.isTripped { return "exclamationmark.octagon.fill" }
         if waitsForYou { return "keyboard" }
+        if readFailed { return "exclamationmark.triangle.fill" }
         if !key.armed { return "pause.circle.fill" }
         if assessment.overCap { return "flame.fill" }
         if assessment.spike { return "waveform.path.ecg" }
@@ -61,6 +74,7 @@ public struct KeyRow: View {
         key: BurnKey,
         assessment: BurnEngine.Assessment,
         compact: Bool = false,
+        readFailed: Bool = false,
         onTrip: @escaping () -> Void,
         onArm: @escaping () -> Void,
         onOpen: @escaping () -> Void
@@ -68,6 +82,7 @@ public struct KeyRow: View {
         self.key = key
         self.assessment = assessment
         self.compact = compact
+        self.readFailed = readFailed
         self.onTrip = onTrip
         self.onArm = onArm
         self.onOpen = onOpen
@@ -95,7 +110,7 @@ public struct KeyRow: View {
                 Spacer(minLength: DS.Space.sm)
 
                 VStack(alignment: .trailing, spacing: 1) {
-                    Text(waitsForYou ? "—" : Fmt.perHour(key.lastReading))
+                    Text(hasNoFigure ? "—" : Fmt.perHour(key.lastReading))
                         .font(DS.Font.mono)
                         .foregroundStyle(tone)
                     Text("cap \(Fmt.money(key.hourlyLimit))")
@@ -113,6 +128,11 @@ public struct KeyRow: View {
                     Text("Type what it is spending in Settings.")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                } else if readFailed {
+                    Text("This key's spend could not be read — open Settings.")
+                        .font(.caption2)
+                        .foregroundStyle(DS.Tone.watch)
                         .lineLimit(1)
                 } else if let signal {
                     Text(signal)
@@ -136,8 +156,8 @@ public struct KeyRow: View {
         .contentShape(Rectangle())
         .onTapGesture(perform: onOpen)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(waitsForYou
-            ? "\(key.name), no reading yet, cap \(Fmt.money(key.hourlyLimit))"
+        .accessibilityLabel(hasNoFigure
+            ? "\(key.name), \(stateLabel), cap \(Fmt.money(key.hourlyLimit))"
             : "\(key.name), \(stateLabel), burning \(Fmt.perHour(key.lastReading)), cap \(Fmt.money(key.hourlyLimit))")
     }
 }

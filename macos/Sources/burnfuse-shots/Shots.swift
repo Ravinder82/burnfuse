@@ -128,6 +128,9 @@ struct BurnFuseShots {
               captureWindow(.insights, breach, .dark, height: 560))
         // Settings is the tallest section, and the pane is a scroll: capture
         // enough of it that every section in it is on show.
+        // Settings is the tallest section, so the window is sized to show the
+        // whole screen without scrolling — every row, the add-a-key block, and
+        // the cards under it.
         write("window-settings-dark", to: dir,
               captureWindow(.settings, health, .dark, height: 1180, displayStatePath: Self.canonicalStatePath))
         write("window-settings-light", to: dir,
@@ -162,32 +165,21 @@ struct BurnFuseShots {
         displayStatePath: String? = nil
     ) -> NSImage? {
         let nav = AppNavigation(section: section)
-        // Settings prints the state file's location, and the renderer points the
-        // model at a throwaway temp file. Show the real one instead of leaking
-        // a path that exists on nobody's Mac.
-        //
-        // The add-a-key field gets a key already in it, so the capture shows the
+        // Settings is captured as the real window with Settings selected, so the
+        // shot shows the same chrome, sidebar and background the app does. The
+        // add-a-key field gets a key already in it, so the capture shows the
         // moment the whole flow is built around: a pasted key, recognised, with
-        // the one line that says what it will do — before anything is saved.
-        //
-        // Settings is captured unscrolled and measured, so the image is exactly
-        // as tall as the screen's content and stays right when the screen
-        // changes. The other sections are windows of a fixed size.
-        let settings = SettingsView(
-            model: model,
-            scrollable: false,
-            displayStatePath: displayStatePath,
-            previewAddKey: "sk-or-v1-EXAMPLEFORTHEGUIDE00000000000000"
-        )
+        // the one line that says what it will do — before anything is saved. The
+        // state path shown in About is the real one, not the renderer's temp file.
         let view = WindowChrome(title: "BurnFuse", scheme: scheme) {
-            switch section {
-            case .settings:
-                AnyView(settings)
-            default:
-                AnyView(RootView(model: model, nav: nav))
-            }
+            RootView(
+                model: model,
+                nav: nav,
+                previewAddKey: "sk-or-v1-EXAMPLEFORTHEGUIDE00000000000000",
+                displayStatePath: displayStatePath
+            )
         }
-        return capture(AnyView(view), scheme: scheme, width: width, height: height, fit: section == .settings)
+        return capture(AnyView(view), scheme: scheme, width: width, height: height)
     }
 
     /// Where the app really writes state, so an explainer screenshot can say so

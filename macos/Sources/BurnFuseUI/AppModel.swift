@@ -21,6 +21,19 @@ public enum KeyTest: Equatable, Sendable {
     }
 }
 
+/// What the last live read had to say about one key, and whether it was a
+/// failure. The row shows the message either way, and offers the manual way out
+/// only when the read actually failed — a success has nothing to escape from.
+public struct KeyReadNote: Sendable, Equatable {
+    public var message: String
+    public var failed: Bool
+
+    public init(message: String, failed: Bool) {
+        self.message = message
+        self.failed = failed
+    }
+}
+
 /// Owns the state file and keeps a live picture of it.
 ///
 /// Deliberately GUI-free so the screenshot renderer and tests can drive it.
@@ -40,8 +53,9 @@ public final class AppModel: ObservableObject {
     /// The last thing a live read had to say — success or reason it could not.
     @Published public var lastReadMessage: String?
     /// The same, per key, so a row can say what happened to *it* rather than
-    /// making someone read a combined line and work out which key it was about.
-    @Published public var lastMessageByKey: [String: String] = [:]
+    /// making someone read a combined line and work out which key it was about —
+    /// and so a row that failed can offer the way out in place.
+    @Published public var lastMessageByKey: [String: KeyReadNote] = [:]
     /// Progress toward the next automatic live read, 0...1.
     @Published public var pollProgress: Double = 0
     /// The last Test result per provider. A key that cannot work says why here,
@@ -172,24 +186,25 @@ public final class AppModel: ObservableObject {
         defer { isRefreshing = false; lastLiveRead = Date(); pollProgress = 0 }
 
         var messages: [String] = []
-        var byKey: [String: String] = [:]
+        var byKey: [String: KeyReadNote] = [:]
         for key in state.entries where key.armed && !key.isTripped {
             guard SpendSource.canReadLive(key) else { continue }
             let result = await SpendPoller.fetch(key, apiKey: Credentials.key(for: key.provider), session: session)
             guard result.ok, let figure = result.cost else {
                 messages.append("\(key.name): \(result.message)")
-                byKey[key.id] = result.message
+                byKey[key.id] = KeyReadNote(message: result.message, failed: true)
                 continue
             }
 
             if SpendSource.measuresTotal(key) {
                 let line = absorb(keyID: key.id, total: figure)
                 messages.append(line)
-                byKey[key.id] = line.replacingOccurrences(of: "\(key.name): ", with: "")
+                let note = line.replacingOccurrences(of: "\(key.name): ", with: "")
+                byKey[key.id] = KeyReadNote(message: note, failed: false)
             } else {
                 record(keyID: key.id, cost: figure)
                 messages.append("\(key.name): \(Fmt.perHour(figure))")
-                byKey[key.id] = "Read \(Fmt.perHour(figure)) a moment ago."
+                byKey[key.id] = KeyReadNote(message: "Read \(Fmt.perHour(figure)) a moment ago.", failed: false)
             }
         }
 
@@ -445,6 +460,9 @@ public final class AppModel: ObservableObject {
     public func setReadMode(keyID: String, mode: ReadMode) {
         guard let index = state.entries.firstIndex(where: { $0.id == keyID }) else { return }
         state.entries[index].readMode = mode == .auto ? nil : mode
+        // The last verdict was about the way the key used to be read. Keeping it
+        // would leave a failure line sitting on a row that no longer reads.
+        lastMessageByKey[keyID] = nil
         persist()
     }
 
@@ -460,6 +478,15 @@ public final class AppModel: ObservableObject {
         Credentials.set(value, for: providerID)
         // A different key means the last verdict was about a key that is gone.
         keyTests[providerID] = nil
+    }
+
+    /// Did the last live read of this key come back turned down?
+    ///
+    /// A key that cannot be read is not a calm key: BurnFuse has no figure for
+    /// it at all. The row says so in words rather than showing a zero, and
+    /// offers the manual way out while it is at it.
+    public func lastReadFailed(_ keyID: String) -> Bool {
+        lastMessageByKey[keyID]?.failed == true
     }
 
     public func updateSettings(_ transform: (inout Settings) -> Void) {

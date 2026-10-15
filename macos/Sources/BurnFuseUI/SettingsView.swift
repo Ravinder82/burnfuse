@@ -153,22 +153,33 @@ public struct SettingsView: View {
     /// a provider's internals to get it.
     @ViewBuilder
     private var detectionLine: some View {
-        if let detected, pickedProvider == nil || pickedProvider == detected.id {
-            note("That looks like \(Providers.article(detected.label)) \(detected.label) key. \(detected.readHint)",
-                 icon: "sparkle", tone: AnyShapeStyle(.secondary))
-        } else if let picked = chosenProvider {
-            if let detected, detected.id != picked.id {
-                note("That key looks like \(detected.label), but you picked \(picked.label). Pick \(detected.label) from the list if that is the wrong way round.",
-                     icon: "exclamationmark.triangle.fill", tone: AnyShapeStyle(DS.Tone.watch))
+        VStack(alignment: .leading, spacing: DS.Space.xxs) {
+            if let detected, pickedProvider == nil || pickedProvider == detected.id {
+                note("That looks like \(Providers.article(detected.label)) \(detected.label) key. \(detected.readHint)",
+                     icon: "sparkle", tone: AnyShapeStyle(.secondary))
+            } else if let picked = chosenProvider {
+                if let detected, detected.id != picked.id {
+                    note("That key looks like \(detected.label), but you picked \(picked.label). Pick \(detected.label) from the list if that is the wrong way round.",
+                         icon: "exclamationmark.triangle.fill", tone: AnyShapeStyle(DS.Tone.watch))
+                } else {
+                    note(picked.readHint, icon: nil, tone: AnyShapeStyle(.tertiary))
+                }
+            } else if Credentials.sanitize(newKey) != nil {
+                note("BurnFuse does not know this key by its shape. Pick its provider on the left and it will still watch it.",
+                     icon: "questionmark.circle", tone: AnyShapeStyle(.tertiary))
             } else {
-                note(picked.readHint, icon: nil, tone: AnyShapeStyle(.tertiary))
+                note("Paste the key you already use — BurnFuse watches that same key. Nothing to create, nothing to copy twice.",
+                     icon: nil, tone: AnyShapeStyle(.tertiary))
             }
-        } else if Credentials.sanitize(newKey) != nil {
-            note("BurnFuse does not know this key by its shape. Pick its provider on the left and it will still watch it.",
-                 icon: "questionmark.circle", tone: AnyShapeStyle(.tertiary))
-        } else {
-            note("Paste the key you already use — BurnFuse watches that same key. Nothing to create, nothing to copy twice.",
-                 icon: nil, tone: AnyShapeStyle(.tertiary))
+
+            // A key that nothing can read with is not kept. Saying so beats
+            // storing a secret that sits there doing nothing.
+            if Credentials.sanitize(newKey) != nil,
+               let chosen = chosenProvider,
+               !chosen.canReadLive {
+                note("Nothing can read this key, so BurnFuse will not store it. The row takes the spend you type instead.",
+                     icon: "info.circle", tone: AnyShapeStyle(.tertiary))
+            }
         }
     }
 
@@ -372,10 +383,6 @@ public struct SettingsView: View {
                 }
                 Spacer(minLength: 0)
             }
-
-            if let message = model.lastMessageByKey[key.id] {
-                note(message, icon: "arrow.clockwise", tone: AnyShapeStyle(.tertiary))
-            }
         }
     }
 
@@ -470,8 +477,18 @@ public struct SettingsView: View {
                     note(whereToGet, icon: "mappin.and.ellipse", tone: AnyShapeStyle(.tertiary))
                 }
             } else {
-                if let message = model.lastMessageByKey[key.id] {
-                    note(message, icon: "arrow.clockwise", tone: AnyShapeStyle(.tertiary))
+                if let read = model.lastMessageByKey[key.id] {
+                    note(read.message,
+                         icon: read.failed ? "exclamationmark.triangle.fill" : "arrow.clockwise",
+                         tone: read.failed ? AnyShapeStyle(DS.Tone.watch) : AnyShapeStyle(.tertiary))
+                    if read.failed, !key.isManualRead {
+                        // The poll turned this key down, and this is where the
+                        // person finds out. The other way to use the same key is
+                        // offered right here rather than in another list.
+                        LinkButton("Type this key's spend by hand instead") {
+                            model.setReadMode(keyID: key.id, mode: .manual)
+                        }
+                    }
                 } else {
                     note("BurnFuse reads this one for you, every minute.", icon: nil, tone: AnyShapeStyle(.tertiary))
                 }

@@ -164,6 +164,38 @@ final class LiveReadTests: XCTestCase {
         XCTAssertNil(m.state.entries[0].lastCumulative, "a failed read changes nothing")
         XCTAssertTrue(m.lastReadMessage?.contains("not valid") ?? false, m.lastReadMessage ?? "")
         XCTAssertTrue(m.lastReadMessage?.contains("Settings") ?? false, m.lastReadMessage ?? "")
+
+        // The row carries the same verdict, so it can show the failure on the key
+        // it belongs to and offer the manual way out right there.
+        let keyID = m.state.entries[0].id
+        XCTAssertTrue(m.lastReadFailed(keyID), "the row must know this read failed")
+        XCTAssertEqual(m.lastMessageByKey[keyID]?.failed, true)
+        XCTAssertFalse(m.lastMessageByKey[keyID]?.message.isEmpty ?? true)
+
+        // Moving the key to a typed number clears the stale failure — a row that
+        // no longer reads must not sit under a broken-read line.
+        m.setReadMode(keyID: keyID, mode: .manual)
+        XCTAssertFalse(m.lastReadFailed(keyID))
+        XCTAssertNil(m.lastMessageByKey[keyID])
+    }
+
+    /// A read that worked is reported as a success, not lumped in with failures.
+    func testASuccessfulReadIsNotedAsOne() async throws {
+        let keysURL = try isolate()
+        defer { restore(keysURL) }
+
+        StubURLProtocol.reset()
+        defer { StubURLProtocol.reset() }
+
+        let m = model()
+        let key = m.addKey(name: "OpenRouter", provider: "openrouter", cap: 5)
+        Credentials.set("sk-or-good", for: "openrouter")
+        StubURLProtocol.responder = { _ in (200, Data(#"{"data":{"usage":12.5}}"#.utf8)) }
+
+        await m.refreshLive(session: StubURLProtocol.session())
+
+        XCTAssertFalse(m.lastReadFailed(key.id))
+        XCTAssertEqual(m.lastMessageByKey[key.id]?.failed, false)
     }
 
     /// A provider with no public spend endpoint must never be a dead end.

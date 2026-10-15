@@ -121,7 +121,8 @@ public struct MiniPanel: View {
                     key: key,
                     assessment: model.assessment(for: key),
                     onTrip: { model.trip(keyID: key.id) },
-                    onArm: { model.arm(keyID: key.id) }
+                    onArm: { model.arm(keyID: key.id) },
+                    readFailed: model.lastReadFailed(key.id)
                 )
             }
             if entries.count > shown.count {
@@ -177,13 +178,25 @@ struct MiniKeyRow: View {
     let assessment: BurnEngine.Assessment
     let onTrip: () -> Void
     let onArm: () -> Void
+    /// The last read of this key was turned down. A key the panel cannot read is
+    /// not a calm key, and the glance is the worst place to imply otherwise.
+    var readFailed: Bool = false
+
+    /// Nothing measured yet, so there is no figure to show — rather than a zero
+    /// sitting where a number should be.
+    private var waitsForYou: Bool { key.readings.isEmpty && !SpendSource.canReadLive(key) }
+    private var hasNoFigure: Bool { waitsForYou || (readFailed && key.readings.isEmpty) }
 
     private var tone: Color {
-        DS.Tone.forAssessment(overCap: assessment.overCap, spike: assessment.spike)
+        if waitsForYou { return DS.Tone.idle }
+        if readFailed, !key.isTripped { return DS.Tone.watch }
+        return DS.Tone.forAssessment(overCap: assessment.overCap, spike: assessment.spike)
     }
 
     private var symbol: String {
         if key.isTripped { return "exclamationmark.octagon.fill" }
+        if waitsForYou { return "keyboard" }
+        if readFailed { return "exclamationmark.triangle.fill" }
         if !key.armed { return "pause.circle.fill" }
         if assessment.overCap { return "flame.fill" }
         if assessment.spike { return "waveform.path.ecg" }
@@ -208,7 +221,7 @@ struct MiniKeyRow: View {
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(tone)
 
-                Text(Fmt.perHour(key.lastReading))
+                Text(hasNoFigure ? "—" : Fmt.perHour(key.lastReading))
                     .font(DS.Font.monoSmall)
                     .foregroundStyle(tone)
 
@@ -222,6 +235,8 @@ struct MiniKeyRow: View {
             BurnMeter(fill: key.capFill, tone: tone)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(key.name), \(Fmt.perHour(key.lastReading)), cap \(Fmt.money(key.hourlyLimit))")
+        .accessibilityLabel(hasNoFigure
+            ? "\(key.name), no reading, cap \(Fmt.money(key.hourlyLimit))"
+            : "\(key.name), \(Fmt.perHour(key.lastReading)), cap \(Fmt.money(key.hourlyLimit))")
     }
 }
