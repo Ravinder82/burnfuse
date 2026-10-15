@@ -4,7 +4,7 @@ import SwiftUI
 /// sensitivity, and alerts — nothing hidden behind submenus.
 public struct SettingsView: View {
     @ObservedObject var model: AppModel
-    var width: CGFloat = 460
+    var width: CGFloat? = 460
     var scrollable: Bool = true
     /// Overrides the path shown in the About card. The screenshot renderer
     /// points the model at a throwaway temp file, so it passes the canonical
@@ -25,7 +25,7 @@ public struct SettingsView: View {
     @State private var openRouterKeyDraft: String = ""
     @State private var keysVersion: Int = 0
 
-    public init(model: AppModel, width: CGFloat = 460, scrollable: Bool = true, displayStatePath: String? = nil) {
+    public init(model: AppModel, width: CGFloat? = 460, scrollable: Bool = true, displayStatePath: String? = nil) {
         self.model = model
         self.width = width
         self.scrollable = scrollable
@@ -41,6 +41,7 @@ public struct SettingsView: View {
             }
         }
         .frame(width: width)
+        .frame(maxWidth: width == nil ? .infinity : nil, alignment: .leading)
         .onAppear {
             webhookDraft = model.state.settings.notifyWebhook
             if logKeyID.isEmpty { logKeyID = model.state.entries.first?.id ?? "" }

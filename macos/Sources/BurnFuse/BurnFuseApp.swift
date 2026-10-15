@@ -3,13 +3,15 @@ import AppKit
 import UserNotifications
 import BurnFuseUI
 
-/// The BurnFuse menu-bar app.
+/// The BurnFuse app.
 ///
-/// One entry point, no windows on launch, no dock icon — it sits next to your
-/// clock and tells you the truth about what your AI keys are spending.
+/// One window holds everything — Overview, Insights and Settings behind a
+/// sidebar. The menu bar keeps the live burn visible and can bring that window
+/// forward, so you can glance at the number or open the whole app.
 @main
 struct BurnFuseApp: App {
     @StateObject private var model: AppModel
+    @StateObject private var nav = AppNavigation()
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
     init() {
@@ -19,30 +21,86 @@ struct BurnFuseApp: App {
     }
 
     var body: some Scene {
-        MenuBarExtra {
-            MainPanel(
-                model: model,
-                onOpenSettings: { SettingsWindowController.shared.show(model: model) },
-                onOpenInsights: { InsightsWindowController.shared.show(model: model) },
-                onQuit: { NSApplication.shared.terminate(nil) }
-            )
-        } label: {
-            MenuBarLabel(model: model)
+        Window("BurnFuse", id: "main") {
+            RootView(model: model, nav: nav)
         }
-        .menuBarExtraStyle(.window)
+        .defaultSize(width: 900, height: 640)
         .commands {
             CommandGroup(replacing: .appSettings) {
-                Button("Settings…") { SettingsWindowController.shared.show(model: model) }
+                Button("Settings") { open(.settings) }
                     .keyboardShortcut(",", modifiers: .command)
-                Button("Insights...") { InsightsWindowController.shared.show(model: model) }
+                Button("Insights") { open(.overview) }
                     .keyboardShortcut("i", modifiers: .command)
             }
         }
+
+        MenuBarExtra {
+            MenuBarMenu(model: model, nav: nav)
+        } label: {
+            MenuBarLabel(model: model)
+        }
+        .menuBarExtraStyle(.menu)
+    }
+
+    private func open(_ section: AppSection) {
+        nav.section = section
+        WindowActivator.shared.open()
+    }
+}
+
+/// The menu-bar item. A small menu: open the window on any section, or act on
+/// every key at once. The number itself is always readable without opening it.
+struct MenuBarMenu: View {
+    @ObservedObject var model: AppModel
+    @ObservedObject var nav: AppNavigation
+
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Button("Open BurnFuse") { show(.overview) }
+        Button("Insights") { show(.insights) }
+        Button("Settings…") { show(.settings) }
+
+        Divider()
+
+        Text(model.state.hasBreach
+             ? "\(model.state.tripped.count) tripped"
+             : "\(Fmt.perHour(model.state.totalBurn)) burning now")
+
+        if model.state.hasBreach {
+            Button("Re-arm all") { model.armAll() }
+        }
+        Button("Cut all power") { model.tripAll() }
+            .disabled(model.state.entries.isEmpty || model.state.tripped.count == model.state.entries.count)
+
+        Divider()
+
+        Button("Quit BurnFuse") { NSApplication.shared.terminate(nil) }
+            .keyboardShortcut("q")
+    }
+
+    private func show(_ section: AppSection) {
+        nav.section = section
+        openWindow(id: "main")
+        NSApp.activate(ignoringOtherApps: true)
+    }
+}
+
+/// Brings the unified window to the front, creating nothing new — the Window
+/// scene already owns it.
+@MainActor
+final class WindowActivator {
+    static let shared = WindowActivator()
+    func open() {
+        if let window = NSApp.windows.first(where: { $0.canBecomeMain && !($0 is NSPanel) }) {
+            window.makeKeyAndOrderFront(nil)
+        }
+        NSApp.activate(ignoringOtherApps: true)
     }
 }
 
 /// The menu-bar title. Shows the live burn and switches to an alert glyph the
-/// moment anything trips, so you can read it without opening the panel.
+/// moment anything trips, so you can read it without opening the window.
 struct MenuBarLabel: View {
     @ObservedObject var model: AppModel
 
@@ -68,15 +126,14 @@ struct MenuBarLabel: View {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     static weak var sharedModel: AppModel?
-    private var bannerShownFor: String?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         AppDelegate.sharedModel?.onIncident = { incident in
             AppDelegate.notify(incident)
         }
-        // Read live spend in the background so the menu bar stays current
-        // without anyone touching a terminal.
+        // Read live spend in the background so the window and the menu bar stay
+        // current without anyone touching anything.
         AppDelegate.sharedModel?.refreshInterval = 60
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
@@ -96,59 +153,5 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             trigger: nil
         )
         UNUserNotificationCenter.current().add(request)
-    }
-}
-
-/// A single reusable settings window, opened from the panel or ⌘,.
-@MainActor
-final class SettingsWindowController: NSObject, NSWindowDelegate {
-    static let shared = SettingsWindowController()
-    private var window: NSWindow?
-
-    func show(model: AppModel) {
-        if let existing = window, existing.isVisible {
-            existing.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-            return
-        }
-        let view = SettingsView(model: model)
-        let hosting = NSHostingController(rootView: view)
-        let window = NSWindow(contentViewController: hosting)
-        window.title = "BurnFuse Settings"
-        window.styleMask = [.titled, .closable, .miniaturizable, .fullSizeContentView]
-        window.setContentSize(NSSize(width: 460, height: 720))
-        window.isReleasedWhenClosed = false
-        window.center()
-        window.delegate = self
-        self.window = window
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-    }
-}
-
-/// A single reusable Insights window — what the breaker actually saved you.
-@MainActor
-final class InsightsWindowController: NSObject, NSWindowDelegate {
-    static let shared = InsightsWindowController()
-    private var window: NSWindow?
-
-    func show(model: AppModel) {
-        if let existing = window, existing.isVisible {
-            existing.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-            return
-        }
-        let view = InsightsView(model: model)
-        let hosting = NSHostingController(rootView: view)
-        let window = NSWindow(contentViewController: hosting)
-        window.title = "BurnFuse Insights"
-        window.styleMask = [.titled, .closable, .miniaturizable, .fullSizeContentView]
-        window.setContentSize(NSSize(width: 400, height: 640))
-        window.isReleasedWhenClosed = false
-        window.center()
-        window.delegate = self
-        self.window = window
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
     }
 }

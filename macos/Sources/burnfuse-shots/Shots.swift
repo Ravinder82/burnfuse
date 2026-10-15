@@ -6,10 +6,11 @@ import BurnFuseUI
 ///
 /// Two jobs, both using the real app views so nothing can drift:
 ///   1. `shots icon <dir>`   renders the app icon at every size macOS needs
-///   2. `shots screens <dir>` renders the app's own screens as PNGs
+///   2. `shots screens <dir>` renders the app window, the menu bar, and the
+///      marketing card as PNGs
 ///
-/// The screenshots are produced by SwiftUI's renderer, so they are pixel-accurate
-/// captures of the shipping UI — not mockups.
+/// Everything is produced by rendering the shipping SwiftUI views, so these are
+/// pixel-accurate captures of the real UI — not mockups.
 @main
 struct BurnFuseShots {
     @MainActor static func main() {
@@ -20,7 +21,7 @@ struct BurnFuseShots {
         NSApp.finishLaunching()
         RunLoop.main.run(until: Date().addingTimeInterval(0.2))
 
-        // Screenshots must be reproducible and must never reveal a real key's
+        // Assets must be reproducible and must never reveal a real key's
         // presence, so ignore any provider credentials in this environment.
         for name in ["OPENAI_ADMIN_KEY", "OPENROUTER_API_KEY", "ANTHROPIC_ADMIN_KEY",
                      "REPLICATE_API_TOKEN", "GROQ_API_KEY", "AWS_ACCESS_KEY_ID", "BURNFUSE_KEYS"] {
@@ -85,50 +86,75 @@ struct BurnFuseShots {
         let health = demoModel(tripped: false)
         let breach = demoModel(tripped: true)
 
-        snapshot("panel-dark", dir, .dark, width: 340) {
-            MainPanel(model: health, width: 340, scrollable: true)
-        }
-        snapshot("panel-light", dir, .light, width: 340) {
-            MainPanel(model: health, width: 340, scrollable: true)
-        }
-        snapshot("breach-dark", dir, .dark, width: 340) {
-            MainPanel(model: breach, width: 340, scrollable: true)
-        }
-        snapshot("settings-dark", dir, .dark, width: 460, insets: 16) {
-            SettingsView(model: health, width: 460, scrollable: false, displayStatePath: "~/.burnfuse/state.json")
-        }
-        snapshot("settings-light", dir, .light, width: 460, insets: 16) {
-            SettingsView(model: health, width: 460, scrollable: false, displayStatePath: "~/.burnfuse/state.json")
-        }
-        snapshot("insights-dark", dir, .dark, width: 400, insets: 16) {
-            InsightsView(model: breach, width: 400, scrollable: false)
-        }
-        snapshot("_gallery", dir, .dark, width: 420, insets: 16) {
-            ComponentGallery()
-        }
+        // The unified window, one screenshot per section. This is the whole app:
+        // there are no other windows to capture.
+        let overview = write("window-overview-dark", to: dir,
+                             captureWindow(.overview, health, .dark, height: 620))
+        write("window-overview-light", to: dir,
+              captureWindow(.overview, health, .light, height: 620))
+        write("window-breach-dark", to: dir,
+              captureWindow(.overview, breach, .dark, height: 700))
+        write("window-insights-dark", to: dir,
+              captureWindow(.insights, breach, .dark, height: 620))
+        write("window-settings-dark", to: dir,
+              captureWindow(.settings, health, .dark, height: 980))
+        write("window-settings-light", to: dir,
+              captureWindow(.settings, health, .light, height: 980))
+
+        // Marketing: the menu-bar glance, and a social card built from the real
+        // window render.
+        let menuBar = capture(AnyView(MenuBarStrip()), scheme: .dark, width: 560, height: 34, fit: true)
+        write("menubar-dark", to: dir, menuBar)
+
+        let card = renderSocialCard(window: overview)
+        write("social-card", to: dir, card)
+
+        // Dev-only contact sheet for reviewing controls after a change.
+        write("_gallery", to: dir, capture(AnyView(ComponentGallery()), scheme: .dark, width: 420, height: 320, fit: true))
+
         print("screens: wrote \(dir.path)")
     }
 
-    /// Capture a SwiftUI view through a real window so native controls render
-    /// with their true fonts and styling.
-    @MainActor static func snapshot<V: View>(
-        _ name: String,
-        _ dir: URL,
+    /// The unified window with its title bar, exactly as it appears on screen.
+    @MainActor static func captureWindow(
+        _ section: AppSection,
+        _ model: AppModel,
         _ scheme: ColorScheme,
+        width: CGFloat = 900,
+        height: CGFloat
+    ) -> NSImage? {
+        let nav = AppNavigation(section: section)
+        let view = WindowChrome(title: "BurnFuse", scheme: scheme) {
+            RootView(model: model, nav: nav)
+        }
+        return capture(AnyView(view), scheme: scheme, width: width, height: height)
+    }
+
+    // MARK: - Marketing card
+
+    /// A 1200×630 card for social and product pages, built from the real app
+    /// window rather than a redrawn mock-up.
+    @MainActor static func renderSocialCard(window: NSImage?) -> NSImage? {
+        let card = SocialCard(window: window)
+        return capture(AnyView(card), scheme: .dark, width: 1200, height: 630, fit: false)
+    }
+
+    // MARK: - Capture
+
+    @MainActor static func capture(
+        _ view: AnyView,
+        scheme: ColorScheme,
         width: CGFloat,
-        insets: CGFloat = 0,
-        @ViewBuilder _ view: () -> V
-    ) {
+        height: CGFloat,
+        fit: Bool = false
+    ) -> NSImage? {
         let appearance = NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)
-        let backdrop = scheme == .dark ? Color(white: 0.12) : Color(white: 0.96)
-        let hosting = NSHostingView(rootView: AnyView(
-            ZStack { backdrop; view().padding(insets) }
-        ))
+        let hosting = NSHostingView(rootView: view)
         hosting.appearance = appearance
-        hosting.frame = NSRect(x: 0, y: 0, width: width, height: 200)
+        hosting.frame = NSRect(x: 0, y: 0, width: width, height: height)
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: width, height: 200),
+            contentRect: NSRect(x: 0, y: 0, width: width, height: height),
             styleMask: [.borderless],
             backing: .buffered,
             defer: false
@@ -147,26 +173,46 @@ struct BurnFuseShots {
         window.makeKeyAndOrderFront(nil)
         RunLoop.main.run(until: Date().addingTimeInterval(0.25))
 
-        // Settle layout: SwiftUI reports a fitting size before it is final.
-        var height: CGFloat = 0
-        for _ in 0..<6 {
-            hosting.layoutSubtreeIfNeeded()
-            let candidate = hosting.fittingSize.height
-            if abs(candidate - height) < 0.5 { break }
-            height = candidate
-            hosting.frame = NSRect(x: 0, y: 0, width: width, height: height)
-            window.setContentSize(NSSize(width: width, height: height))
+        var finalHeight = height
+        if fit {
+            // Settle layout: SwiftUI reports a fitting size before it is final.
+            var measured: CGFloat = 0
+            for _ in 0..<6 {
+                hosting.layoutSubtreeIfNeeded()
+                let candidate = hosting.fittingSize.height
+                if abs(candidate - measured) < 0.5 { break }
+                measured = candidate
+                hosting.frame = NSRect(x: 0, y: 0, width: width, height: measured)
+                window.setContentSize(NSSize(width: width, height: measured))
+            }
+            finalHeight = max(measured, 1)
         }
+
         hosting.layoutSubtreeIfNeeded()
         hosting.displayIfNeeded()
 
-        guard let rep = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else { return }
+        guard let rep = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else {
+            window.orderOut(nil)
+            return nil
+        }
         hosting.cacheDisplay(in: hosting.bounds, to: rep)
         rep.size = hosting.bounds.size
-        if let data = rep.representation(using: .png, properties: [:]) {
-            try? data.write(to: dir.appendingPathComponent("\(name).png"))
-        }
+
+        let image = NSImage(size: NSSize(width: width, height: finalHeight))
+        image.addRepresentation(rep)
         window.orderOut(nil)
+        return image
+    }
+
+    /// Write an image to disk as a PNG.
+    @MainActor @discardableResult
+    static func write(_ name: String, to dir: URL, _ image: NSImage?) -> NSImage? {
+        guard let image,
+              let tiff = image.tiffRepresentation,
+              let rep = NSBitmapImageRep(data: tiff),
+              let data = rep.representation(using: .png, properties: [:]) else { return nil }
+        try? data.write(to: dir.appendingPathComponent("\(name).png"))
+        return image
     }
 
     @MainActor static func demoModel(tripped: Bool) -> AppModel {
@@ -184,28 +230,9 @@ struct BurnFuseShots {
 
     // MARK: - Rendering primitives
 
-    @MainActor static func render<V: View>(
-        _ name: String,
-        _ dir: URL,
-        _ scheme: ColorScheme,
-        @ViewBuilder _ view: () -> V
-    ) {
-        let content = view()
-            .environment(\.colorScheme, scheme)
-            .background(scheme == .dark ? Color(white: 0.11) : Color(white: 0.97))
-        guard let data = render(AnyView(content)) else { return }
-        try? data.write(to: dir.appendingPathComponent("\(name).png"))
-    }
-
     @MainActor static func render<V: View>(_ view: V, size: CGFloat, scale: CGFloat) -> Data? {
         let renderer = ImageRenderer(content: view.frame(width: size, height: size))
         renderer.scale = scale
-        return png(from: renderer.nsImage)
-    }
-
-    @MainActor static func render(_ view: AnyView) -> Data? {
-        let renderer = ImageRenderer(content: view)
-        renderer.scale = 2
         return png(from: renderer.nsImage)
     }
 
@@ -214,6 +241,147 @@ struct BurnFuseShots {
               let tiff = image.tiffRepresentation,
               let rep = NSBitmapImageRep(data: tiff) else { return nil }
         return rep.representation(using: .png, properties: [:])
+    }
+}
+
+/// A macOS window frame drawn around a view so a captured screen looks like the
+/// window a person actually sees — title bar, traffic lights and all.
+struct WindowChrome<Content: View>: View {
+    let title: String
+    let scheme: ColorScheme
+    @ViewBuilder var content: Content
+
+    private var chromeFill: Color {
+        scheme == .dark ? Color(white: 0.15) : Color(white: 0.92)
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Circle().fill(Color(red: 1.00, green: 0.37, blue: 0.34)).frame(width: 12, height: 12)
+                Circle().fill(Color(red: 1.00, green: 0.74, blue: 0.18)).frame(width: 12, height: 12)
+                Circle().fill(Color(red: 0.16, green: 0.79, blue: 0.25)).frame(width: 12, height: 12)
+
+                Spacer()
+
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+
+                Color.clear.frame(width: 52, height: 1)
+            }
+            .padding(.horizontal, 16)
+            .frame(height: 40)
+            .background(chromeFill)
+
+            Divider()
+            content
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// A realistic macOS menu bar with the BurnFuse item, for marketing.
+struct MenuBarStrip: View {
+    var body: some View {
+        HStack(spacing: 16) {
+            Image(systemName: "apple.logo").font(.system(size: 14, weight: .medium))
+            Text("Finder").font(.system(size: 13, weight: .semibold))
+            Text("File").font(.system(size: 13))
+            Text("Edit").font(.system(size: 13))
+            Text("View").font(.system(size: 13))
+
+            Spacer()
+
+            HStack(spacing: 5) {
+                Image(systemName: "flame.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(LinearGradient(
+                        colors: [Color(red: 1.00, green: 0.72, blue: 0.20),
+                                 Color(red: 0.92, green: 0.28, blue: 0.13)],
+                        startPoint: .top, endPoint: .bottom))
+                Text("$2.45").font(.system(size: 13, weight: .semibold))
+            }
+            .padding(.horizontal, 9)
+            .padding(.vertical, 3)
+            .background(Capsule().fill(Color.primary.opacity(0.12)))
+
+            Image(systemName: "wifi").font(.system(size: 13))
+            Image(systemName: "battery.100percent").font(.system(size: 15))
+            Text("9:41").font(.system(size: 13))
+        }
+        .foregroundStyle(.primary)
+        .padding(.horizontal, 18)
+        .frame(height: 34)
+        .background(.ultraThinMaterial)
+    }
+}
+
+/// The 1200×630 marketing card. Icon, name, promise, and the real window.
+struct SocialCard: View {
+    let window: NSImage?
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [Color(red: 0.09, green: 0.09, blue: 0.11),
+                         Color(red: 0.15, green: 0.10, blue: 0.09)],
+                startPoint: .topLeading, endPoint: .bottomTrailing
+            )
+
+            HStack(alignment: .center, spacing: 48) {
+                VStack(alignment: .leading, spacing: 18) {
+                    AppMarkTile(size: 84)
+
+                    Text("burnfuse")
+                        .font(.system(size: 54, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+
+                    Text("A spend breaker for your AI keys.")
+                        .font(.system(size: 24, weight: .semibold))
+                        .foregroundStyle(Color(red: 1.0, green: 0.80, blue: 0.55))
+
+                    Text("Watch burn rate. Cap the damage.\nCut the power before a runaway loop drains your card.")
+                        .font(.system(size: 16))
+                        .foregroundStyle(.white.opacity(0.72))
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    HStack(spacing: 8) {
+                        pill("Menu bar", "flame")
+                        pill("All local", "lock.fill")
+                        pill("macOS", "apple.logo")
+                    }
+                    .padding(.top, 4)
+                }
+                .frame(maxWidth: 460, alignment: .leading)
+
+                if let window {
+                    Image(nsImage: window)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 620)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .strokeBorder(.white.opacity(0.12), lineWidth: 1)
+                        )
+                        .shadow(color: .black.opacity(0.5), radius: 30, y: 16)
+                }
+            }
+            .padding(56)
+        }
+        .frame(width: 1200, height: 630)
+    }
+
+    private func pill(_ text: String, _ symbol: String) -> some View {
+        Label(text, systemImage: symbol)
+            .font(.system(size: 13, weight: .medium))
+            .foregroundStyle(.white.opacity(0.85))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Capsule().fill(.white.opacity(0.10)))
     }
 }
 
@@ -248,7 +416,8 @@ struct ComponentGallery: View {
     }
 }
 
-/// The shipping app icon. A single fuse-flame, warm and legible from 16pt to
+/// The shipping app icon, drawn once so every render shares it. A single
+/// fuse-flame, warm and legible from 16pt to 1024pt.
 struct AppIconView: View {
     var body: some View {
         GeometryReader { geo in
@@ -294,5 +463,15 @@ struct AppIconView: View {
                 )
             )
             .shadow(color: Color(red: 0.5, green: 0.1, blue: 0.0).opacity(0.32), radius: content * 0.035, y: content * 0.02)
+    }
+}
+
+/// The rounded app-icon tile at a fixed size, for the marketing card.
+struct AppMarkTile: View {
+    let size: CGFloat
+    var body: some View {
+        AppIconView()
+            .frame(width: size, height: size)
+            .clipShape(RoundedRectangle(cornerRadius: size * 0.2237, style: .continuous))
     }
 }

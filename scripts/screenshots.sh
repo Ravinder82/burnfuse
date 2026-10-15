@@ -33,7 +33,11 @@ for size in 16 32 64 128 256; do rm -f "$ASSETS/icon_$size.png"; done
 rm -f "$ASSETS/_gallery.png"
 
 # Fail loudly rather than quietly shipping a README with missing images.
-expected=(panel-dark panel-light breach-dark settings-dark settings-light insights-dark icon_512 icon_1024)
+expected=(
+  window-overview-dark window-overview-light window-breach-dark
+  window-insights-dark window-settings-dark window-settings-light
+  menubar-dark social-card icon_512 icon_1024
+)
 missing=0
 for name in "${expected[@]}"; do
   if [ ! -s "$ASSETS/$name.png" ]; then

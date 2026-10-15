@@ -4,10 +4,10 @@ import SwiftUI
 /// the honest risk framing, and a plain log of what tripped and when.
 public struct InsightsView: View {
     @ObservedObject var model: AppModel
-    var width: CGFloat = 360
+    var width: CGFloat? = 360
     var scrollable: Bool = true
 
-    public init(model: AppModel, width: CGFloat = 360, scrollable: Bool = true) {
+    public init(model: AppModel, width: CGFloat? = 360, scrollable: Bool = true) {
         self.model = model
         self.width = width
         self.scrollable = scrollable
@@ -25,6 +25,7 @@ public struct InsightsView: View {
             }
         }
         .frame(width: width)
+        .frame(maxWidth: width == nil ? .infinity : nil, alignment: .leading)
     }
 
     private var content: some View {

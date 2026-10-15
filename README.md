@@ -10,6 +10,8 @@ Watch burn rate. Cap the damage. Cut the power before a runaway loop drains your
 
 [The app](#the-app) · [How it works](#how-it-works) · [Insights](#insights) · [Privacy](#privacy)
 
+<img src="assets/social-card.png" alt="BurnFuse — a spend breaker for your AI keys, shown in one macOS window">
+
 </div>
 
 ---
@@ -23,11 +25,11 @@ billing email shows up in the morning — hours after the money is gone.
 BurnFuse watches the meter. When a key burns past the cap you set, or jumps far above
 its normal rate, it **trips** — the key is marked and held before it can keep draining.
 
-It is not a dashboard you have to remember to open. It sits in your menu bar and tells
-you the truth in one line.
+It is not a dashboard you have to remember to open. It lives in your menu bar, keeps a
+running total next to your clock, and opens into one window when you want the whole picture.
 
 <p align="center">
-  <img src="assets/panel-dark.png" width="320" alt="BurnFuse menu bar panel showing live burn rate and watched keys">
+  <img src="assets/menubar-dark.png" width="560" alt="BurnFuse in the macOS menu bar showing the live burn rate">
 </p>
 
 ## What it does
@@ -38,40 +40,27 @@ you the truth in one line.
 - **Cuts the power.** One click pauses everything. Auto-cut is there for when you are asleep.
 - **Tells you after.** Spending is only half the story. Insights shows what the breaker stopped.
 
-When something trips, the app says so plainly and gives you the one action that matters:
-
-<p align="center">
-  <img src="assets/breach-dark.png" width="320" alt="BurnFuse panel with the breaker tripped, showing the one review action">
-</p>
-
-## Install
-
-### Requirements
-
-macOS 14+ and the Xcode command line tools. No dependencies, no project file.
-
-```bash
-git clone https://github.com/Ravinder82/burnfuse.git
-cd burnfuse
-./scripts/build-app.sh
-```
-
-Then open it:
-
-```bash
-open macos/build/BurnFuse.app        # or: cp -R macos/build/BurnFuse.app /Applications/
-```
-
-It launches straight into the menu bar. There is no dock icon and no window to babysit.
-`⌘,` opens settings, `⌘I` opens Insights.
-
 ## The app
 
-Everything is one place: the keys you watch, the caps you set, and how the app keeps
-itself current.
+BurnFuse is a single window. Everything lives behind the sidebar — your keys, what the
+breaker saved, and how the app keeps itself current. No scattered windows, no submenus.
 
 <p align="center">
-  <img src="assets/settings-dark.png" width="420" alt="BurnFuse settings showing per-key caps, live data, readings, sensitivity and alerts">
+  <img src="assets/window-overview-dark.png" width="720" alt="The BurnFuse window on Overview, showing live burn rate, trend and watched keys">
+</p>
+
+Light and dark follow the system:
+
+<p align="center">
+  <img src="assets/window-overview-light.png" width="720" alt="The BurnFuse window on Overview in light appearance">
+</p>
+
+### Keys
+
+Add a key, give it an hourly cap, and choose whether it should auto-cut when it trips.
+
+<p align="center">
+  <img src="assets/window-settings-dark.png" width="600" alt="BurnFuse Settings showing per-key caps, live data, readings and sensitivity">
 </p>
 
 ### Keeping it current
@@ -105,13 +94,19 @@ big* to hear from BurnFuse only when something is genuinely on fire.
 A reading has to be both clearly abnormal *and* worth your attention. Quiet keys with
 tiny numbers are not allowed to cry wolf.
 
+When something trips, the window says so plainly and gives you the one action that matters:
+
+<p align="center">
+  <img src="assets/window-breach-dark.png" width="720" alt="The BurnFuse window with the breaker tripped, showing the one action that matters">
+</p>
+
 ## Insights
 
 What did the breaker actually save you? Insights adds it up — every trip, what it would
 have cost, and the honest framing that billing emails arrive late.
 
 <p align="center">
-  <img src="assets/insights-dark.png" width="400" alt="BurnFuse insights showing averted spend and the log of trips">
+  <img src="assets/window-insights-dark.png" width="720" alt="BurnFuse Insights showing averted spend and the log of trips">
 </p>
 
 ## Providers
@@ -122,6 +117,27 @@ have cost, and the honest framing that billing emails arrive late.
 | OpenRouter | ✅ | Reads your credit usage with a standard key |
 | Custom endpoint | ✅ | Point it at any URL that returns a dollar amount |
 | Anthropic · Replicate · Groq · AWS | — | Log a reading per hour |
+
+## Install
+
+### Requirements
+
+macOS 14+ and the Xcode command line tools. No dependencies, no project file.
+
+```bash
+git clone https://github.com/Ravinder82/burnfuse.git
+cd burnfuse
+./scripts/build-app.sh
+```
+
+Then open it:
+
+```bash
+open macos/build/BurnFuse.app        # or: cp -R macos/build/BurnFuse.app /Applications/
+```
+
+It launches as a menu-bar app — no dock icon. Click the flame, or press `⌘,` for Settings
+and `⌘I` for Insights, to open the window.
 
 ## Privacy
 
@@ -148,7 +164,7 @@ Every image in this README is a render of the shipping UI — see
 ./scripts/verify.sh               # tests + app build + launch smoke test
 ./scripts/build-app.sh            # build the app bundle
 ./scripts/build-app.sh debug      # faster debug build
-./scripts/screenshots.sh          # regenerate the README images
+./scripts/screenshots.sh          # regenerate the README and marketing images
 ```
 
 Tests individually:
@@ -168,10 +184,10 @@ Layout:
 ```
 macos/               Swift package: the menu-bar app
   Sources/BurnFuse/       the app entry point
-  Sources/BurnFuseUI/     views, design system, burn engine, live spend
-  Sources/burnfuse-shots/ icon + screenshot renderer
+  Sources/BurnFuseUI/     window, design system, burn engine, live spend
+  Sources/burnfuse-shots/ icon + screenshot + marketing renderer
 scripts/             build, verify and screenshot scripts
-assets/              app icon and the screenshots used above
+assets/              app icon, window screenshots and the marketing card
 ```
 
 > Building under `~/Desktop` or `~/Documents`? Those folders are iCloud-synced, and

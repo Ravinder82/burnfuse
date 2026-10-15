@@ -1,123 +1,58 @@
 import SwiftUI
 
-/// The menu-bar panel. One screen, no tabs, no nesting: what is burning, what
-/// is safe, and the one thing you might need to do about it.
-public struct MainPanel: View {
+/// The Overview screen of the unified window: what is burning, what is safe,
+/// and the one thing you might need to do about it.
+public struct OverviewView: View {
     @ObservedObject var model: AppModel
-    var width: CGFloat = 340
-    var scrollable: Bool = true
-    /// Tallest the scrolling body is allowed to grow before it starts to scroll.
-    var maxBodyHeight: CGFloat = 560
-    var onOpenSettings: () -> Void = {}
-    var onOpenInsights: () -> Void = {}
-    var onQuit: () -> Void = {}
+    var onAddKey: () -> Void = {}
 
-    /// The body's natural height, measured so the panel can size itself.
-    /// A bare `ScrollView` has no intrinsic height and collapses to nothing
-    /// inside a `MenuBarExtra` window, which is what hid the whole middle of
-    /// the panel at runtime.
-    @State private var bodyHeight: CGFloat = 0
-
-    public init(
-        model: AppModel,
-        width: CGFloat = 340,
-        scrollable: Bool = true,
-        maxBodyHeight: CGFloat = 560,
-        onOpenSettings: @escaping () -> Void = {},
-        onOpenInsights: @escaping () -> Void = {},
-        onQuit: @escaping () -> Void = {}
-    ) {
+    public init(model: AppModel, onAddKey: @escaping () -> Void = {}) {
         self.model = model
-        self.width = width
-        self.scrollable = scrollable
-        self.maxBodyHeight = maxBodyHeight
-        self.onOpenSettings = onOpenSettings
-        self.onOpenInsights = onOpenInsights
-        self.onQuit = onQuit
+        self.onAddKey = onAddKey
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            header
-            Divider()
-
-            if let incident = model.state.tripped.first {
-                BreachBanner(key: incident, onArm: { model.arm(keyID: incident.id) },
-                             onReview: { onOpenSettings() })
-            }
-
-            bodyContent
-
-            Divider()
-            footer
-        }
-        .frame(width: width)
-        .background(.regularMaterial)
-    }
-
-    /// The scrolling middle. Measured against its content so the panel shows
-    /// the real UI the moment it opens, whatever the menu-bar host proposes.
-    @ViewBuilder
-    private var bodyContent: some View {
-        if scrollable {
-            ScrollView {
-                panelContent
-                    .background(
-                        GeometryReader { proxy in
-                            Color.clear.preference(key: BodyHeightKey.self, value: proxy.size.height)
-                        }
-                    )
-            }
-            .frame(height: min(bodyHeight, maxBodyHeight))
-            .onPreferenceChange(BodyHeightKey.self) { bodyHeight = $0 }
-        } else {
-            panelContent
-        }
-    }
-
-    private var panelContent: some View {
         VStack(alignment: .leading, spacing: DS.Space.lg) {
-            hero
-            keyList
+            if let incident = model.state.tripped.first {
+                BreachBanner(
+                    key: incident,
+                    onArm: { model.arm(keyID: incident.id) },
+                    onReview: onAddKey
+                )
+            }
+
+            BurnHero(model: model)
+
+            WatchedKeys(model: model, onAdd: onAddKey)
+
+            StatusFooter(model: model)
         }
-        .padding(DS.Space.lg)
+        .padding(DS.Space.xl)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// The headline: what every key is spending per hour right now, and the shape
+/// of recent burn. One number, read in half a second.
+public struct BurnHero: View {
+    @ObservedObject var model: AppModel
+
+    public init(model: AppModel) {
+        self.model = model
     }
 
-    // MARK: Header
-
-    private var header: some View {
-        HStack(spacing: DS.Space.sm) {
-            BrandMark(size: 20)
-
-            Text("burnfuse").font(.headline)
-
-            Spacer(minLength: DS.Space.sm)
-
-            StatusChip(
-                text: model.statusSummary,
-                systemImage: model.state.hasBreach ? "exclamationmark.octagon.fill" : "checkmark.shield.fill",
-                tone: model.state.hasBreach ? DS.Tone.breach : DS.Tone.calm
-            )
-
-            IconButton("chart.line.uptrend.xyaxis", help: "Insights") { onOpenInsights() }
-
-            IconButton("gearshape", help: "Settings") { onOpenSettings() }
-        }
-        .padding(.horizontal, DS.Space.lg)
-        .padding(.vertical, DS.Space.md)
-    }
-
-    // MARK: Hero
-
-    private var hero: some View {
+    public var body: some View {
         VStack(alignment: .leading, spacing: DS.Space.sm) {
             DS.eyebrow("Burning now")
+
             HStack(alignment: .firstTextBaseline, spacing: DS.Space.sm) {
                 Text(Fmt.perHour(model.state.totalBurn))
                     .font(DS.Font.hero)
                     .foregroundStyle(model.state.hasBreach ? DS.Tone.breach : .primary)
                     .contentTransition(.numericText())
+
                 Spacer()
+
                 if !model.state.entries.isEmpty {
                     Text("cap \(Fmt.money(model.state.totalCap))/hr")
                         .font(DS.Font.monoSmall)
@@ -125,11 +60,13 @@ public struct MainPanel: View {
                 }
             }
 
-            Sparkline(values: BurnEngine.combinedSeries(model.state),
-                      tone: model.state.hasBreach ? DS.Tone.breach : DS.Tone.calm,
-                      lineWidth: 2)
-                .frame(height: 44)
-                .opacity(model.state.entries.isEmpty ? 0 : 1)
+            Sparkline(
+                values: BurnEngine.combinedSeries(model.state),
+                tone: model.state.hasBreach ? DS.Tone.breach : DS.Tone.calm,
+                lineWidth: 2
+            )
+            .frame(height: 56)
+            .opacity(model.state.entries.isEmpty ? 0 : 1)
 
             Text(model.state.entries.isEmpty
                  ? "Add a key to start watching your burn."
@@ -138,13 +75,22 @@ public struct MainPanel: View {
                 .foregroundStyle(.secondary)
         }
     }
+}
 
-    // MARK: Keys
+/// The watch list: every key, its burn, its cap, and one action.
+public struct WatchedKeys: View {
+    @ObservedObject var model: AppModel
+    var onAdd: () -> Void = {}
 
-    private var keyList: some View {
+    public init(model: AppModel, onAdd: @escaping () -> Void = {}) {
+        self.model = model
+        self.onAdd = onAdd
+    }
+
+    public var body: some View {
         VStack(alignment: .leading, spacing: DS.Space.md) {
             SectionHeader("Watched keys") {
-                LinkButton("Add", systemImage: "plus") { onOpenSettings() }
+                LinkButton("Add", systemImage: "plus", action: onAdd)
             }
 
             if model.state.entries.isEmpty {
@@ -156,10 +102,9 @@ public struct MainPanel: View {
                             KeyRow(
                                 key: key,
                                 assessment: model.assessment(for: key),
-                                compact: true,
                                 onTrip: { model.trip(keyID: key.id) },
                                 onArm: { model.arm(keyID: key.id) },
-                                onOpen: { onOpenSettings() }
+                                onOpen: onAdd
                             )
                         }
                     }
@@ -167,48 +112,49 @@ public struct MainPanel: View {
             }
         }
     }
+}
 
-    // MARK: Footer
+/// The status line at the foot of the Overview: when it last checked, and the
+/// fleet-wide actions.
+public struct StatusFooter: View {
+    @ObservedObject var model: AppModel
 
-    private var footer: some View {
+    public init(model: AppModel) {
+        self.model = model
+    }
+
+    public var body: some View {
         HStack(spacing: DS.Space.sm) {
             Circle()
                 .fill(model.state.hasBreach ? DS.Tone.breach : DS.Tone.calm)
                 .frame(width: 6, height: 6)
+
             Text("Checked \(RelativeTime.short(model.lastRefresh))")
-                .font(.caption2)
+                .font(.caption)
                 .foregroundStyle(.secondary)
+
+            if let message = model.lastReadMessage, model.isRefreshing == false {
+                Text("·").foregroundStyle(.tertiary)
+                Text(message.split(separator: "\n").first.map(String.init) ?? "")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+            }
 
             Spacer()
 
             if model.state.hasBreach {
                 LinkButton("Re-arm all") { model.armAll() }
-                Text("·").foregroundStyle(.tertiary)
             }
 
             LinkButton("Cut all", tint: DS.Tone.breach) { model.tripAll() }
                 .opacity(canCutAll ? 1 : 0.4)
                 .disabled(!canCutAll)
-
-            Text("·").foregroundStyle(.tertiary)
-
-            LinkButton("Quit", tint: .secondary) { onQuit() }
         }
-        .padding(.horizontal, DS.Space.lg)
-        .padding(.vertical, DS.Space.sm)
     }
 
     private var canCutAll: Bool {
         !model.state.entries.isEmpty && model.state.tripped.count != model.state.entries.count
-    }
-}
-
-/// Reports the natural height of the panel body so the panel can size the
-/// scroll region to its content instead of collapsing to zero.
-private struct BodyHeightKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = max(value, nextValue())
     }
 }
 
@@ -222,7 +168,7 @@ public struct EmptyKeys: View {
                 .font(.system(size: 28))
                 .foregroundStyle(.tertiary)
             Text("No keys watched yet").font(.subheadline.weight(.medium))
-            Text("Add a key in Settings to start watching its burn.")
+            Text("Add a key to start watching its burn.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -232,7 +178,7 @@ public struct EmptyKeys: View {
     }
 }
 
-/// Shown at the top of the panel when the breaker has tripped. States plainly
+/// Shown at the top of the Overview when the breaker has tripped. States plainly
 /// what happened, what it averted, and the one recovery action.
 public struct BreachBanner: View {
     let key: BurnKey
