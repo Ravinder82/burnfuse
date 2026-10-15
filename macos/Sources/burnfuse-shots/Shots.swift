@@ -120,27 +120,26 @@ struct BurnFuseShots {
         let breach = demoModel(tripped: true)
 
         // The unified window, one screenshot per section. This is the whole app:
-        // there are no other windows to capture. Overview grew a tokens card, so
-        // its window is taller to keep the third key and the footer on show.
+        // there are no other windows to capture. Each is measured to its content,
+        // so a shot is the whole screen — adding a card or a row cannot quietly
+        // push the last one out of frame.
         let overview = write("window-overview-dark", to: dir,
-                             captureWindow(.overview, health, .dark, height: 930))
+                             captureWindow(.overview, health, .dark))
         write("window-overview-light", to: dir,
-              captureWindow(.overview, health, .light, height: 930))
+              captureWindow(.overview, health, .light))
         write("window-breach-dark", to: dir,
-              captureWindow(.overview, breach, .dark, height: 1010))
-        // Insights holds one trip in the demo, so the window is sized to the
-        // content rather than left with a screenful of nothing under it.
+              captureWindow(.overview, breach, .dark))
         write("window-insights-dark", to: dir,
-              captureWindow(.insights, breach, .dark, height: 560))
-        // Settings is the tallest section, and the pane is a scroll: capture
-        // enough of it that every section in it is on show.
-        // Settings is the tallest section, so the window is sized to show the
-        // whole screen without scrolling — every row, the add-a-key block, and
-        // the cards under it.
+              captureWindow(.insights, breach, .dark))
+        // Settings is the tallest section, and the pane is a scroll: the window
+        // is measured to whatever the whole screen actually needs, so every
+        // row, the add-a-key block and the cards under it are always on show —
+        // and so adding a row to the app cannot silently push the last card out
+        // of the frame.
         write("window-settings-dark", to: dir,
-              captureWindow(.settings, health, .dark, height: 1180, displayStatePath: Self.canonicalStatePath))
+              captureWindow(.settings, health, .dark, displayStatePath: Self.canonicalStatePath))
         write("window-settings-light", to: dir,
-              captureWindow(.settings, health, .light, height: 1180, displayStatePath: Self.canonicalStatePath))
+              captureWindow(.settings, health, .light, displayStatePath: Self.canonicalStatePath))
 
         // The one action that ends the spend, shown where it lives: the switch-off
         // panel open on the OpenAI key's own row, with the account's keys exactly
@@ -168,7 +167,7 @@ struct BurnFuseShots {
             ]
         }
         write("window-switchoff-dark", to: dir,
-              captureWindow(.settings, switchOff, .dark, height: 1300, displayStatePath: Self.canonicalStatePath))
+              captureWindow(.settings, switchOff, .dark, displayStatePath: Self.canonicalStatePath))
 
         // Marketing: the menu-bar glance, and a social card built from the real
         // window render.
@@ -190,12 +189,18 @@ struct BurnFuseShots {
     }
 
     /// The unified window with its title bar, exactly as it appears on screen.
+    ///
+    /// Pass a height to crop to a fixed frame — the Overview shots do, because
+    /// every key has to stay on show. Leave it out and the window is measured
+    /// to its content instead, which is how the two tallest screens are
+    /// captured: a hand-tuned number here is a number that goes stale the next
+    /// time a row grows.
     @MainActor static func captureWindow(
         _ section: AppSection,
         _ model: AppModel,
         _ scheme: ColorScheme,
         width: CGFloat = 900,
-        height: CGFloat,
+        height: CGFloat? = nil,
         displayStatePath: String? = nil
     ) -> NSImage? {
         let nav = AppNavigation(section: section)
@@ -213,7 +218,12 @@ struct BurnFuseShots {
                 displayStatePath: displayStatePath
             )
         }
-        return capture(AnyView(view), scheme: scheme, width: width, height: height)
+        let image = capture(AnyView(view), scheme: scheme, width: width,
+                            height: height ?? 540, fit: height == nil)
+        if height == nil, let image {
+            print("  · \(section.rawValue): measured \(Int(image.size.height)) pt")
+        }
+        return image
     }
 
     /// Where the app really writes state, so an explainer screenshot can say so
@@ -529,181 +539,19 @@ struct ComponentGallery: View {
     }
 }
 
-/// The shipping app icon, drawn once so every render shares it. A single
-/// fuse-flame, warm and legible from 16pt to 1024pt.
+/// The shipping app icon, drawn once so every render shares it: the same
+/// `FuseMark` the app draws in its own sidebar, on macOS's icon grid, with the
+/// shadow the Dock adds.
 struct AppIconView: View {
     var body: some View {
         GeometryReader { geo in
             let side = min(geo.size.width, geo.size.height)
-            let inset = side * 0.098
-            let content = side - inset * 2
+            let content = side * (1 - FuseMark.canvasInset * 2)
 
-            ZStack {
-                tile(side: side, content: content)
-                FuseIconGlyph(width: content * 0.76)
-                    .offset(y: -content * 0.015)
-            }
-            .frame(width: side, height: side)
+            FuseMark(size: content)
+                .shadow(color: .black.opacity(0.30), radius: side * 0.03, y: side * 0.012)
+                .frame(width: side, height: side)
         }
-    }
-
-    /// The tile: deep graphite, lit from above. A surface for one glowing thing
-    /// to sit on, rather than a logo made out of a gradient — most AI apps are
-    /// a coloured gradient with a symbol in it, and this is deliberately not.
-    private func tile(side: CGFloat, content: CGFloat) -> some View {
-        RoundedRectangle(cornerRadius: side * 0.2237, style: .continuous)
-            .fill(
-                LinearGradient(
-                    colors: [Color(white: 0.21), Color(white: 0.08)],
-                    startPoint: .top, endPoint: .bottom
-                )
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: side * 0.2237, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.14), .clear],
-                            startPoint: .topLeading, endPoint: .init(x: 0.6, y: 0.55)
-                        )
-                    )
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: side * 0.2237, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.12), lineWidth: max(1, side * 0.006))
-            )
-            .shadow(color: .black.opacity(0.30), radius: side * 0.03, y: side * 0.012)
-            .frame(width: content, height: content)
-    }
-}
-
-/// The BurnFuse mark: a fuse.
-///
-/// A fuse is the only part of a circuit whose whole job is to stop the current
-/// when it goes too high — which is what this app is. Drawn as the real object:
-/// a glass body between two metal caps, with a filament running through it that
-/// starts calm at one end and ends hot at the other, in the same three colours
-/// the app uses everywhere for settled, climbing and tripped.
-///
-/// It is drawn from shapes rather than shipped as a symbol, so it stays exact
-/// from a 16pt favicon to a 1024pt icon, and nothing about it is a generic AI
-/// spark or flame.
-struct FuseIconGlyph: View {
-    /// Full width of the fuse body. Height follows at 0.42 of it.
-    let width: CGFloat
-
-    private var height: CGFloat { width * 0.42 }
-    private var radius: CGFloat { height / 2 }
-    private var capWidth: CGFloat { width * 0.115 }
-    private var wireWidth: CGFloat { height * 0.20 }
-
-    /// The app's own language: settled, climbing, tripped — one filament.
-    private var filamentGradient: LinearGradient {
-        LinearGradient(
-            colors: [
-                Color(red: 0.34, green: 0.86, blue: 0.58),
-                Color(red: 0.99, green: 0.80, blue: 0.28),
-                Color(red: 0.98, green: 0.33, blue: 0.15),
-            ],
-            startPoint: .leading, endPoint: .trailing
-        )
-    }
-
-    private var glass: LinearGradient {
-        LinearGradient(
-            colors: [Color(white: 0.30), Color(white: 0.14)],
-            startPoint: .top, endPoint: .bottom
-        )
-    }
-
-    private var metal: LinearGradient {
-        LinearGradient(
-            colors: [Color(white: 0.92), Color(white: 0.52), Color(white: 0.72)],
-            startPoint: .top, endPoint: .bottom
-        )
-    }
-
-    var body: some View {
-        ZStack {
-            // The body: glass, both caps, and the light the filament throws —
-            // clipped to the capsule, so the light stays inside the glass
-            // instead of smearing across the tile.
-            ZStack {
-                RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .fill(glass)
-
-                // The light the filament throws into the glass, under the caps
-                // so the metal stays metal.
-                FilamentShape(sag: 0.16)
-                    .stroke(filamentGradient, style: StrokeStyle(lineWidth: wireWidth * 3.2, lineCap: .round))
-                    .blur(radius: wireWidth * 1.2)
-                    .opacity(0.55)
-                    .padding(.horizontal, capWidth * 0.7)
-
-                HStack(spacing: 0) {
-                    cap
-                    Spacer(minLength: 0)
-                    cap
-                }
-
-                // A catch of light across the glass, the way a real fuse reads.
-                Rectangle()
-                    .fill(Color.white.opacity(0.12))
-                    .frame(height: height * 0.34)
-                    .rotationEffect(.degrees(-8))
-                    .offset(y: -height * 0.22)
-            }
-            .frame(width: width, height: height)
-            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.22), lineWidth: max(1, height * 0.04))
-            )
-
-            // The wire itself, ending on the caps the way a real one does.
-            FilamentShape(sag: 0.16)
-                .stroke(filamentGradient, style: StrokeStyle(lineWidth: wireWidth, lineCap: .round))
-                .padding(.horizontal, capWidth * 0.7)
-
-            FilamentShape(sag: 0.16)
-                .stroke(Color.white.opacity(0.60), style: StrokeStyle(lineWidth: wireWidth * 0.32, lineCap: .round))
-                .padding(.horizontal, capWidth * 0.7)
-        }
-        .frame(width: width, height: height)
-    }
-
-    private var cap: some View {
-        RoundedRectangle(cornerRadius: radius * 0.5, style: .continuous)
-            .fill(metal)
-            .frame(width: capWidth)
-            .overlay(alignment: .trailing) {
-                // The seam where the cap meets the glass.
-                Rectangle()
-                    .fill(Color.black.opacity(0.28))
-                    .frame(width: max(1, width * 0.008))
-            }
-            .overlay(alignment: .leading) {
-                // A catch of light down the cap's outer edge.
-                Rectangle()
-                    .fill(Color.white.opacity(0.35))
-                    .frame(width: max(1, width * 0.005))
-            }
-    }
-}
-
-/// The wire inside the fuse: straight across, with a slight sag so it reads as a
-/// filament under its own weight rather than as a progress bar.
-struct FilamentShape: Shape {
-    var sag: CGFloat = 0.10
-
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        let midY = rect.midY
-        path.move(to: CGPoint(x: rect.minX, y: midY))
-        path.addQuadCurve(
-            to: CGPoint(x: rect.maxX, y: midY),
-            control: CGPoint(x: rect.midX, y: midY + rect.height * sag)
-        )
-        return path
     }
 }
 
@@ -713,6 +561,11 @@ struct AppMarkTile: View {
     var body: some View {
         AppIconView()
             .frame(width: size, height: size)
-            .clipShape(RoundedRectangle(cornerRadius: size * 0.2237, style: .continuous))
+            .clipShape(
+                RoundedRectangle(
+                    cornerRadius: size * (1 - FuseMark.canvasInset * 2) * FuseMark.cornerRatio,
+                    style: .continuous
+                )
+            )
     }
 }

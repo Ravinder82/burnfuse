@@ -78,7 +78,9 @@ public struct RootView: View {
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: DS.Space.sm) {
-                BrandMark(size: 18)
+                // The same mark the Dock shows, so the window and the icon in
+                // it are never two different logos.
+                FuseMark(size: 18)
                 Text("burnfuse").font(.headline)
                 Spacer()
             }

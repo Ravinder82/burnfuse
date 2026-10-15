@@ -85,8 +85,8 @@ public struct SettingsView: View {
     /// the group is for, in that category's colour and with its own symbol, and
     /// every row leads with the tile of the provider it belongs to. Groups follow
     /// the picker's order — coding first, "something else" last — and a category
-    /// nobody has a key in simply does not appear. One card, because it is one
-    /// thing.
+    /// nobody has a key in simply does not appear. The grouping is one panel;
+    /// inside it every key is its own card.
     private var keysSection: some View {
         Card {
             VStack(alignment: .leading, spacing: DS.Space.lg) {
@@ -102,11 +102,10 @@ public struct SettingsView: View {
                 } else {
                     VStack(alignment: .leading, spacing: DS.Space.lg) {
                         ForEach(groupedKeys, id: \.category) { group in
-                            VStack(alignment: .leading, spacing: DS.Space.md) {
+                            VStack(alignment: .leading, spacing: DS.Space.sm) {
                                 CategoryBand(category: group.category, keys: group.keys)
-                                ForEach(Array(group.keys.enumerated()), id: \.element.id) { index, key in
-                                    if index > 0 { Divider() }
-                                    keyRow(key)
+                                ForEach(group.keys) { key in
+                                    KeyCard { keyRow(key) }
                                 }
                             }
                         }
@@ -865,6 +864,38 @@ public struct SettingsView: View {
         guard let cost = Double(logDrafts[keyID] ?? "") else { return }
         model.record(keyID: keyID, cost: max(0, cost))
         logDrafts[keyID] = ""
+    }
+}
+
+/// One watched key, on its own surface.
+///
+/// Rows separated by hairlines read as one long form — five keys that look like
+/// five fields in the same box. A key in Settings is a *thing*: a secret, a cap,
+/// a spend reading, and the sentences that belong to it alone (including the
+/// switch-off panel, which opens inside its own card). So each one gets a
+/// bordered surface with a step of space around it, and the eye can take them
+/// one at a time. They are still filed under their category's band, because the
+/// grouping is the answer to a different question.
+///
+/// The fill is the panel's own colour: the separation is a hairline and a
+/// whisper of shadow, not a second colour anyone has to learn.
+struct KeyCard<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    private var shape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: DS.Radius.medium, style: .continuous)
+    }
+
+    var body: some View {
+        content
+            .padding(DS.Space.md)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                shape
+                    .fill(Color(nsColor: .controlBackgroundColor))
+                    .shadow(color: .black.opacity(0.08), radius: 1.5, y: 1)
+            )
+            .overlay(shape.strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1))
     }
 }
 

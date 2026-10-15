@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/icon_512.png" width="128" alt="The BurnFuse icon: a glass fuse whose filament runs calm green to hot red">
+<img src="assets/icon_512.png" width="128" alt="The BurnFuse icon: a filament that has just given way — calm green at the tail, hot red past the break, with the spark it throws">
 
 # burnfuse
 
@@ -118,11 +118,12 @@ already use — BurnFuse watches that same key. Nothing to create first, no seco
 copy, no separate place to register anything.
 
 Keys are grouped under the thing you use them for — *Coding & chat*, *Images*, *Video* —
-and every row leads with its provider's own small tile: the same square for every key from
-that provider, a different colour from the next. So "which of these is the fal.ai key" is a
-glance rather than a read. The category is a menu on the row, so a key filed in the wrong
-group can be moved without re-adding it; colour never carries the meaning on its own, and
-the provider's name is always beside its tile.
+and inside a group every key is its own card, so a key is a thing you can look at rather
+than a line in a form. Each card leads with its provider's own small tile: the same square
+for every key from that provider, a different colour from the next. So "which of these is
+the fal.ai key" is a glance rather than a read. The category is a menu on the card, so a key
+filed in the wrong group can be moved without re-adding it; colour never carries the meaning
+on its own, and the provider's name is always beside its tile.
 
 As you paste, BurnFuse names the provider from the shape of the key itself (`sk-or-…` is
 OpenRouter, `sk-ant-…` is Anthropic), files it under what you use it for, and tells you in
@@ -141,7 +142,7 @@ the provider's own API lets the key BurnFuse already holds switch a key off, the
 it; where it does not, the trip names the page that can.
 
 <p align="center">
-  <img src="assets/window-settings-dark.png" width="600" alt="BurnFuse Settings: one list of keys, each row saying whether it reads itself or takes a typed number, with the add-a-key block at the top">
+  <img src="assets/window-settings-dark.png" width="600" alt="BurnFuse Settings: one list of keys in category groups, one card per key, each saying whether it reads itself or takes a typed number, with the add-a-key block at the top">
 </p>
 
 ### Keeping it current
@@ -346,6 +347,12 @@ BurnFuse is built to be boring about your secrets.
 Native SwiftUI, following Apple's Human Interface Guidelines: semantic system colours
 that respect light and dark, real Dynamic Type, status conveyed by icon *and* colour,
 and motion that yields to Reduce Motion.
+
+The mark is the app's own idea drawn in the app's own colours: the filament of a fuse that
+has just given way — calm green at the tail, climbing amber, and the red past the break —
+with the spark the break throws. Like everything else here it is drawn from shapes rather
+than shipped as an image, so the Dock icon, the mark in the sidebar, the menu-bar panel and
+the marketing card are one drawing at different sizes, and cannot drift apart.
 
 Every image in this README is a render of the shipping UI — see
 [`scripts/screenshots.sh`](scripts/screenshots.sh).

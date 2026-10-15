@@ -68,7 +68,7 @@ public struct MiniPanel: View {
 
     private var header: some View {
         HStack(spacing: DS.Space.sm) {
-            BrandMark(size: 15)
+            FuseMark(size: 15)
             Text("burnfuse")
                 .font(.subheadline.weight(.semibold))
 
