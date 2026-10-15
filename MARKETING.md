@@ -17,12 +17,13 @@ from the product. Run `./scripts/screenshots.sh` to regenerate the whole set.
 | `assets/menubar-light.png` | 640×34 | Menu-bar item in light appearance |
 | `assets/mini-panel-dark.png` | 320 wide | The menu-bar panel, healthy |
 | `assets/mini-panel-breach-dark.png` | 320 wide | The menu-bar panel, tripped |
-| `assets/window-overview-dark.png` | 900×780 | Primary product shot — README, landing page |
-| `assets/window-overview-light.png` | 900×780 | Light-mode shot |
-| `assets/window-breach-dark.png` | 900×860 | "The moment it matters" — the trip |
+| `assets/window-overview-dark.png` | 900×930 | Primary product shot — README, landing page |
+| `assets/window-overview-light.png` | 900×930 | Light-mode shot |
+| `assets/window-breach-dark.png` | 900×1010 | "The moment it matters" — the trip |
 | `assets/window-insights-dark.png` | 900×581 | What the trips were on track to spend |
 | `assets/window-settings-dark.png` | 900×1180 | Feature shot — one list of keys, each saying how its number gets in |
 | `assets/window-settings-light.png` | 900×1180 | Light-mode feature shot |
+| `assets/window-switchoff-dark.png` | 900×1300 | Switching a key off at the provider, from the key's own row |
 
 ## Where each one is used
 
@@ -45,9 +46,10 @@ from the product. Run `./scripts/screenshots.sh` to regenerate the whole set.
 - Click it and you get a miniature of the app — live burn, the trend, every watched key —
   without leaving what you were doing.
 - Native macOS, everything on your Mac. No account, no telemetry, no server.
-- It tells you inside a minute, and it names the console page where the key is revoked —
-  because revoking it is what stops the spend, and an app that could do that for you
-  would be a bigger risk than the leak it watches for.
+- It tells you inside a minute, and it is exact about what it can do next: where the
+  provider lets the key it already holds switch a key off (OpenAI, Anthropic), the trip
+  offers to do it, with a second press; everywhere else it names the console page, because
+  that is what stops the spend.
 
 ## What to lead with
 
@@ -93,9 +95,21 @@ from the product. Run `./scripts/screenshots.sh` to regenerate the whole set.
 - **"Count-up providers tell you they are measuring."** Some endpoints return a running
   total rather than a rate, so BurnFuse takes a baseline and shows your first real hourly
   figure on the second read, saying so while it works it out instead of inventing a number.
-- **"It tells you what it cannot do."** The hardest claim to make in this category, and
-  the one worth leading with to anyone technical: BurnFuse reads spend, so it cannot
-  revoke a key, and it never says otherwise. Every trip — banner, notification and
-  webhook alike — names the exact console page where the key is revoked, because
-  revoking it is what stops the billing. No other spend watcher is that specific about
-  its own limits, and it is the reason to trust the number it does report.
+- **"It tells you what it cannot do — and does the rest."** The hardest claim to make in
+  this category, and the one worth leading with to anyone technical: reading spend and
+  disabling a key are different permissions, and BurnFuse is exact about which it has. With
+  OpenAI and Anthropic the cost report is Admin-only and the same Admin key can list the
+  account's keys and remove one, so the trip banner offers it directly — and labels the key
+  the readings come from before you touch it. With OpenRouter, changing keys needs a
+  management key, so the app says exactly that and points at the console instead of failing
+  with a 403. No other spend watcher is that specific about its own limits, and it is the
+  reason to trust the number it does report.
+- **"It shows why, not just how fast."** Overview counts today's input, output and cached
+  tokens where the provider reports them — OpenAI and Anthropic, over the same day the
+  dollars cover — and says *"about $2.56 per million tokens, from today's $15.90 on the keys
+  these counts came from"* instead of quoting a price list. A runaway loop is a token count
+  before it is a bill.
+- **"One glance tells you whose key it is."** Keys are grouped by what you use them for,
+  and every row leads with its provider's own tile — the same square for every key from
+  that provider, a different colour from the next. Colour never carries the fact alone; the
+  provider's name sits beside it.

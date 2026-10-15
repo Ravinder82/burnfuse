@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/icon_512.png" width="128" alt="BurnFuse app icon">
+<img src="assets/icon_512.png" width="128" alt="The BurnFuse icon: a glass fuse whose filament runs calm green to hot red">
 
 # burnfuse
 
@@ -61,10 +61,12 @@ And the colour block itself, in each state:
 
 - **Shows the burn.** One number in your menu bar, in a colour block that reads at a glance: green when settled, amber as it climbs, red when tripped.
 - **Uses the key you already have.** Paste it once and BurnFuse watches that same key — no second key to create, no list to reconcile. Where a provider needs a particular *kind* of key to read spend, the row says so in one line instead of leaving you to guess.
+- **Shows what the tokens say.** Where a provider counts them (OpenAI and Anthropic do), Overview reads today's input, output and cached tokens next to the dollars — because a runaway loop is a token count before it is a bill.
 - **Catches the spike.** It learns each key's normal rate and trips when the rate jumps — even if you never set a cap.
 - **Respects the cap.** Set an hourly ceiling per key. Cross it and the breaker trips.
 - **Tells you inside a minute.** Menu bar red, a desktop notification, and — if you add one — a Slack or Discord ping. Not a billing email you read tomorrow.
-- **States its own limits.** Reading a cost figure and revoking a credential are different permissions. So BurnFuse never claims to have cut a key it cannot cut: every trip names the console page where that key is revoked, because revoking it is what actually stops the billing.
+- **Switches a key off, where it is allowed to.** Reading spend and disabling a key are different permissions, and BurnFuse is exact about which it has. OpenAI and Anthropic hand out the key list to the same Admin key the cost read needs, so there the app can delete a key or set it inactive, with a second press first. Anywhere else it says why not and names the console page instead of pretending.
+- **States its own limits.** It never claims to have cut a key it cannot cut, and it never claims a key is stopped until the provider says so.
 - **Tells you after.** Spending is only half the story. Insights shows every trip and what it was on track to spend.
 
 ## The app
@@ -83,11 +85,44 @@ Light and dark follow the system:
   <img src="assets/window-overview-light.png" width="720" alt="The BurnFuse window on Overview in light appearance">
 </p>
 
+### Tokens
+
+The burn figure says how fast the money is going. The tokens card says **why**: models are
+priced per token and differ by orders of magnitude, so "$9.90/hr" becomes something you can
+act on the moment it reads next to "it pushed four million tokens".
+
+Today's input, output and cached tokens, where the provider reports them — OpenAI and
+Anthropic do, with the same Admin key the cost read already uses, over the same day the
+dollars cover. A few things it is careful about:
+
+- **Cached is a part of In, not an addition to it.** Input counts every input token; the
+  cached figure is the slice that was served from the provider's cache, and the card says so
+  rather than letting the three numbers look like they should add up.
+- **The day is the provider's day** — midnight to midnight UTC, the same hours its bill
+  covers — and a figure from yesterday is never shown under today's heading.
+- **Only real numbers.** Nothing is estimated from a price list: a provider that publishes
+  no token counts shows none. OpenRouter reports credits rather than tokens, so its rows
+  have no counts and the card says exactly that.
+- **One derived figure, and it says where it came from:** today's spend on the keys that
+  reported, divided by what they used — *about $2.56 per million tokens* — an average over
+  whatever mix of models actually ran, written as an average.
+
+Each watched key shows its own line in the list below (*47L in · 1.8L out today*), so a key
+that is feeding tokens in is visible without opening anything. Token counts are the one
+number here that follows your Mac's own number style.
+
 ### Keys
 
 Settings is one list, and the top of that list is where a key goes. Paste the key you
 already use — BurnFuse watches that same key. Nothing to create first, no second key to
 copy, no separate place to register anything.
+
+Keys are grouped under the thing you use them for — *Coding & chat*, *Images*, *Video* —
+and every row leads with its provider's own small tile: the same square for every key from
+that provider, a different colour from the next. So "which of these is the fal.ai key" is a
+glance rather than a read. The category is a menu on the row, so a key filed in the wrong
+group can be moved without re-adding it; colour never carries the meaning on its own, and
+the provider's name is always beside its tile.
 
 As you paste, BurnFuse names the provider from the shape of the key itself (`sk-or-…` is
 OpenRouter, `sk-ant-…` is Anthropic), files it under what you use it for, and tells you in
@@ -115,14 +150,16 @@ BurnFuse gets a key's spend one of three ways, and the row always says which:
 1. **It reads itself.** Paste the key you already use. OpenRouter answers a standard key
    with its own credit usage; OpenAI and Anthropic answer with your organization's costs,
    which their cost APIs accept only from an Admin key — the row says so in one line.
-   A failed read gives the provider's own reason rather than a status code: a standard
-   OpenAI key instead of an Admin one, or an OpenAI key pasted into the OpenRouter row, is
-   named where you typed it rather than failing silently a minute later. A value that is
-   really the placeholder from a sample file is called out as one. Keys are stored on your
-   Mac only, owner-readable, and are sent nowhere except that provider; the row shows just
-   the two ends of the key (`sk-o…0000`), so you can tell which one is stored without it
-   being usable. **Test** asks the provider right then, instead of waiting a minute to
-   find out.
+   That same Admin key is also the one that can list the account's keys and switch one
+   off, which is why those two rows can revoke as well as read (see
+   [what a trip cannot do](#what-a-trip-cannot-do)). A failed read gives the provider's own
+   reason rather than a status code: a standard OpenAI key instead of an Admin one, or an
+   OpenAI key pasted into the OpenRouter row, is named where you typed it rather than
+   failing silently a minute later. A value that is really the placeholder from a sample
+   file is called out as one. Keys are stored on your Mac only, owner-readable, and are
+   sent nowhere except that provider; the row shows just the two ends of the key
+   (`sk-o…0000`), so you can tell which one is stored without it being usable. **Test**
+   asks the provider right then, instead of waiting a minute to find out.
 2. **You type it.** Most providers publish no spend figure at all. Their rows say so in
    plain words and take a number from you — what that key is spending per hour. That is
    all a reading is: one dollar figure per hour. A typed row is a first-class way to use
@@ -183,17 +220,38 @@ Worth being exact about, because "spend breaker" suggests more than any watcher 
 | Marks the key, logs the minute, shows it in the list | yes |
 | Menu bar red, desktop notification, optional Slack/Discord ping | yes |
 | Stops reading the key, if you asked it to | yes — the number freezes as evidence |
-| Revokes the key at the provider | **no** — and it will not imply otherwise |
+| Switches the key off at OpenAI or Anthropic | **yes** — where the app already holds the Admin key those accounts require |
+| Switches a key off anywhere else | **no** — and it says why, and where, rather than implying otherwise |
 
-BurnFuse reads a cost figure with a read-only key. Revoking a credential is a different
-permission, and an app holding revocation rights over your keys would be a bigger risk
-than the leak it watches for. So instead of pretending it cut something, it points
-precisely — *OpenAI dashboard → API keys*, *Claude Console → API keys*, *OpenRouter →
-Settings → Keys* — in the banner, the notification and the webhook alike, so whoever
-sees it first knows what to do.
+The distinction is real and the app is built around it. Reading a cost figure and disabling
+a credential are different permissions, and BurnFuse can only do the second where the
+provider puts both behind one key:
 
-The money is saved when you revoke the key. BurnFuse's job is to make that happen in a
+- **OpenAI and Anthropic.** Your organisation's cost report is Admin-only, and the same
+  Admin key can list the account's keys and remove one. So the trip banner offers it
+  directly — **Switch a key off at OpenAI…** — and Settings has it on every key's row. The
+  panel shows your keys exactly as the provider describes them (name plus the provider's own
+  redaction, `sk-admin…3H6`), labels the one the readings come from, and asks for a second
+  press before anything happens.
+- **OpenRouter.** Changing keys needs a *management* key, and BurnFuse reads with an
+  ordinary one. So the panel says exactly that, and points at *OpenRouter → Settings → Keys*
+  instead of failing with a 403. What it can read is OpenRouter's own ceiling on the key —
+  *"the provider caps this key at $6.50, and it is spent"* — which is the fact that answers
+  "can this key still spend?" without anybody's help.
+- **Everyone else.** There is no such endpoint, so the console is the only door, and the row
+  names the page: *OpenAI dashboard → API keys*, *Claude Console → API keys*, *Replicate →
+  Account → API tokens*, and so on.
+
+Two things it will never do: offer a switch-off its credential cannot perform, and claim a
+key is stopped before the provider has said so. And if you switch off the very key BurnFuse
+reads with, it tells you in that row, because the readings stop with it.
+
+The money is saved when the key is switched off. BurnFuse's job is to make that happen in a
 minute rather than tomorrow morning.
+
+<p align="center">
+  <img src="assets/window-switchoff-dark.png" width="720" alt="BurnFuse Settings with the switch-off panel open: the account's OpenAI keys, each with the provider's own redaction, and the key BurnFuse reads with labelled">
+</p>
 
 ## Insights
 
@@ -228,6 +286,12 @@ That is thirty providers by name, and BurnFuse can read spend for three of them 
 endpoint of your own. The rest genuinely publish no cost figure that a key can read, and
 no amount of wanting changes that. So each row says so, names where the number lives
 instead, and takes it. Nothing in the list is ever a dead end.
+
+The same rule runs through everything else the app can do. Token counts are read where a
+provider counts them (OpenAI and Anthropic) and nowhere else; disabling a key is offered
+where the provider's own API allows the key BurnFuse holds to do it (OpenAI and Anthropic),
+and explained everywhere else. What the app can do at a provider is a fact about that
+provider, and each row says it in one line.
 
 ## Install
 
