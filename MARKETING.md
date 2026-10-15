@@ -64,6 +64,12 @@ from the product. Run `./scripts/screenshots.sh` to regenerate the whole set.
 - **"It reads the number itself."** Paste a read-only key for OpenAI, Anthropic or
   OpenRouter and BurnFuse pulls spend from the provider's own cost endpoint every minute.
   No scripts, no terminal, no pasting a number by hand every hour.
+- **"A glance costs you nothing."** The menu-bar panel is a real nonactivating panel, not
+  a popover bolted to an activating app: click the item and it appears over what you are
+  doing, on the Space you are on, without becoming the front app and without dragging the
+  BurnFuse window over your work. The window opens only when you ask for it. Verify it
+  yourself — `./scripts/verify.sh` includes a check that fails if showing the panel so
+  much as activates the app.
 - **"A no is explained where you typed it."** If OpenAI turns a standard project key down
   for cost reads, the same row offers the way out in place — type this key's spend by hand
   instead — instead of sending you to a second list that never worked for you anyway.

@@ -50,6 +50,17 @@ public struct MiniPanel: View {
         }
         .padding(DS.Space.md)
         .frame(width: 296)
+        // The panel draws its own chrome: it lives in a borderless, transparent
+        // window, so there is no popover behind it to provide a background, and
+        // the window's shadow is computed from what is drawn here.
+        .background(
+            RoundedRectangle(cornerRadius: DS.Radius.large + 6, style: .continuous)
+                .fill(Material.thickMaterial)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.large + 6, style: .continuous)
+                .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1)
+        )
         .environment(\.glassPanels, true)
     }
 

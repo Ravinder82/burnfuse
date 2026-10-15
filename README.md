@@ -35,7 +35,11 @@ red the moment the breaker trips. Click it and you get a miniature of the app: t
 live number, the same watch list, without leaving what you were doing.
 
 The menu bar isn't a menu — it's the app, shrunk. Live burn, the trend, every watched key
-and the one action that matters, all in one small panel:
+and the one action that matters, all in one small panel. It opens as a panel that does not
+take your focus: clicking the item shows the burn over whatever you are doing, without
+activating BurnFuse and without pulling its window in front of your work. Nothing moves
+except the panel — the app opens only when you ask it to, from the panel's own
+**Open BurnFuse**.
 
 <p align="center">
   <img src="assets/mini-panel-dark.png" width="300" alt="The BurnFuse menu-bar panel: a miniature of the app with live burn and watched keys">
@@ -308,8 +312,8 @@ Layout:
 
 ```
 macos/               Swift package: the app
-  Sources/BurnFuse/       entry point, menu-bar item
-  Sources/BurnFuseUI/     window, panel, design system, burn engine, live spend
+  Sources/BurnFuse/       entry point, menu-bar item and its panel
+  Sources/BurnFuseUI/     window, panel content, design system, burn engine, live spend
   Sources/burnfuse-shots/ icon + screenshot + marketing renderer
 scripts/             build, install, package, verify and screenshot scripts
 assets/              app icon, window screenshots and the marketing card

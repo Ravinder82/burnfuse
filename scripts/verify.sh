@@ -83,4 +83,19 @@ if /usr/libexec/PlistBuddy -c "Print :LSUIElement" "$APP/Contents/Info.plist" >/
 fi
 ok "regular app (Dock icon, no LSUIElement)"
 
+# The menu-bar item shows a panel and nothing else. It used to activate the app,
+# which dragged the whole window forward over whatever was on screen — so this
+# runs a real app instance, puts it in the background with its window away, shows
+# the panel the way a click does, and looks at what happened.
+step "Menu-bar panel"
+PANEL_STATE=$(mktemp /tmp/burnfuse-panelstate.XXXXXX)
+PANEL_KEYS=$(mktemp /tmp/burnfuse-panelkeys.XXXXXX)
+PANEL_OUT=$(BURNFUSE_STATE="$PANEL_STATE" BURNFUSE_KEYS="$PANEL_KEYS" \
+  "$APP/Contents/MacOS/BurnFuse" --panel-self-check 2>/dev/null | grep "^SELF-CHECK" || true)
+rm -f "$PANEL_STATE" "$PANEL_KEYS"
+printf '%s\n' "$PANEL_OUT" | grep -q "panel-shown=true" || die "the menu-bar panel did not appear"
+printf '%s\n' "$PANEL_OUT" | grep -q "app-active=false" || die "the panel activated the app"
+printf '%s\n' "$PANEL_OUT" | grep -q "window-visible=false" || die "the panel brought the app window forward"
+ok "panel shows without opening the app window"
+
 printf "\n  all %d checks passed\n\n" "$pass"

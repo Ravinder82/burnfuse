@@ -14,11 +14,15 @@ import BurnFuseUI
 ///
 /// Left click opens the panel (a miniature of the app). Right click opens a menu
 /// with the housekeeping actions.
+///
+/// The click shows the panel and nothing else: it does not activate the app, so
+/// it does not bring the app's window forward. `MiniPanelHost` holds the panel
+/// and the reasons it is not an `NSPopover`.
 @MainActor
 final class StatusItemController: NSObject {
     private let model: AppModel
     private let statusItem: NSStatusItem
-    private let popover = NSPopover()
+    private var panel: MiniPanelHost!
     private var cancellable: AnyCancellable?
 
     init(model: AppModel) {
@@ -31,20 +35,14 @@ final class StatusItemController: NSObject {
         statusItem.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
         statusItem.button?.imagePosition = .imageOnly
 
-        popover.behavior = .transient
-        popover.animates = false
-        let panel = MiniPanel(
+        panel = MiniPanelHost(content: MiniPanel(
             model: model,
-            onOpen: { section in
+            onOpen: { [weak self] section in
+                self?.panel.hide()
                 AppRouter.shared.show(section)
-                self.popover.performClose(nil)
             },
             onQuit: { NSApplication.shared.terminate(nil) }
-        )
-        let hosting = NSHostingController(rootView: panel)
-        // Let the popover track the panel's own size instead of guessing it.
-        hosting.sizingOptions = [.preferredContentSize]
-        popover.contentViewController = hosting
+        ))
 
         refresh()
 
@@ -97,13 +95,18 @@ final class StatusItemController: NSObject {
 
     private func togglePopover() {
         guard let button = statusItem.button else { return }
-        if popover.isShown {
-            popover.performClose(nil)
-        } else {
-            NSApp.activate(ignoringOtherApps: true)
-            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-            popover.contentViewController?.view.window?.makeKey()
-        }
+        panel.toggle(relativeTo: button)
+    }
+
+    // MARK: - For the self-check in scripts/verify.sh
+
+    var isPanelShown: Bool { panel.isShown }
+
+    /// Show the panel the way a click does, so the launch check can assert what
+    /// a click does and does not do to the rest of the screen.
+    func showPanelForSelfCheck() {
+        guard let button = statusItem.button else { return }
+        panel.show(relativeTo: button)
     }
 
     private func showMenu() {

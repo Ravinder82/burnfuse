@@ -204,10 +204,12 @@ struct BurnFuseShots {
 
     /// The menu-bar popover: a miniature of the app.
     @MainActor static func captureMiniPanel(_ model: AppModel, _ scheme: ColorScheme) -> NSImage? {
+        // The panel exactly as the app draws it — its own chrome, in a
+        // borderless window — with a margin left for the window shadow, which is
+        // AppKit's and so is not rendered here.
         let panel = MiniPanel(model: model)
-            .padding(12)
-            .background(Color(white: scheme == .dark ? 0.12 : 0.95))
-        return capture(AnyView(panel), scheme: scheme, width: 320, height: 400, fit: true)
+            .padding(14)
+        return capture(AnyView(panel), scheme: scheme, width: 324, height: 400, fit: true)
     }
 
     // MARK: - Marketing card

@@ -105,8 +105,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // drawn; SwiftUI's MenuBarExtra would template it to monochrome.
         statusItem = StatusItemController(model: model)
 
+        if CommandLine.arguments.contains("--panel-self-check") {
+            runPanelSelfCheck()
+            return
+        }
+
         NSApp.activate(ignoringOtherApps: true)
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+    }
+
+    /// Prove what a click on the menu-bar item does, and does not, do.
+    ///
+    /// The bug this exists for: showing the panel activated the app, so the whole
+    /// BurnFuse window came forward over whatever was on screen — a glance at the
+    /// burn rate reorganised your desktop. Here the app is put in the background
+    /// with its window away, the panel is shown exactly as a click shows it, and
+    /// the check fails if the app became active again or any window came back.
+    private func runPanelSelfCheck() {
+        guard let statusItem else { exit(2) }
+
+        // As if the window had been closed and you had gone back to work.
+        for window in NSApp.windows { window.orderOut(nil) }
+        NSApp.deactivate()
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            statusItem.showPanelForSelfCheck()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                let panelShown = statusItem.isPanelShown
+                let appActive = NSApp.isActive
+                let windowVisible = NSApp.windows.contains { $0.isVisible && !($0 is NSPanel) }
+                print("SELF-CHECK panel-shown=\(panelShown) app-active=\(appActive) window-visible=\(windowVisible)")
+                exit(panelShown && !appActive && !windowVisible ? 0 : 1)
+            }
+        }
     }
 
     /// Closing the window leaves BurnFuse running in the menu bar.
