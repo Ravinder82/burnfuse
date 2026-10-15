@@ -94,9 +94,55 @@ public enum Credentials {
         return Resolution(key: nil, source: .none)
     }
 
+    // MARK: - Keys by slot
+
+    /// A key belongs to the provider *entry* you created — the thing with a name,
+    /// a cap, a category and its own row — not to a provider in the abstract.
+    /// Two entries can be two different accounts at the same provider, and one
+    /// must never read with the other's key.
+    ///
+    /// An entry's id is its slot. A provider kind is still a slot for keys saved
+    /// before entries existed, and for the environment: with nothing saved under
+    /// the entry, resolution falls through to the kind, so a key somebody stored
+    /// this morning keeps working without a migration step. An entry that *has*
+    /// its own key always wins over the kind's.
+    public static func resolve(forSlot slot: String, kind: String) -> Resolution {
+        guard slot != kind else { return resolve(for: kind) }
+
+        let stored = sanitize(readAll()[slot] ?? "")
+        if let stored, !KeyShape.looksLikeAPlaceholder(stored) {
+            return Resolution(key: stored, source: .stored)
+        }
+        if stored != nil {
+            return Resolution(key: nil, source: .storedPlaceholder)
+        }
+        return resolve(for: kind)
+    }
+
+    /// The key a watched entry reads with, and where it came from.
+    public static func resolve(for entry: BurnKey) -> Resolution {
+        resolve(forSlot: entry.id, kind: entry.provider)
+    }
+
     /// The key for a provider, or nothing when there is none to read with.
     public static func key(for provider: String) -> String? {
         resolve(for: provider).key
+    }
+
+    /// The key of one entry, or nothing when there is none to read with.
+    public static func key(for entry: BurnKey) -> String? {
+        resolve(for: entry).key
+    }
+
+    /// Where one entry's key comes from, for the row that has to say so.
+    public static func source(for entry: BurnKey) -> KeySource {
+        resolve(for: entry).source
+    }
+
+    /// The two ends of one entry's key, for the row that shows which key is in
+    /// use without showing the key.
+    public static func masked(for entry: BurnKey) -> String? {
+        key(for: entry).map(mask)
     }
 
     /// Where this provider's key comes from, for the row that has to say so.
@@ -127,14 +173,14 @@ public enum Credentials {
         return ids.contains { resolve(for: $0).key != nil }
     }
 
-    /// Store (or clear, when empty) a provider's key.
-    public static func set(_ value: String?, for provider: String) {
+    /// Store (or clear, when empty) the key BurnFuse reads with.
+    public static func set(_ value: String?, for slot: String) {
         var all = readAll()
         let cleaned = sanitize(value ?? "")
         if cleaned == nil {
-            all.removeValue(forKey: provider)
+            all.removeValue(forKey: slot)
         } else {
-            all[provider] = cleaned
+            all[slot] = cleaned
         }
         write(all)
     }

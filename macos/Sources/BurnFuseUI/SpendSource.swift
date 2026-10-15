@@ -264,7 +264,16 @@ public enum SpendSource {
     /// Knowing this is what lets a read say "you have not given me a key yet"
     /// instead of relaying a 401 that reads like the key was rejected.
     public static func requiresKey(_ key: BurnKey) -> Bool {
-        switch key.provider {
+        requiresKey(kind: key.provider)
+    }
+
+    /// Whether reading this provider means calling it *with* a key: OpenRouter's
+    /// credit endpoint answers about the key that calls it; OpenAI's and
+    /// Anthropic's cost endpoints are called with the Admin key. Everything else
+    /// is a plain address that carries whatever the person gave it — a key, a
+    /// token, or nothing at all.
+    public static func requiresKey(kind: String) -> Bool {
+        switch kind {
         case "openai", "anthropic", "openrouter":
             return true
         default:

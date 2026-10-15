@@ -216,7 +216,7 @@ public final class AppModel: ObservableObject {
         var tokensChanged = false
         for key in state.entries where key.armed && !key.isTripped {
             guard SpendSource.canReadLive(key) else { continue }
-            let resolution = Credentials.resolve(for: key.provider)
+            let resolution = Credentials.resolve(for: key)
             let result = await SpendPoller.fetch(key, apiKey: resolution.key, session: session)
             guard result.ok, let figure = result.cost else {
                 // When there was nothing to send, the provider never saw the
@@ -264,7 +264,7 @@ public final class AppModel: ObservableObject {
         lastRefresh = Date()
         lastMessageByKey = byKey
         lastReadMessage = messages.isEmpty
-            ? (state.entries.contains { !$0.isManualRead && Providers.canReadLive($0.provider) }
+            ? (state.entries.contains { SpendSource.canReadLive($0) }
                ? "Nothing was read this pass."
                : "No key is set up for a live read yet. Type your spend instead.")
             : messages.prefix(3).joined(separator: "\n")
@@ -278,9 +278,8 @@ public final class AppModel: ObservableObject {
     public func showSwitchOffPanel(keyID: String?) {
         switchOffKeyID = keyID
         switchOffOutcome = nil
-        guard let keyID,
-              let provider = state.entries.first(where: { $0.id == keyID })?.provider else { return }
-        accountKeysMessage[provider] = nil
+        guard let keyID else { return }
+        accountKeysMessage[keyID] = nil
     }
 
     /// Ask the provider for the keys on this account.
@@ -289,20 +288,27 @@ public final class AppModel: ObservableObject {
     /// it is not — an ordinary OpenRouter key, say — the panel says why and
     /// shows where the switching really happens, rather than failing with the
     /// provider's 403 and leaving it there.
-    public func loadAccountKeys(_ providerID: String, session: URLSession = .shared) async {
+    ///
+    /// The account is the one the watched entry's own key sees: two entries can
+    /// be two accounts at one provider, and the list belongs to the key that
+    /// asked for it.
+    public func loadAccountKeys(keyID: String, session: URLSession = .shared) async {
+        guard let entry = state.entries.first(where: { $0.id == keyID }) else { return }
+        let providerID = entry.provider
         guard Revoke.ability(for: providerID).canSwitchOff else {
-            accountKeysMessage[providerID] = Revoke.explainer(for: providerID)
-            accountKeys[providerID] = nil
+            accountKeysMessage[keyID] = Revoke.explainer(for: providerID)
+            accountKeys[keyID] = nil
             return
         }
-        guard !listingAccountKeys.contains(providerID) else { return }
-        listingAccountKeys.insert(providerID)
-        defer { listingAccountKeys.remove(providerID) }
+        guard !listingAccountKeys.contains(keyID) else { return }
+        listingAccountKeys.insert(keyID)
+        defer { listingAccountKeys.remove(keyID) }
 
-        let resolution = Credentials.resolve(for: providerID)
-        let result = await Revoke.list(providerID: providerID, apiKey: resolution.key, session: session)
-        if result.ok { accountKeys[providerID] = result.keys }
-        accountKeysMessage[providerID] = result.message.isEmpty ? nil : result.message
+        let result = await Revoke.list(providerID: providerID,
+                                       apiKey: Credentials.key(for: entry),
+                                       session: session)
+        if result.ok { accountKeys[keyID] = result.keys }
+        accountKeysMessage[keyID] = result.message.isEmpty ? nil : result.message
     }
 
     /// Switch one key off, and report exactly what the provider said.
@@ -311,32 +317,32 @@ public final class AppModel: ObservableObject {
     /// longer exists must not keep showing the spend it had a minute ago. If the
     /// key switched off was the one BurnFuse reads with, the read that follows
     /// fails — and the row says so, which is the truth.
-    public func switchOff(_ accountKey: Revoke.AccountKey, providerID: String,
+    public func switchOff(_ accountKey: Revoke.AccountKey, keyID: String,
                           session: URLSession = .shared) async {
         guard switchingOffKeyID == nil else { return }
+        guard let entry = state.entries.first(where: { $0.id == keyID }) else { return }
         switchingOffKeyID = accountKey.id
         switchOffOutcome = nil
         defer { switchingOffKeyID = nil }
 
-        let resolution = Credentials.resolve(for: providerID)
+        let providerID = entry.provider
+        let resolution = Credentials.resolve(for: entry)
         let outcome = await Revoke.switchOff(providerID: providerID, key: accountKey,
                                              apiKey: resolution.key, session: session)
         switchOffOutcome = outcome
         guard outcome.ok else { return }
 
-        accountKeys[providerID]?.removeAll { $0.id == accountKey.id }
+        accountKeys[keyID]?.removeAll { $0.id == accountKey.id }
 
         // Say plainly when the key that was just switched off is the one the
         // readings come from. The next read will confirm it; this is so the
         // person is told now, in the place they are looking.
         if Revoke.isTheKeyBurnFuseUses(accountKey, localKey: resolution.key) {
             let label = Providers.label(for: providerID)
-            for key in state.entries where key.provider == providerID {
-                lastMessageByKey[key.id] = KeyReadNote(
-                    message: "The \(label) key BurnFuse was reading with has just been switched off. Paste a new Admin key to start reading \(label) again.",
-                    failed: true
-                )
-            }
+            lastMessageByKey[keyID] = KeyReadNote(
+                message: "The \(label) key BurnFuse was reading with has just been switched off. Paste a new Admin key to start reading \(label) again.",
+                failed: true
+            )
         }
 
         await refreshLive(session: session)
@@ -382,42 +388,52 @@ public final class AppModel: ObservableObject {
     /// - Parameter draft: a key the user has typed but not saved yet. Someone
     ///   who pastes a key and presses Test plainly means "try this one", so the
     ///   field is honoured ahead of the store — still without storing anything.
-    public func testCredential(_ providerID: String, using draft: String = "", session: URLSession = .shared) async {
+    public func testCredential(_ slotID: String, using draft: String = "", session: URLSession = .shared) async {
+        // The slot is a watched entry's id, or a provider kind for a key saved
+        // before entries existed and for the environment. The kind is what knows
+        // how to read; the slot is what knows which key to read with.
+        let entry = state.entries.first { $0.id == slotID }
+        let kind = entry?.provider ?? slotID
+        let provider = Providers.provider(for: kind)
         let typed = Credentials.sanitize(draft)
-        let apiKey = typed ?? Credentials.key(for: providerID)
-        var probe = BurnKey(id: "test-\(providerID)", name: Providers.label(for: providerID), provider: providerID)
+        let resolution = typed.map { Credentials.Resolution(key: $0, source: .stored) }
+            ?? (entry.map { Credentials.resolve(for: $0) } ?? Credentials.resolve(for: kind))
+        let apiKey = resolution.key
 
-        if providerID == "custom" {
+        var probe = BurnKey(id: "test-\(slotID)", name: entry?.name ?? provider.label, provider: kind)
+        if let source = entry?.source { probe.source = source }
+
+        if provider.id == "custom", probe.source == nil {
             // A custom endpoint's address lives on the watched key rather than
             // on the provider, so borrow the first one that has a URL.
-            guard let entry = state.entries.first(where: { entry in
+            guard let borrowed = state.entries.first(where: { entry in
                 entry.provider == "custom"
                     && !(entry.source?.spendUrl?.trimmingCharacters(in: .whitespaces).isEmpty ?? true)
             }) else {
-                keyTests[providerID] = .failed("Add your endpoint's address first, then test it.")
+                keyTests[slotID] = .failed("Add your endpoint's address first, then test it.")
                 return
             }
-            probe.source = entry.source
-        } else if apiKey == nil {
-            keyTests[providerID] = .failed(
-                SpendPoller.missingKeyMessage(for: probe, source: Credentials.source(for: providerID))
+            probe.source = borrowed.source
+        } else if apiKey == nil, SpendSource.requiresKey(kind: probe.provider) {
+            keyTests[slotID] = .failed(
+                SpendPoller.missingKeyMessage(for: probe, source: resolution.source)
             )
             return
         }
 
         guard SpendSource.canReadLive(probe) else {
-            keyTests[providerID] = .failed("\(Providers.label(for: providerID)) has no spend read to test — its numbers are typed in.")
+            keyTests[slotID] = .failed("\(probe.name) has no spend read to test — its numbers are typed in.")
             return
         }
 
-        keyTests[providerID] = .testing
+        keyTests[slotID] = .testing
         let result = await SpendPoller.fetch(probe, apiKey: apiKey, session: session)
         guard result.ok, let figure = result.cost else {
-            keyTests[providerID] = .failed(result.message)
+            keyTests[slotID] = .failed(result.message)
             return
         }
 
-        keyTests[providerID] = .working(
+        keyTests[slotID] = .working(
             SpendSource.measuresTotal(probe)
                 ? "Works. Read a running total of \(Fmt.money(figure))."
                 : "Works. Read \(Fmt.perHour(figure))."
@@ -596,21 +612,27 @@ public final class AppModel: ObservableObject {
     public func remove(keyID: String) {
         BurnEngine.remove(&state, keyID: keyID)
         lastMessageByKey[keyID] = nil
+        keyTests[keyID] = nil
+        keyLimits[keyID] = nil
+        accountKeys[keyID] = nil
+        accountKeysMessage[keyID] = nil
+        // The provider is gone, so the secret it read with goes with it. A key
+        // left behind here would serve no row and still be a secret on disk.
+        Credentials.set(nil, for: keyID)
         if selectedKeyID == keyID { selectedKeyID = nil }
         persist()
     }
 
-    /// Store (or, with nil, clear) the key BurnFuse reads a provider with.
-    public func storeCredential(_ value: String?, for providerID: String) {
-        Credentials.set(value, for: providerID)
+    /// Store (or, with nil, clear) the key one watched provider reads with.
+    public func storeCredential(_ value: String?, forKeyID keyID: String) {
+        Credentials.set(value, for: keyID)
         // A different key means the last verdict was about a key that is gone.
-        keyTests[providerID] = nil
+        keyTests[keyID] = nil
         // …and a different key may mean a different account: the list of keys
         // the last one could see is not this key's to show.
-        accountKeys[providerID] = nil
-        accountKeysMessage[providerID] = nil
-        if let keyID = switchOffKeyID,
-           state.entries.first(where: { $0.id == keyID })?.provider == providerID {
+        accountKeys[keyID] = nil
+        accountKeysMessage[keyID] = nil
+        if switchOffKeyID == keyID {
             switchOffOutcome = nil
         }
     }

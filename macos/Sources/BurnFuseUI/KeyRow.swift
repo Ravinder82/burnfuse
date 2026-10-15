@@ -56,9 +56,7 @@ public struct KeyRow: View {
 
     /// Where the number comes from, said on every row. It is the one distinction
     /// that decides what the figure next to it means.
-    private var subtitle: String {
-        "\(key.effectiveCategory.title) · \(Providers.label(for: key.provider)) · \(key.readingSourcePhrase)"
-    }
+    private var subtitle: String { key.subtitlePhrase }
 
     /// What the key used today in tokens, where its provider counts them.
     /// Input first, because a runaway is nearly always feeding tokens in.
@@ -99,9 +97,9 @@ public struct KeyRow: View {
         VStack(alignment: .leading, spacing: DS.Space.sm) {
             HStack(alignment: .center, spacing: DS.Space.sm) {
                 // The same tile the key has in Settings, so the row in the watch
-                // list and the row in the list of keys are recognisably the same
-                // thing.
-                ProviderTile(provider: Providers.provider(for: key.provider), size: 26)
+                // list and the row in the list of providers are recognisably the
+                // same thing.
+                ProviderTile(key: key, size: 26)
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(key.name).font(.subheadline.weight(.semibold)).lineLimit(1)

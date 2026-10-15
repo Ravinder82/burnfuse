@@ -10,7 +10,7 @@ Watch the burn rate. Cap the damage. Know within a minute — not in the morning
 
 A real macOS app. Sits in your Dock and your menu bar.
 
-[The app](#the-app) · [How it works](#how-it-works) · [What a trip cannot do](#what-a-trip-cannot-do) · [Insights](#insights) · [Providers](#providers) · [Privacy](#privacy)
+[What it does](#what-it-does) · [Your providers](#your-providers) · [How it works](#how-it-works) · [Install](#install) · [Privacy](#privacy)
 
 <img src="assets/social-card.png" alt="BurnFuse — a spend breaker for your AI keys, shown in one macOS window">
 
@@ -18,286 +18,129 @@ A real macOS app. Sits in your Dock and your menu bar.
 
 ---
 
-## The problem
+A retry loop, a missing `try/catch`, a stuck job. It happens on a Friday night when nobody
+is watching. Your provider keeps answering, the meter keeps running, and the billing email
+shows up in the morning — hours after the money is gone.
 
-A retry loop, a missing `try/catch`, a stuck job. It happens on a Friday night when
-nobody is watching. Your AI provider keeps answering, the meter keeps running, and the
-billing email shows up in the morning — hours after the money is gone.
-
-BurnFuse watches the meter. When a key burns past the cap you set, or jumps far above
-its normal rate, it **trips**: the key is marked, the minute is logged, and you are told
-— menu bar red, a notification, and a webhook if you added one. Hearing about it in a
+BurnFuse watches the meter. When a key burns past the cap you set, or jumps far above its
+normal rate, it **trips**: the key is marked, the minute is logged, and you are told — menu
+bar red, a notification, and a Slack or Discord ping if you added one. Hearing about it in a
 minute instead of in the morning is the whole product.
-
-It is not a dashboard you have to remember to open. It lives in your menu bar as a
-single colour block that reads at a glance — green when settled, amber as burn climbs,
-red the moment the breaker trips. Click it and you get a miniature of the app: the same
-live number, the same watch list, without leaving what you were doing.
-
-The menu bar isn't a menu — it's the app, shrunk. Live burn, the trend, every watched key
-and the one action that matters, all in one small panel. It opens as a panel that does not
-take your focus: clicking the item shows the burn over whatever you are doing, without
-activating BurnFuse and without pulling its window in front of your work. Nothing moves
-except the panel — the app opens only when you ask it to, from the panel's own
-**Open BurnFuse**.
-
-<p align="center">
-  <img src="assets/mini-panel-dark.png" width="300" alt="The BurnFuse menu-bar panel: a miniature of the app with live burn and watched keys">
-  &nbsp;
-  <img src="assets/mini-panel-breach-dark.png" width="300" alt="The BurnFuse menu-bar panel when a key has tripped">
-</p>
-
-And the colour block itself, in each state:
-
-<p align="center">
-  <img src="assets/menubar-dark.png" width="480" alt="BurnFuse in the macOS menu bar — green, settled">
-  <br>
-  <img src="assets/menubar-climbing-dark.png" width="480" alt="BurnFuse in the macOS menu bar — amber, climbing">
-  <br>
-  <img src="assets/menubar-breached-dark.png" width="480" alt="BurnFuse in the macOS menu bar — red, tripped">
-</p>
 
 ## What it does
 
-- **Shows the burn.** One number in your menu bar, in a colour block that reads at a glance: green when settled, amber as it climbs, red when tripped.
-- **Uses the key you already have.** Paste it once and BurnFuse watches that same key — no second key to create, no list to reconcile. Where a provider needs a particular *kind* of key to read spend, the row says so in one line instead of leaving you to guess.
-- **Shows what the tokens say.** Where a provider counts them (OpenAI and Anthropic do), Overview reads today's input, output and cached tokens next to the dollars — because a runaway loop is a token count before it is a bill.
-- **Catches the spike.** It learns each key's normal rate and trips when the rate jumps — even if you never set a cap.
-- **Respects the cap.** Set an hourly ceiling per key. Cross it and the breaker trips.
-- **Tells you inside a minute.** Menu bar red, a desktop notification, and — if you add one — a Slack or Discord ping. Not a billing email you read tomorrow.
-- **Switches a key off, where it is allowed to.** Reading spend and disabling a key are different permissions, and BurnFuse is exact about which it has. OpenAI and Anthropic hand out the key list to the same Admin key the cost read needs, so there the app can delete a key or set it inactive, with a second press first. Anywhere else it says why not and names the console page instead of pretending.
-- **States its own limits.** It never claims to have cut a key it cannot cut, and it never claims a key is stopped until the provider says so.
-- **Tells you after.** Spending is only half the story. Insights shows every trip and what it was on track to spend.
+- **Shows the burn.** One colour block in your menu bar: green when settled, amber as it
+  climbs, red when tripped. Click it for a miniature of the app without leaving your work.
+- **Watches the keys you already have.** Nothing to create first. Add a provider, paste the
+  key you use, and BurnFuse watches that same key.
+- **Catches the spike as well as the cap.** It learns each key's normal rate and trips when
+  the rate jumps — even where you never set a ceiling.
+- **Tells you inside a minute.** Menu bar red, a desktop notification, and an optional
+  webhook. Not a billing email you read tomorrow.
+- **Reads what can be read, and says what cannot.** Three of the providers people use most
+  publish a spend figure a key can call; for everything else the row takes a number you type,
+  and names the page it lives on.
+- **Switches a key off, where it is allowed to.** Where the provider's own API lets the key
+  BurnFuse already holds disable a key, the row does it — with a second press first. Where it
+  does not, it says why and names the console page instead of pretending. It never claims a
+  key is stopped before the provider has said so.
+- **Tells you after.** Insights shows every trip and what it was on track to spend.
 
 ## The app
 
-BurnFuse is a single window. Everything lives behind the sidebar — your keys, what every
-trip was on track to spend, and how the app keeps itself current. No scattered windows,
-no submenus.
+One window, everything behind the sidebar. Light and dark follow the system.
 
 <p align="center">
-  <img src="assets/window-overview-dark.png" width="720" alt="The BurnFuse window on Overview, showing live burn rate, trend and watched keys">
+  <img src="assets/window-overview-dark.png" width="700" alt="The BurnFuse window on Overview, showing live burn rate, trend and watched keys">
+  <br>
+  <img src="assets/window-overview-light.png" width="700" alt="The BurnFuse window on Overview in light appearance">
 </p>
 
-Light and dark follow the system:
+The menu bar isn't a menu — it's the app, shrunk. The panel opens without taking your focus,
+so clicking the item shows the burn over whatever you are doing.
 
 <p align="center">
-  <img src="assets/window-overview-light.png" width="720" alt="The BurnFuse window on Overview in light appearance">
+  <img src="assets/mini-panel-dark.png" width="290" alt="The BurnFuse menu-bar panel: a miniature of the app with live burn and watched keys">
+  &nbsp;
+  <img src="assets/mini-panel-breach-dark.png" width="290" alt="The BurnFuse menu-bar panel when a key has tripped">
 </p>
 
-### Tokens
+## Your providers
 
-The burn figure says how fast the money is going. The tokens card says **why**: models are
-priced per token and differ by orders of magnitude, so "$9.90/hr" becomes something you can
-act on the moment it reads next to "it pushed four million tokens".
-
-Today's input, output and cached tokens, where the provider reports them — OpenAI and
-Anthropic do, with the same Admin key the cost read already uses, over the same day the
-dollars cover. A few things it is careful about:
-
-- **Cached is a part of In, not an addition to it.** Input counts every input token; the
-  cached figure is the slice that was served from the provider's cache, and the card says so
-  rather than letting the three numbers look like they should add up.
-- **The day is the provider's day** — midnight to midnight UTC, the same hours its bill
-  covers — and a figure from yesterday is never shown under today's heading.
-- **Only real numbers.** Nothing is estimated from a price list: a provider that publishes
-  no token counts shows none. OpenRouter reports credits rather than tokens, so its rows
-  have no counts and the card says exactly that.
-- **One derived figure, and it says where it came from:** today's spend on the keys that
-  reported, divided by what they used — *about $2.56 per million tokens* — an average over
-  whatever mix of models actually ran, written as an average.
-
-Each watched key shows its own line in the list below (*47L in · 1.8L out today*), so a key
-that is feeding tokens in is visible without opening anything. Token counts are the one
-number here that follows your Mac's own number style.
-
-### Keys
-
-Settings is one list, and the top of that list is where a key goes. Paste the key you
-already use — BurnFuse watches that same key. Nothing to create first, no second key to
-copy, no separate place to register anything.
-
-Keys are grouped under the thing you use them for — *Coding & chat*, *Images*, *Video* —
-and inside a group every key is its own card, so a key is a thing you can look at rather
-than a line in a form. Each card leads with its provider's own small tile: the same square
-for every key from that provider, a different colour from the next. So "which of these is
-the fal.ai key" is a glance rather than a read. The category is a menu on the card, so a key
-filed in the wrong group can be moved without re-adding it; colour never carries the meaning
-on its own, and the provider's name is always beside its tile.
-
-As you paste, BurnFuse names the provider from the shape of the key itself (`sk-or-…` is
-OpenRouter, `sk-ant-…` is Anthropic), files it under what you use it for, and tells you in
-one line what it will be able to do — before anything is saved. Every row then says where
-its own number comes from:
+**Settings holds only the providers you created.** There is no catalogue to pick from and
+nothing to classify first. You name one — *OpenRouter*, *fal*, *my billing script* —
+paste the key you already use, and say which pile its spend belongs to. Everything else is
+worked out from what you gave:
 
 | On the row | What it means |
 |---|---|
-| **reads itself** | BurnFuse reads the provider's own cost figure every minute, with the key you pasted |
-| **you type it** | That provider publishes no spend figure — the row takes a number from you, and says where to read it |
+| **reads itself** | BurnFuse reads a dollar figure every minute — from the provider's own cost API, where it has one, or from an address you gave |
+| **you type it** | Nothing can be read there, so the row takes a number from you and names where to read it |
 
-A row is a key and a cap. Give it an hourly ceiling, and choose whether BurnFuse should
-stop reading a key once it trips — the number then freezes where it tripped, as evidence,
-until you re-arm it. What it will not do is pretend to have cut a key it has not cut: where
-the provider's own API lets the key BurnFuse already holds switch a key off, the row does
-it; where it does not, the trip names the page that can.
+Naming helps when the key itself says nothing: type *fal* and BurnFuse knows where fal's
+number lives and which pile it belongs in. Paste a key it recognises and it says what it is
+before anything is saved — `sk-or-…` is OpenRouter, which answers a standard key with its own
+credit usage; `sk-ant-…` is Anthropic, and a *cost* read needs an Admin key, which the row
+says in one line.
+
+Anything that returns a dollar figure can be a provider: give it an address, where in the
+JSON the number sits, and whether it counts up. Your own script, a cloud billing export, a
+page behind a token — all of them read themselves, every minute.
+
+Providers are grouped by what you use them for, and every provider is its own card. Each card
+leads with the letters of the name you gave it, in that name's own colour, so *OpenAI prod*
+and *OpenAI test* are two squares rather than one. The category is a menu on the card, so a
+provider filed in the wrong pile can be moved without re-adding it.
 
 <p align="center">
-  <img src="assets/window-settings-dark.png" width="600" alt="BurnFuse Settings: one list of keys in category groups, one card per key, each saying whether it reads itself or takes a typed number, with the add-a-key block at the top">
+  <img src="assets/window-settings-dark.png" width="620" alt="BurnFuse Settings: your providers grouped by category, one card each with the name's own tile, how its spend arrives, and the add-a-provider form with a recognised key pasted">
 </p>
 
-### Keeping it current
-
-BurnFuse gets a key's spend one of three ways, and the row always says which:
-
-1. **It reads itself.** Paste the key you already use. OpenRouter answers a standard key
-   with its own credit usage; OpenAI and Anthropic answer with your organization's costs,
-   which their cost APIs accept only from an Admin key — the row says so in one line.
-   That same Admin key is also the one that can list the account's keys and switch one
-   off, which is why those two rows can revoke as well as read (see
-   [what a trip cannot do](#what-a-trip-cannot-do)). A failed read gives the provider's own
-   reason rather than a status code: a standard OpenAI key instead of an Admin one, or an
-   OpenAI key pasted into the OpenRouter row, is named where you typed it rather than
-   failing silently a minute later. A value that is really the placeholder from a sample
-   file is called out as one. Keys are stored on your Mac only, owner-readable, and are
-   sent nowhere except that provider; the row shows just the two ends of the key
-   (`sk-o…0000`), so you can tell which one is stored without it being usable. **Test**
-   asks the provider right then, instead of waiting a minute to find out.
-2. **You type it.** Most providers publish no spend figure at all. Their rows say so in
-   plain words and take a number from you — what that key is spending per hour. That is
-   all a reading is: one dollar figure per hour. A typed row is a first-class way to use
-   the app, not a failure state.
-3. **Your own endpoint.** Any URL that returns a dollar amount. Name where the figure
-   sits in the JSON, and say whether it counts up.
-
-If a provider turns the key down for cost reads — the common case being a standard OpenAI
-key, which can use the API but cannot see spend — the same row offers the way out in
-place: **Type this key's spend by hand instead**. The key stays watched either way; only
-where the number comes from changes. And a key you have never pasted is never reported as
-invalid: the app says it has nothing to read with, which is a different problem from a key
-that was turned down. Saving an empty field will not quietly delete a key you already
-have — removing one is its own button, on purpose.
-
-A key you paste here is the one BurnFuse uses, full stop. If a variable of the same name
-exists in the shell that launched the app, the saved key wins and the row says what it is
-ignoring; a variable holding the stand-in from a sample file is named and ignored rather
-than sent. That matters because a shell can be lying around for months: a 401 from a
-provider is always about a key that was really sent.
-
-Some providers count money up instead of reporting an hourly figure. Those need two reads
-— the first saves a baseline, the next one gives you a rate — and the app says so while it
-is measuring, rather than showing a number it cannot back up.
-
-A key whose spend has never been measured shows **no reading yet** rather than `$0.00/hr`.
-Printing a zero it has not measured would be telling you something it does not know.
+Where a provider counts tokens — OpenAI and Anthropic do — the watch list shows today's input
+and output for that key, because a runaway loop is a token count before it is a bill.
+Overview's tokens card adds the cached share, a part of In rather than a fourth number, and
+nothing there is ever estimated from a price list. OpenRouter reports credits rather than
+tokens, so its keys show none, and the card says exactly that.
 
 ## How it works
 
 Two rules, both easy to reason about:
 
 1. **The cap.** You set `$5/hr`. Spend `$5.01` and the breaker trips.
-2. **The spike.** BurnFuse keeps your recent hourly readings and works out your normal
-   rate. A reading far above that trips the breaker on its own — so a key you never
-   capped still gets caught. The interface shows this as a multiple ("4× usual"), not a
-   statistic.
+2. **The spike.** BurnFuse keeps your recent readings and works out your normal rate. A
+   reading far above that trips the breaker on its own, so a key you never capped still gets
+   caught. The interface shows this as a multiple — *4× usual* — never as a statistic.
 
-You control how easily a key trips. Slide toward *Calm* to catch small jumps, or *Only
+A reading has to be both clearly abnormal *and* worth your attention, so quiet keys with tiny
+numbers cannot cry wolf. Slide the sensitivity toward *Calm* to catch small jumps, or *Only
 big* to hear from BurnFuse only when something is genuinely on fire.
 
-A reading has to be both clearly abnormal *and* worth your attention. Quiet keys with
-tiny numbers are not allowed to cry wolf.
-
-When something trips, the window says so plainly — what happened, what BurnFuse did
-about it, and the one action that actually ends the spend:
-
 <p align="center">
-  <img src="assets/window-breach-dark.png" width="720" alt="The BurnFuse window with the breaker tripped, offering to switch the key off at OpenAI, and naming the console page wherever it cannot">
+  <img src="assets/window-breach-dark.png" width="700" alt="The BurnFuse window with the breaker tripped, offering to switch the key off at OpenAI, and naming the console page wherever it cannot">
 </p>
 
-### What a trip cannot do
-
-Worth being exact about, because "spend breaker" suggests more than any watcher can do:
-
-| On a trip | |
-|---|---|
-| Marks the key, logs the minute, shows it in the list | yes |
-| Menu bar red, desktop notification, optional Slack/Discord ping | yes |
-| Stops reading the key, if you asked it to | yes — the number freezes as evidence |
-| Switches the key off at OpenAI or Anthropic | **yes** — where the app already holds the Admin key those accounts require |
-| Switches a key off anywhere else | **no** — and it says why, and where, rather than implying otherwise |
-
-The distinction is real and the app is built around it. Reading a cost figure and disabling
-a credential are different permissions, and BurnFuse can only do the second where the
-provider puts both behind one key:
-
-- **OpenAI and Anthropic.** Your organisation's cost report is Admin-only, and the same
-  Admin key can list the account's keys and remove one. So the trip banner offers it
-  directly — **Switch a key off at OpenAI…** — and Settings has it on every key's row. The
-  panel shows your keys exactly as the provider describes them (name plus the provider's own
-  redaction, `sk-admin…3H6`), labels the one the readings come from, and asks for a second
-  press before anything happens.
-- **OpenRouter.** Changing keys needs a *management* key, and BurnFuse reads with an
-  ordinary one. So the panel says exactly that, and points at *OpenRouter → Settings → Keys*
-  instead of failing with a 403. What it can read is OpenRouter's own ceiling on the key —
-  *"the provider caps this key at $6.50, and it is spent"* — which is the fact that answers
-  "can this key still spend?" without anybody's help.
-- **Everyone else.** There is no such endpoint, so the console is the only door, and the row
-  names the page: *Replicate → Account → API tokens*, *ElevenLabs → Profile → API keys*,
-  *OpenRouter → Settings → Keys*, and so on.
-
-Two things it will never do: offer a switch-off its credential cannot perform, and claim a
-key is stopped before the provider has said so. And if you switch off the very key BurnFuse
-reads with, it tells you in that row, because the readings stop with it.
-
-The money is saved when the key is switched off. BurnFuse's job is to make that happen in a
-minute rather than tomorrow morning.
+A trip marks the key, logs the minute and tells you. It does not by itself stop the money:
+only the provider can, by revoking or disabling the key. BurnFuse offers that action exactly
+where the credential it already holds is allowed to take it — OpenAI and Anthropic, where
+your organisation's cost report is Admin-only and the same Admin key can switch a key off —
+and everywhere else it names the console page instead. If you switch off the very key
+BurnFuse reads with, it says so in that row, because the readings stop with it.
 
 <p align="center">
-  <img src="assets/window-switchoff-dark.png" width="720" alt="BurnFuse Settings with the switch-off panel open: the account's OpenAI keys, each with the provider's own redaction, and the key BurnFuse reads with labelled">
+  <img src="assets/window-switchoff-dark.png" width="700" alt="BurnFuse Settings with the switch-off panel open: the account's OpenAI keys, each with the provider's own redaction, and the key BurnFuse reads with labelled">
 </p>
 
 ## Insights
 
-What did the breaker actually save you? Insights adds up what each trip was on track to
-spend — the rate it tripped at, held for the next four hours — and frames it as an
-estimate rather than money in the bank. The honest framing that billing emails arrive
-late is the reason the app exists.
+What did the breaker actually save you? Insights adds up what each trip was on track to spend
+— the rate it tripped at, held for the next four hours — and frames it as an estimate rather
+than money in the bank.
 
 <p align="center">
-  <img src="assets/window-insights-dark.png" width="720" alt="BurnFuse Insights showing what each trip was on track to spend, and the log of trips">
+  <img src="assets/window-insights-dark.png" width="700" alt="BurnFuse Insights showing what each trip was on track to spend, and the log of trips">
 </p>
 
-## Providers
-
-Categories are how the app talks about your spend: the headings when you add a key, and
-the breakdown on Overview — *Coding & chat $1.94/hr · Images $0.51/hr*. They organise;
-they never decide what BurnFuse can read. That is a fact about the provider, and the
-provider says it in one line.
-
-| Category | Reads itself | You type it |
-|---|---|---|
-| Coding & chat | OpenAI · Anthropic | Google Gemini · xAI · Mistral · DeepSeek · Groq · Together · Fireworks · Perplexity |
-| Model aggregators | OpenRouter | Replicate · Hugging Face |
-| Images | — | Stability AI · fal.ai |
-| Video | — | Runway · Luma |
-| Voice & audio | — | ElevenLabs · Deepgram |
-| Scraping & search | — | Firecrawl · Apify · Browserbase · Exa · Tavily |
-| Hosting & storage | — | AWS · Google Cloud · Azure · Cloudflare · Vercel · Supabase |
-| Something else | Your own endpoint | any provider — name it and type its spend |
-
-That is thirty providers by name, and BurnFuse can read spend for three of them — plus any
-endpoint of your own. The rest genuinely publish no cost figure that a key can read, and
-no amount of wanting changes that. So each row says so, names where the number lives
-instead, and takes it. Nothing in the list is ever a dead end.
-
-The same rule runs through everything else the app can do. Token counts are read where a
-provider counts them (OpenAI and Anthropic) and nowhere else; disabling a key is offered
-where the provider's own API allows the key BurnFuse holds to do it (OpenAI and Anthropic),
-and explained everywhere else. What the app can do at a provider is a fact about that
-provider, and each row says it in one line.
-
 ## Install
-
-### Requirements
 
 macOS 14+ and the Xcode command line tools. No dependencies, no project file.
 
@@ -309,44 +152,35 @@ cd burnfuse
 
 That builds BurnFuse, drops it in **/Applications**, and opens it. From then on it is a
 normal macOS app — launch it from Launchpad, Spotlight (⌘-Space) or the Dock, no terminal
-needed:
-
-<p align="center">
-  <img src="assets/icon_512.png" width="96" alt="BurnFuse app icon">
-</p>
-
-Prefer to do it by hand? Build the bundle and copy it wherever you like:
+needed. Or build the bundle and copy it wherever you like:
 
 ```bash
-./scripts/build-app.sh
-open macos/build/BurnFuse.app        # or drag it into /Applications
+./scripts/build-app.sh               # → macos/build/BurnFuse.app
 ```
 
 ### Using it
 
-BurnFuse opens to the full window — Overview, Insights and Settings behind the sidebar,
-exactly like any other Mac app. It also keeps a live item in your menu bar:
-
-- **Click the colour block** for a panel: live burn, the trend, every watched key.
+- **Click the colour block** for a panel: live burn, the trend, every watched provider.
 - **Right-click it** for the quick actions: open the window, trip every key, quit.
-- `⌘,` opens Settings, `⌘I` opens Insights, `⌘W` closes the window (BurnFuse keeps
-  running in the menu bar; click the Dock icon to bring it back).
+- `⌘,` opens Settings, `⌘I` opens Insights, `⌘W` closes the window (BurnFuse keeps running in
+  the menu bar; click the Dock icon to bring it back).
 
 ## Privacy
 
 BurnFuse is built to be boring about your secrets.
 
 - **Nothing leaves your machine.** No account, no analytics, no telemetry, no server of ours.
-- **Your keys stay local.** Provider keys live in `~/.burnfuse/keys.json`, owner-readable,
-  and are sent only to the provider you named, over TLS. Nothing is proxied anywhere.
+- **Your keys stay local.** They live in `~/.burnfuse/keys.json`, owner-readable, and go only
+  to the provider or the address you pointed them at, over TLS. Removing a provider removes
+  the key it was using.
 - **One file holds your data.** `~/.burnfuse/state.json` is the whole product's memory:
-  your keys, their readings, and every trip. Delete it and BurnFuse forgets everything.
+  your providers, their readings, and every trip. Delete it and BurnFuse forgets everything.
 
 ## Design
 
-Native SwiftUI, following Apple's Human Interface Guidelines: semantic system colours
-that respect light and dark, real Dynamic Type, status conveyed by icon *and* colour,
-and motion that yields to Reduce Motion.
+Native SwiftUI, following Apple's Human Interface Guidelines: semantic system colours that
+respect light and dark, real Dynamic Type, status conveyed by icon *and* colour, and motion
+that yields to Reduce Motion.
 
 The mark is the app's own idea drawn in the app's own colours: the filament of a fuse that
 has just given way — calm green at the tail, climbing amber, and the red past the break —
@@ -354,8 +188,8 @@ with the spark the break throws. Like everything else here it is drawn from shap
 than shipped as an image, so the Dock icon, the mark in the sidebar, the menu-bar panel and
 the marketing card are one drawing at different sizes, and cannot drift apart.
 
-Every image in this README is a render of the shipping UI — see
-[`scripts/screenshots.sh`](scripts/screenshots.sh).
+Every image in this README and in [MARKETING.md](MARKETING.md) is a render of the shipping
+UI — see [`scripts/screenshots.sh`](scripts/screenshots.sh).
 
 ## Development
 
@@ -366,21 +200,9 @@ Every image in this README is a render of the shipping UI — see
 ./scripts/install.sh              # build + install into /Applications + launch
 ./scripts/package.sh              # build a double-clickable BurnFuse.dmg
 ./scripts/screenshots.sh          # regenerate the README and marketing images
-```
-
-Tests individually:
-
-```bash
 swift test --package-path macos   # burn engine + app model + state contract
+swift run --package-path macos BurnFuse   # run from source
 ```
-
-Run the app from source:
-
-```bash
-swift run --package-path macos BurnFuse
-```
-
-Layout:
 
 ```
 macos/               Swift package: the app
@@ -391,9 +213,9 @@ scripts/             build, install, package, verify and screenshot scripts
 assets/              app icon, window screenshots and the marketing card
 ```
 
-> Building under `~/Desktop` or `~/Documents`? Those folders are iCloud-synced, and
-> iCloud writing to build artifacts mid-build makes SwiftPM fail intermittently. The
-> scripts already build into `~/Library/Caches/burnfuse-build` to avoid it. Override with
+> Building under `~/Desktop` or `~/Documents`? Those folders are iCloud-synced, and iCloud
+> writing to build artifacts mid-build makes SwiftPM fail intermittently. The scripts already
+> build into `~/Library/Caches/burnfuse-build` to avoid it. Override with
 > `BURNFUSE_SCRATCH` if you want it somewhere else.
 
 ## License

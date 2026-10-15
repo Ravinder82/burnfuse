@@ -9,8 +9,9 @@ import SwiftUI
 /// to learn:
 ///
 ///   1. **A tile per provider.** Every row about a provider leads with the same
-///      small square — that provider's own symbol, in that provider's colour.
-///      Two keys from one provider look identical; two providers never do.
+///      small square — the letters of the name you gave it, in that name's own
+///      colour. Two providers never look alike, and nothing has to be learned
+///      from a list first.
 ///   2. **A band per category.** Rows are grouped under the thing the keys are
 ///      *for*, so "images, video, coding" is the shape of the screen and each
 ///      key sits where the person who added it would look for it.
@@ -30,14 +31,36 @@ public extension Providers {
     /// whose colour changed between launches would be worse than no colour.
     static func tint(for id: String) -> Color {
         if let curated = curatedTints[id] { return curated }
-        let palette = fallbackPalette
-        guard !id.isEmpty else { return palette[palette.count - 1] }
-        var hash: UInt64 = 5381
-        for byte in id.utf8 { hash = (hash &* 33) &+ UInt64(byte) }
-        return palette[Int(hash % UInt64(palette.count))]
+        return hashedTint(id)
     }
 
     static func tint(for provider: Provider) -> Color { tint(for: provider.id) }
+
+    /// The colour a *name* wears, for a provider somebody created themselves.
+    ///
+    /// A name that *is* a provider's own name — "fal.ai", "OpenAI", "Claude" —
+    /// keeps the colour that provider is known by, so it looks like itself. Every
+    /// other name gets a colour from a hash of itself: the same name keeps the
+    /// same colour for as long as it exists, and two names are two colours rather
+    /// than one — which matters most for two keys of the *same* provider, the
+    /// pair most likely to sit next to each other ("OpenAI prod", "OpenAI test").
+    static func tint(forName name: String) -> Color {
+        let normalised = words(in: name).joined()
+        if let provider = byName[normalised], let curated = curatedTints[provider.id] {
+            return curated
+        }
+        return hashedTint(normalised)
+    }
+
+    /// A stable colour for anything else, from the eight hues a provider can
+    /// wear. The same string always lands on the same hue.
+    private static func hashedTint(_ seed: String) -> Color {
+        let palette = fallbackPalette
+        guard !seed.isEmpty else { return palette[palette.count - 1] }
+        var hash: UInt64 = 5381
+        for byte in seed.utf8 { hash = (hash &* 33) &+ UInt64(byte) }
+        return palette[Int(hash % UInt64(palette.count))]
+    }
 
     /// A colour from the palette, by name, for the places that need to name one
     /// (the curated map below, and tests that check two providers differ).
@@ -116,17 +139,24 @@ enum ProviderPalette {
 }
 
 /// A provider's tile: the small square that leads every row about it. The mark
-/// is the provider's own symbol, on a wash of its own colour.
+/// is the letters of the name you gave the provider, on a wash of that name's
+/// own colour — so a row is recognisable before it is read, and nothing has to
+/// be learned from a list of providers first.
 public struct ProviderTile: View {
-    let provider: Provider
+    let name: String
     var size: CGFloat = 26
 
-    public init(provider: Provider, size: CGFloat = 26) {
-        self.provider = provider
+    public init(name: String, size: CGFloat = 26) {
+        self.name = name
         self.size = size
     }
 
-    private var tint: Color { Providers.tint(for: provider) }
+    public init(key: BurnKey, size: CGFloat = 26) {
+        self.init(name: key.name, size: size)
+    }
+
+    private var tint: Color { Providers.tint(forName: name) }
+    private var letters: String { Providers.monogram(for: name) }
 
     public var body: some View {
         RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
@@ -137,9 +167,12 @@ public struct ProviderTile: View {
             )
             .frame(width: size, height: size)
             .overlay(
-                Image(systemName: provider.symbol)
-                    .font(.system(size: size * 0.46, weight: .medium))
+                Text(letters)
+                    .font(.system(size: size * (letters.count > 1 ? 0.34 : 0.44),
+                                  weight: .semibold, design: .rounded))
                     .foregroundStyle(tint)
+                    .minimumScaleFactor(0.5)
+                    .lineLimit(1)
             )
             // The provider's name is always written beside the tile, so the tile
             // itself has nothing to announce.

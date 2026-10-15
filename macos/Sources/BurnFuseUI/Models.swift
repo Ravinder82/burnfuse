@@ -179,10 +179,48 @@ public struct BurnKey: Codable, Identifiable, Hashable, Sendable {
     /// True when the number comes from the person, not from an endpoint.
     public var isManualRead: Bool { readMode == .manual }
 
+    /// The provider this key belongs to, by the name BurnFuse knows that kind of
+    /// provider by. Used where the *account* is what is being talked about —
+    /// switching a key off at the provider — rather than your own entry.
+    public var kindLabel: String { Providers.label(for: provider) }
+
+    /// True when naming the kind beside the entry adds something: a key called
+    /// "Prod GPT" belonging to OpenAI says so; one the person named after its
+    /// provider already says it, and repeating it is noise. An entry of the
+    /// person's own making is never labelled with a kind at all — "Your own
+    /// endpoint" is a fact about the form, not about their provider.
+    public var showsKindLabel: Bool {
+        guard provider != "custom", Providers.known(provider) != nil else { return false }
+        return Providers.words(in: name).joined() != Providers.words(in: kindLabel).joined()
+    }
+
     /// "reads itself" or "you type it" — the one distinction that decides what
     /// the figure on a row means, in the same words everywhere it is shown.
+    ///
+    /// Asked of the key rather than of its provider, because the answer depends
+    /// on both: a provider with a cost endpoint is still typed-only until an
+    /// address or a key is there to read it with.
     public var readingSourcePhrase: String {
-        isManualRead || !Providers.canReadLive(provider) ? "you type it" : "reads itself"
+        SpendSource.canReadLive(self) ? "reads itself" : "you type it"
+    }
+
+    /// The line under a key's name wherever it is shown: what it is for, whose
+    /// account it belongs to when the name does not already say, and how its
+    /// number gets in.
+    public var subtitlePhrase: String {
+        var parts = [effectiveCategory.title]
+        if showsKindLabel { parts.append(kindLabel) }
+        parts.append(readingSourcePhrase)
+        return parts.joined(separator: " · ")
+    }
+
+    /// The same line without the category, for rows that are already filed under
+    /// their category's band.
+    public var readerPhrase: String {
+        var parts: [String] = []
+        if showsKindLabel { parts.append(kindLabel) }
+        parts.append(readingSourcePhrase)
+        return parts.joined(separator: " · ")
     }
 
     /// Burn as a share of the hourly cap, clamped to 0...1 for progress bars.

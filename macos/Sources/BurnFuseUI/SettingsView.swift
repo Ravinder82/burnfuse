@@ -1,12 +1,14 @@
 import SwiftUI
 
-/// Settings, built around one idea: **the key you paste is the key you watch.**
+/// Settings, built around two ideas: **you create your providers, and the key you
+/// paste is the key you watch.**
 ///
-/// There is no second list of "provider keys" and no separate concept to learn
-/// first. Adding a key and watching it are the same action, and every row says
-/// in plain words whether BurnFuse reads the number itself or takes it from you.
-/// A provider with no readable spend is not a dead end either — the row explains
-/// why in one line and takes a typed number right there.
+/// There is no catalogue to read and nothing to classify. You name a provider —
+/// whatever you call it, "OpenRouter", "fal", "my billing script" — paste the key
+/// you already use, and say which pile its spend belongs in. Everything else is
+/// worked out from what you gave: a key BurnFuse recognises is read for you, an
+/// address you give is read for you, and anything else takes a number you type.
+/// Every row says in plain words which of the three it is.
 public struct SettingsView: View {
     @ObservedObject var model: AppModel
     var width: CGFloat? = 460
@@ -15,17 +17,19 @@ public struct SettingsView: View {
     /// points the model at a throwaway temp file, so it passes the canonical
     /// `~/.burnfuse/state.json` here instead of leaking that temp path.
     var displayStatePath: String? = nil
-    /// Seeds the add-a-key field for an offscreen render only, so a screenshot
-    /// can show a pasted key being recognised. Never set in the running app.
+    /// Seeds the add-a-provider field for an offscreen render only, so a
+    /// screenshot can show a pasted key being recognised. Never set in the
+    /// running app.
     var previewAddKey: String = ""
     /// Seeds a provider's key field the same way.
     var previewKeyDrafts: [String: String] = [:]
 
-    // Adding a key.
+    // Adding a provider.
+    @State private var newName: String = ""
     @State private var newKey: String = ""
-    @State private var pickedProvider: String? = nil
     @State private var pickedCategory: Category? = nil
     @State private var capDraft: String = "5"
+    @State private var showAddress: Bool = false
     @State private var newSpendURL: String = ""
     @State private var newJSONPath: String = ""
     @State private var newHeader: String = ""
@@ -69,7 +73,7 @@ public struct SettingsView: View {
 
     private var content: some View {
         VStack(alignment: .leading, spacing: DS.Space.lg) {
-            keysSection
+            providersSection
             sensitivitySection
             alertsSection
             aboutSection
@@ -77,20 +81,22 @@ public struct SettingsView: View {
         .padding(DS.Space.lg)
     }
 
-    // MARK: - Keys
+    // MARK: - Your providers
 
-    /// Your keys, grouped by what they are for, and how to add another.
+    /// The providers you created, grouped by what they are for, and how to add
+    /// another.
     ///
     /// The grouping is the answer to "which of these is which". A band says what
     /// the group is for, in that category's colour and with its own symbol, and
-    /// every row leads with the tile of the provider it belongs to. Groups follow
-    /// the picker's order — coding first, "something else" last — and a category
-    /// nobody has a key in simply does not appear. The grouping is one panel;
-    /// inside it every key is its own card.
-    private var keysSection: some View {
+    /// every row leads with the tile of the name you gave it. Groups follow the
+    /// categories' own order — coding first, "something else" last — and a
+    /// category nobody has a provider in simply does not appear. The grouping is
+    /// one panel; inside it every provider is its own card.
+    private var providersSection: some View {
         Card {
             VStack(alignment: .leading, spacing: DS.Space.lg) {
-                SectionHeader("Your keys", subtitle: "BurnFuse watches these and trips the breaker when one runs hot.") {
+                SectionHeader("Your providers",
+                              subtitle: "Only the ones you add here. Paste the key you already use and BurnFuse watches that same key.") {
                     LinkButton(model.isRefreshing ? "Reading…" : "Refresh now",
                                enabled: !model.isRefreshing) {
                         Task { await model.refreshLive() }
@@ -98,7 +104,7 @@ public struct SettingsView: View {
                 }
 
                 if model.state.entries.isEmpty {
-                    EmptyKeys()
+                    EmptyProviders()
                 } else {
                     VStack(alignment: .leading, spacing: DS.Space.lg) {
                         ForEach(groupedKeys, id: \.category) { group in
@@ -114,12 +120,12 @@ public struct SettingsView: View {
 
                 Divider()
 
-                addKeyBlock
+                addProviderBlock
             }
         }
     }
 
-    /// The keys that exist, in category order. Empty categories are dropped
+    /// The providers that exist, in category order. Empty categories are dropped
     /// rather than shown as an empty band.
     private var groupedKeys: [(category: Category, keys: [BurnKey])] {
         Category.allCases.compactMap { category in
@@ -128,23 +134,29 @@ public struct SettingsView: View {
         }
     }
 
-    // MARK: Add a key
+    // MARK: Add a provider
 
-    /// The whole add flow: paste a key, and BurnFuse works out the rest. The
-    /// provider and the category are pre-filled from the key itself, and the
-    /// line underneath says exactly what will happen — before anything is saved.
-    private var addKeyBlock: some View {
-        VStack(alignment: .leading, spacing: DS.Space.sm) {
-            Text("Add a key").font(.subheadline.weight(.semibold))
+    /// The whole add flow: name it, paste what you have, and BurnFuse works out
+    /// the rest. The category is filled in from what the name or the key means,
+    /// the line underneath says exactly what will happen, and the only field
+    /// that grows the form is the address — for a provider that has no reader of
+    /// its own.
+    private var addProviderBlock: some View {
+        let plan = providerPlan
 
-            SecureField("Paste your API key", text: $newKey)
+        return VStack(alignment: .leading, spacing: DS.Space.sm) {
+            Text("Add a provider").font(.subheadline.weight(.semibold))
+
+            TextField("Name it — OpenRouter, fal, my billing script", text: $newName)
                 .textFieldStyle(.roundedBorder)
 
-            detectionLine
+            SecureField("Paste the key you already use", text: $newKey)
+                .textFieldStyle(.roundedBorder)
+
+            planNoteLine(plan)
 
             HStack(spacing: DS.Space.sm) {
-                providerMenu
-                categoryMenu
+                categoryMenu(plan: plan)
 
                 Spacer(minLength: DS.Space.sm)
 
@@ -157,76 +169,58 @@ public struct SettingsView: View {
                 }
             }
 
-            if chosenProvider?.id == "custom" {
-                endpointFields
-            }
+            addressDisclosure(plan)
 
             HStack(spacing: DS.Space.sm) {
                 Spacer()
-                PrimaryButton("Add key", systemImage: "plus", enabled: canAdd) { addKey() }
+                PrimaryButton("Add provider", systemImage: "plus", enabled: canAdd) { addProvider() }
             }
         }
     }
 
-    /// What BurnFuse makes of what is in the field, as it is typed. This is the
-    /// answer to "what will this key do here", and it never asks the user to know
-    /// a provider's internals to get it.
+    /// What BurnFuse makes of what is in the fields, as it is typed. This is the
+    /// answer to "what will this provider do here", and it never asks the user to
+    /// know a provider's internals to get it.
     @ViewBuilder
-    private var detectionLine: some View {
+    private func planNoteLine(_ plan: Providers.ProviderPlan) -> some View {
         VStack(alignment: .leading, spacing: DS.Space.xxs) {
-            if let detected, pickedProvider == nil || pickedProvider == detected.id {
-                note("That looks like \(Providers.article(detected.label)) \(detected.label) key. \(detected.readHint)",
-                     icon: "sparkle", tone: AnyShapeStyle(.secondary))
-            } else if let picked = chosenProvider {
-                if let detected, detected.id != picked.id {
-                    note("That key looks like \(detected.label), but you picked \(picked.label). Pick \(detected.label) from the list if that is the wrong way round.",
-                         icon: "exclamationmark.triangle.fill", tone: AnyShapeStyle(DS.Tone.watch))
-                } else {
-                    note(picked.readHint, icon: nil, tone: AnyShapeStyle(.tertiary))
-                }
-            } else if Credentials.sanitize(newKey) != nil {
-                note("BurnFuse does not know this key by its shape. Pick its provider on the left and it will still watch it.",
-                     icon: "questionmark.circle", tone: AnyShapeStyle(.tertiary))
-            } else {
-                note("Paste the key you already use — BurnFuse watches that same key. Nothing to create, nothing to copy twice.",
-                     icon: nil, tone: AnyShapeStyle(.tertiary))
-            }
+            note(plan.note, icon: plan.noteIcon, tone: AnyShapeStyle(.secondary))
 
-            // A key that nothing can read with is not kept. Saying so beats
-            // storing a secret that sits there doing nothing.
-            if Credentials.sanitize(newKey) != nil,
-               let chosen = chosenProvider,
-               !chosen.canReadLive {
-                note("Nothing can read this key, so BurnFuse will not store it. The row takes the spend you type instead.",
-                     icon: "info.circle", tone: AnyShapeStyle(.tertiary))
+            // The wrong *shape* of key for the reader this entry will use — a
+            // normal OpenAI key where an Admin key is needed, say. Caught before
+            // it costs a failed read.
+            if let message = keyShapeWarning(plan) {
+                note(message, icon: "exclamationmark.triangle.fill", tone: AnyShapeStyle(DS.Tone.watch))
             }
         }
     }
 
-    private var providerMenu: some View {
-        MenuChip(
-            title: chosenProvider?.label ?? "Pick a provider",
-            symbol: chosenProvider?.symbol ?? "questionmark.circle",
-            emphasised: chosenProvider == nil
-        ) {
-            ForEach(Providers.categories) { category in
-                Section(category.title) {
-                    ForEach(Providers.providers(in: category)) { provider in
-                        Button(provider.label) {
-                            pickedProvider = provider.id
-                            pickedCategory = provider.category
-                        }
-                    }
-                }
-            }
-        }
+    private func keyShapeWarning(_ plan: Providers.ProviderPlan) -> String? {
+        guard let key = Credentials.sanitize(newKey) else { return nil }
+        let verdict = KeyShape.check(key, for: plan.kind)
+        return verdict.severity == .warning ? verdict.message : nil
     }
 
-    private var categoryMenu: some View {
-        MenuChip(title: chosenCategory.title, symbol: chosenCategory.symbol) {
+    private func categoryMenu(plan: Providers.ProviderPlan) -> some View {
+        MenuChip(title: plan.category.title, symbol: plan.category.symbol) {
             ForEach(Category.allCases) { category in
                 Button("\(category.title) — \(category.blurb)") { pickedCategory = category }
             }
+        }
+        .help("The group this provider sits in. It changes nothing about how its spend is read.")
+    }
+
+    /// Where the number comes from, for a provider whose spend BurnFuse cannot
+    /// read on its own. The field is the switch: filled in, the row reads itself;
+    /// left alone, the row takes a number you type. No radio buttons, and the
+    /// line above the fields says which of the two is about to happen.
+    private func addressDisclosure(_ plan: Providers.ProviderPlan) -> some View {
+        DisclosureGroup(isExpanded: $showAddress) {
+            endpointFields
+        } label: {
+            Text(plan.wantsAddress ? "Read the number from an address" : "Use my own address instead")
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -257,12 +251,12 @@ public struct SettingsView: View {
                 .labelsHidden()
                 .frame(width: 150)
             }
-            note("Any address that returns a dollar figure works — your own script, a cloud billing export, a page behind a token. BurnFuse sends the key as Bearer under Authorization unless you name another header here.",
+            note("Any address that returns a dollar figure works — your own script, a cloud billing export, a page behind a token. BurnFuse sends the key as Bearer under Authorization unless you name another header here. Leave this empty and the row takes a number you type instead.",
                  icon: nil, tone: AnyShapeStyle(.tertiary))
         }
     }
 
-    // MARK: One watched key
+    // MARK: One watched provider
 
     private func keyRow(_ key: BurnKey) -> some View {
         let provider = Providers.provider(for: key.provider)
@@ -276,27 +270,24 @@ public struct SettingsView: View {
             || (readFailed && key.readings.isEmpty)
 
         return VStack(alignment: .leading, spacing: DS.Space.sm) {
-            // The provider leads the row: it is the answer to "which API is
-            // this", and it is the same tile everywhere that provider appears.
             HStack(alignment: .top, spacing: DS.Space.sm) {
-                ProviderTile(provider: provider, size: 28)
+                ProviderTile(key: key, size: 28)
                     .padding(.top, 1)
 
                 VStack(alignment: .leading, spacing: 1) {
-                    HStack(spacing: DS.Space.xs) {
-                        Text(provider.label)
-                            .font(.callout.weight(.semibold))
-                        Text(key.readingSourcePhrase)
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                    }
-                    // The name you gave it — what trips, notifications and the
-                    // watch list call this key. Editable in place, the way a
-                    // plain field is everywhere else on macOS.
+                    // The name you gave it — the title of the row, and what
+                    // trips, notifications and the watch list call this
+                    // provider. Editable in place, the way a plain field is
+                    // everywhere else on macOS.
                     TextField("Name", text: nameBinding(key))
                         .textFieldStyle(.plain)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
+                        .font(.callout.weight(.semibold))
+                        .help("Click to rename. Trips and notifications call this provider by this name.")
+                    // Which provider this is and how its number gets in, where
+                    // the name does not already say it.
+                    Text(key.readerPhrase)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
                 }
 
                 Spacer(minLength: DS.Space.sm)
@@ -310,9 +301,9 @@ public struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                // Removing a row and revoking a key are different actions, and
-                // the moment someone reaches for the first is the moment to name
-                // the second.
+                // Removing a provider and revoking a key are different actions,
+                // and the moment someone reaches for the first is the moment to
+                // name the second.
                 IconButton("trash", help: "Stop watching \(key.name). To stop it billing, \(revokeSentence(for: provider))") {
                     model.remove(keyID: key.id)
                 }
@@ -330,7 +321,7 @@ public struct SettingsView: View {
                 .frame(width: 70)
                 Text("$/hr").font(.caption).foregroundStyle(.secondary)
 
-                // Which group this key sits in — the band it appears under.
+                // Which group this provider sits in — the band it appears under.
                 // Moving it is a filing decision and changes nothing about how
                 // its spend is read.
                 MenuChip(title: key.effectiveCategory.title,
@@ -339,7 +330,7 @@ public struct SettingsView: View {
                         Button(category.title) { model.setCategory(keyID: key.id, category: category) }
                     }
                 }
-                .help("The group this key sits in. Moving it changes nothing about how its spend is read.")
+                .help("The group this provider sits in. Moving it changes nothing about how its spend is read.")
 
                 Spacer(minLength: DS.Space.sm)
 
@@ -350,7 +341,7 @@ public struct SettingsView: View {
                 .toggleStyle(.switch)
                 .controlSize(.mini)
                 .font(.caption)
-                .help("Stops BurnFuse reading this key once it trips. It does not stop the provider billing.")
+                .help("Stops BurnFuse reading this provider once it trips. It does not stop the provider billing.")
             }
 
             readingBlock(key, provider: provider)
@@ -368,9 +359,9 @@ public struct SettingsView: View {
         }
     }
 
-    /// The way from "this key is hot" to "this key no longer exists" — the only
-    /// action in the app that stops the money, so it is offered on the key's own
-    /// row and carries its explanation with it.
+    /// The way from "this provider is hot" to "this key no longer exists" — the
+    /// only action in the app that stops the money, so it is offered on the
+    /// provider's own row and carries its explanation with it.
     ///
     /// Where the app cannot do it, the link is still here and the panel says why
     /// and where it *is* done: an honest answer beats a hidden one.
@@ -388,24 +379,24 @@ public struct SettingsView: View {
         }
     }
 
-    /// How this key's number gets in — the one thing worth reading twice on this
-    /// screen, so it always comes with the reason attached.
+    /// How this provider's number gets in — the one thing worth reading twice on
+    /// this screen, so it always comes with the reason attached.
     @ViewBuilder
     private func readingBlock(_ key: BurnKey, provider: Provider) -> some View {
-        if key.isManualRead || !provider.canReadLive {
-            manualBlock(key, provider: provider)
-        } else {
+        if SpendSource.canReadLive(key) {
             VStack(alignment: .leading, spacing: DS.Space.xs) {
                 if provider.id == "custom" {
                     endpointRow(key)
                 }
                 liveBlock(key, provider: provider)
             }
+        } else {
+            manualBlock(key, provider: provider)
         }
     }
 
-    /// Your own endpoint's address, editable on the row itself. A custom key
-    /// with no address is a key that can never be read, so this comes first.
+    /// Your own endpoint's address, editable on the row itself. A provider with
+    /// no address is one that can never be read, so this comes first.
     private func endpointRow(_ key: BurnKey) -> some View {
         VStack(alignment: .leading, spacing: DS.Space.xs) {
             HStack(spacing: DS.Space.sm) {
@@ -442,17 +433,22 @@ public struct SettingsView: View {
         }
     }
 
-    /// A key whose spend is typed in. First class, not a failure: several of the
-    /// biggest providers publish no cost endpoint at all.
+    /// A provider whose spend is typed in. First class, not a failure: several of
+    /// the biggest providers publish no cost endpoint at all, and a provider of
+    /// your own may have nothing to read yet.
     private func manualBlock(_ key: BurnKey, provider: Provider) -> some View {
         let draft = logDrafts[key.id] ?? ""
-        let hint = (provider.canReadLive && key.isManualRead)
-            ? "You type this one's spend in yourself."
-            : provider.readHint
         return VStack(alignment: .leading, spacing: DS.Space.xs) {
-            note(hint, icon: "keyboard", tone: AnyShapeStyle(.tertiary))
+            note(manualHint(key, provider: provider), icon: "keyboard", tone: AnyShapeStyle(.tertiary))
             if let whereToRead = provider.whereToRead {
                 note("Read it at \(whereToRead).", icon: "mappin.and.ellipse", tone: AnyShapeStyle(.tertiary))
+            }
+
+            // An address of your own is still on offer for a provider of your
+            // own: filling this in is what turns "you type it" into "reads
+            // itself", with the same key you already pasted.
+            if provider.id == "custom" {
+                endpointRow(key)
             }
 
             HStack(spacing: DS.Space.sm) {
@@ -464,7 +460,7 @@ public struct SettingsView: View {
                     Text("/hr").font(.caption).foregroundStyle(.secondary)
                 }
                 SecondaryButton("Save reading", enabled: Double(draft) != nil) { logReading(keyID: key.id) }
-                if provider.canReadLive {
+                if provider.canReadLive, provider.id != "custom" || key.source?.spendUrl != nil {
                     LinkButton("Read it automatically instead") {
                         model.setReadMode(keyID: key.id, mode: .auto)
                     }
@@ -474,49 +470,57 @@ public struct SettingsView: View {
         }
     }
 
-    /// A key BurnFuse reads itself. The key is stored once, here, and the row
-    /// says which one it is — the two ends of it, never the whole thing.
+    /// Why this row takes a typed number, in one line: the provider publishes
+    /// nothing to read, or the person chose to type it. Never a mystery.
+    private func manualHint(_ key: BurnKey, provider: Provider) -> String {
+        if !provider.canReadLive { return provider.readHint }
+        if key.isManualRead { return "You type this one's spend in yourself." }
+        return provider.readHint
+    }
+
+    /// A provider BurnFuse reads itself. The key is stored once, here, and the
+    /// row says which one it is — the two ends of it, never the whole thing.
     @ViewBuilder
     private func liveBlock(_ key: BurnKey, provider: Provider) -> some View {
-        let resolved = Credentials.resolve(for: provider.id)
+        let resolved = Credentials.resolve(for: key)
         let stored = resolved.source == .stored
-        let editing = replacing == provider.id || !stored
-        let draft = keyDrafts[provider.id] ?? ""
+        let editing = replacing == key.id || !stored
+        let draft = keyDrafts[key.id] ?? ""
         let verdict = KeyShape.check(draft, for: provider.id)
-        let test = model.keyTests[provider.id]
+        let test = model.keyTests[key.id]
 
         VStack(alignment: .leading, spacing: DS.Space.xs) {
             if editing {
                 HStack(spacing: DS.Space.sm) {
-                    SecureField(provider.keyLabel, text: draftBinding(for: provider.id))
+                    SecureField(provider.keyLabel, text: draftBinding(for: key.id))
                         .textFieldStyle(.roundedBorder)
                     SecondaryButton("Save", enabled: Credentials.sanitize(draft) != nil) {
-                        model.storeCredential(draft, for: provider.id)
-                        keyDrafts[provider.id] = ""
+                        model.storeCredential(draft, forKeyID: key.id)
+                        keyDrafts[key.id] = ""
                         replacing = nil
                         Task { await model.refreshLive() }
                     }
                     SecondaryButton(test?.isTesting == true ? "Testing…" : "Test",
                                     enabled: test?.isTesting != true) {
-                        Task { await model.testCredential(provider.id, using: draft) }
+                        Task { await model.testCredential(key.id, using: draft) }
                     }
                     if stored {
-                        LinkButton("Cancel") { replacing = nil; keyDrafts[provider.id] = "" }
+                        LinkButton("Cancel") { replacing = nil; keyDrafts[key.id] = "" }
                     }
                 }
             } else {
                 HStack(spacing: DS.Space.sm) {
-                    if let masked = Credentials.masked(for: provider.id) {
+                    if let masked = Credentials.masked(for: key) {
                         Label(masked, systemImage: "checkmark.seal.fill")
                             .font(DS.Font.monoSmall)
                             .foregroundStyle(DS.Tone.calm)
                             .help("The two ends of the key in use, so you can tell which one it is")
                     }
                     Spacer(minLength: DS.Space.sm)
-                    LinkButton("Test") { Task { await model.testCredential(provider.id) } }
-                    LinkButton("Replace key") { replacing = provider.id }
+                    LinkButton("Test") { Task { await model.testCredential(key.id) } }
+                    LinkButton("Replace key") { replacing = key.id }
                     LinkButton("Remove", tint: DS.Tone.breach) {
-                        model.storeCredential(nil, for: provider.id)
+                        model.storeCredential(nil, forKeyID: key.id)
                     }
                 }
             }
@@ -593,10 +597,10 @@ public struct SettingsView: View {
                 } else {
                     note("BurnFuse reads this one for you, every minute.", icon: nil, tone: AnyShapeStyle(.tertiary))
                 }
-                environmentNote(provider: provider)
+                environmentNote(key, provider: provider)
 
             case .environment(let variable):
-                note("Nothing is saved here, so BurnFuse is using \(variable) from your environment\(maskedSuffix(provider)). Paste a key here and that one will be used instead.",
+                note("Nothing is saved here, so BurnFuse is using \(variable) from your environment\(maskedSuffix(key)). Paste a key here and that one will be used instead.",
                      icon: "terminal", tone: AnyShapeStyle(.tertiary))
 
             case .storedPlaceholder:
@@ -608,9 +612,16 @@ public struct SettingsView: View {
                      icon: "exclamationmark.triangle.fill", tone: AnyShapeStyle(DS.Tone.watch))
 
             case .none:
-                note(provider.readHint, icon: nil, tone: AnyShapeStyle(.tertiary))
-                if let whereToGet = provider.whereToGet {
-                    note(whereToGet, icon: "mappin.and.ellipse", tone: AnyShapeStyle(.tertiary))
+                if provider.id == "custom" {
+                    // Nothing to send is normal here: the address does the work,
+                    // and a key only goes along if the person saved one.
+                    note("Reading from the address above, with no key attached — add one if your address asks for it.",
+                         icon: "arrow.clockwise", tone: AnyShapeStyle(.tertiary))
+                } else {
+                    note(provider.readHint, icon: nil, tone: AnyShapeStyle(.tertiary))
+                    if let whereToGet = provider.whereToGet {
+                        note(whereToGet, icon: "mappin.and.ellipse", tone: AnyShapeStyle(.tertiary))
+                    }
                 }
             }
         }
@@ -620,9 +631,9 @@ public struct SettingsView: View {
     /// environment also has something for this provider. Silence here is how a
     /// forgotten export becomes a support thread.
     @ViewBuilder
-    private func environmentNote(provider: Provider) -> some View {
-        if let variable = Credentials.environmentVariable(for: provider.id),
-           Credentials.source(for: provider.id) == .stored,
+    private func environmentNote(_ key: BurnKey, provider: Provider) -> some View {
+        if let variable = Credentials.environmentVariable(for: key.provider),
+           key.provider == provider.id,
            let value = Credentials.sanitize(ProcessInfo.processInfo.environment[variable] ?? "") {
             if KeyShape.looksLikeAPlaceholder(value) {
                 note("\(variable) is set in your environment to a placeholder from a sample file — ignored. The key saved here is the one in use.",
@@ -634,8 +645,8 @@ public struct SettingsView: View {
         }
     }
 
-    private func maskedSuffix(_ provider: Provider) -> String {
-        guard let masked = Credentials.masked(for: provider.id) else { return "" }
+    private func maskedSuffix(_ key: BurnKey) -> String {
+        guard let masked = Credentials.masked(for: key) else { return "" }
         return " (\(masked))"
     }
 
@@ -739,32 +750,31 @@ public struct SettingsView: View {
         return path.hasPrefix(home) ? "~" + path.dropFirst(home.count) : path
     }
 
-    // MARK: - Add-a-key logic
+    // MARK: - Add-a-provider logic
 
-    private var detected: Provider? { Providers.detect(newKey) }
-
-    /// An explicit pick always wins over a guessed shape, so someone who knows
-    /// what they have is never overruled by a prefix.
-    private var chosenProvider: Provider? {
-        if let pickedProvider { return Providers.provider(for: pickedProvider) }
-        return detected
-    }
-
-    private var chosenCategory: Category {
-        pickedCategory ?? chosenProvider?.category ?? .other
-    }
-
-    /// A new key is named after its provider, numbered only when there is
-    /// already one of that name. Nobody should have to invent a label to add a
-    /// key, and nobody should get two rows called "OpenRouter" either.
-    private var suggestedName: String {
-        guard let provider = chosenProvider else { return "New key" }
-        let existing = model.state.entries.filter { $0.provider == provider.id }.count
-        return existing == 0 ? provider.label : "\(provider.label) \(existing + 1)"
+    /// What adding will do, worked out as the fields are filled in. The
+    /// decisions themselves live in `Providers.plan` so they can be tested
+    /// without a window.
+    private var providerPlan: Providers.ProviderPlan {
+        Providers.plan(
+            name: newName,
+            key: newKey,
+            category: pickedCategory,
+            // An address counts while its fields are open. A section somebody
+            // collapsed is not an instruction, and the line above says what will
+            // happen without it.
+            spendUrl: showAddress ? newSpendURL : "",
+            jsonPath: showAddress ? newJSONPath : "",
+            header: showAddress ? newHeader : "",
+            measures: showAddress ? newMeasures : "rate",
+            existingNames: model.state.entries.map(\.name)
+        )
     }
 
     private var canAdd: Bool {
-        Credentials.sanitize(newKey) != nil || pickedProvider != nil
+        !newName.trimmingCharacters(in: .whitespaces).isEmpty
+            || Credentials.sanitize(newKey) != nil
+            || (showAddress && !newSpendURL.trimmingCharacters(in: .whitespaces).isEmpty)
     }
 
     /// macOS blocks a plain-HTTP read before it ever leaves this machine, so a
@@ -782,41 +792,41 @@ public struct SettingsView: View {
         return nil
     }
 
-    private func addKey() {
-        guard let provider = chosenProvider else { return }
-        let typed = Credentials.sanitize(newKey)
-        let isCustom = provider.id == "custom"
-        let willRead = provider.canReadLive && typed != nil
+    private func addProvider() {
+        let plan = providerPlan
+        let cap = max(0.01, Double(capDraft) ?? 5)
 
-        // A pasted key is only stored when something can read with it. Keeping a
-        // secret that nothing uses would be a liability with no upside — and the
-        // row says so rather than the field quietly doing nothing.
-        if willRead, let typed {
-            model.storeCredential(typed, for: provider.id)
-        }
-
-        model.addKey(
-            name: suggestedName,
-            provider: provider.id,
-            cap: max(0.01, Double(capDraft) ?? 5),
+        let added = model.addKey(
+            name: plan.name,
+            provider: plan.kind,
+            cap: cap,
             category: pickedCategory,
-            readMode: willRead ? nil : .manual,
-            spendUrl: isCustom ? newSpendURL : nil,
-            jsonPath: isCustom ? newJSONPath : nil,
-            header: isCustom ? newHeader : nil,
-            measures: isCustom ? newMeasures : nil
+            readMode: plan.readMode == .manual ? .manual : nil,
+            spendUrl: plan.spendUrl,
+            jsonPath: plan.jsonPath,
+            header: plan.header,
+            measures: plan.measures
         )
 
+        // A pasted key is kept with the provider it was pasted for: it is what
+        // reads an address the moment one exists, and it is what the ordinary
+        // read for a recognised provider uses. The line above the fields said
+        // what would happen with it, either way.
+        if let typed = Credentials.sanitize(newKey) {
+            model.storeCredential(typed, forKeyID: added.id)
+        }
+
+        newName = ""
         newKey = ""
-        pickedProvider = nil
         pickedCategory = nil
         capDraft = "5"
+        showAddress = false
         newSpendURL = ""
         newJSONPath = ""
         newHeader = ""
         newMeasures = "rate"
 
-        if willRead { Task { await model.refreshLive() } }
+        if plan.readMode == .auto { Task { await model.refreshLive() } }
     }
 
     // MARK: - Row helpers
@@ -846,10 +856,10 @@ public struct SettingsView: View {
         )
     }
 
-    private func draftBinding(for provider: String) -> Binding<String> {
+    private func draftBinding(for keyID: String) -> Binding<String> {
         Binding(
-            get: { keyDrafts[provider] ?? "" },
-            set: { keyDrafts[provider] = $0 }
+            get: { keyDrafts[keyID] ?? "" },
+            set: { keyDrafts[keyID] = $0 }
         )
     }
 
@@ -867,15 +877,15 @@ public struct SettingsView: View {
     }
 }
 
-/// One watched key, on its own surface.
+/// One watched provider, on its own surface.
 ///
-/// Rows separated by hairlines read as one long form — five keys that look like
-/// five fields in the same box. A key in Settings is a *thing*: a secret, a cap,
-/// a spend reading, and the sentences that belong to it alone (including the
-/// switch-off panel, which opens inside its own card). So each one gets a
-/// bordered surface with a step of space around it, and the eye can take them
-/// one at a time. They are still filed under their category's band, because the
-/// grouping is the answer to a different question.
+/// Rows separated by hairlines read as one long form — five providers that look
+/// like five fields in the same box. A provider in Settings is a *thing*: a name,
+/// a secret, a cap, a spend reading, and the sentences that belong to it alone
+/// (including the switch-off panel, which opens inside its own card). So each one
+/// gets a bordered surface with a step of space around it, and the eye can take
+/// them one at a time. They are still filed under their category's band, because
+/// the grouping is the answer to a different question.
 ///
 /// The fill is the panel's own colour: the separation is a hairline and a
 /// whisper of shadow, not a second colour anyone has to learn.
@@ -899,8 +909,8 @@ struct KeyCard<Content: View>: View {
     }
 }
 
-/// A menu drawn as a quiet chip, so picking a provider or a category looks like
-/// filling in a field rather than opening a system control.
+/// A menu drawn as a quiet chip, so picking a category looks like filling in a
+/// field rather than opening a system control.
 struct MenuChip<Content: View>: View {
     let title: String
     var symbol: String? = nil

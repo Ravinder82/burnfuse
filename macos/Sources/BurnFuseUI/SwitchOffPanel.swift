@@ -20,9 +20,9 @@ struct SwitchOffPanel: View {
     @State private var confirming: Revoke.AccountKey?
 
     private var ability: Revoke.Ability { Revoke.ability(for: provider.id) }
-    private var keys: [Revoke.AccountKey] { model.accountKeys[provider.id] ?? [] }
-    private var message: String? { model.accountKeysMessage[provider.id] }
-    private var isLoading: Bool { model.listingAccountKeys.contains(provider.id) }
+    private var keys: [Revoke.AccountKey] { model.accountKeys[keyID] ?? [] }
+    private var message: String? { model.accountKeysMessage[keyID] }
+    private var isLoading: Bool { model.listingAccountKeys.contains(keyID) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Space.sm) {
@@ -35,7 +35,7 @@ struct SwitchOffPanel: View {
                 Spacer(minLength: DS.Space.sm)
                 if ability.canSwitchOff {
                     LinkButton(isLoading ? "Asking…" : "Reload") {
-                        Task { await model.loadAccountKeys(provider.id) }
+                        Task { await model.loadAccountKeys(keyID: keyID) }
                     }
                 }
                 LinkButton("Hide") { model.showSwitchOffPanel(keyID: nil) }
@@ -89,9 +89,9 @@ struct SwitchOffPanel: View {
             RoundedRectangle(cornerRadius: DS.Radius.medium, style: .continuous)
                 .strokeBorder(Color(nsColor: .separatorColor).opacity(0.7))
         )
-        .task(id: provider.id) {
-            if ability.canSwitchOff, model.accountKeys[provider.id] == nil {
-                await model.loadAccountKeys(provider.id)
+        .task(id: keyID) {
+            if ability.canSwitchOff, model.accountKeys[keyID] == nil {
+                await model.loadAccountKeys(keyID: keyID)
             }
         }
     }
@@ -100,7 +100,11 @@ struct SwitchOffPanel: View {
 
     @ViewBuilder
     private func row(_ accountKey: Revoke.AccountKey) -> some View {
-        let isMine = Revoke.isTheKeyBurnFuseUses(accountKey, localKey: Credentials.resolve(for: provider.id).key)
+        // "The key BurnFuse reads with" is the key on *this* entry, which is the
+        // one this panel was opened from — not whatever the provider kind has
+        // stored for somebody else's entry.
+        let mine = model.state.entries.first { $0.id == keyID }.flatMap { Credentials.key(for: $0) }
+        let isMine = Revoke.isTheKeyBurnFuseUses(accountKey, localKey: mine)
         let isWorking = model.switchingOffKeyID == accountKey.id
 
         VStack(alignment: .leading, spacing: DS.Space.xs) {
@@ -177,7 +181,7 @@ struct SwitchOffPanel: View {
                                 tint: DS.Tone.breach,
                                 enabled: model.switchingOffKeyID == nil) {
                     Task {
-                        await model.switchOff(accountKey, providerID: provider.id)
+                        await model.switchOff(accountKey, keyID: keyID)
                         confirming = nil
                     }
                 }

@@ -31,7 +31,7 @@ public struct MiniPanel: View {
             hero
 
             if model.state.entries.isEmpty {
-                EmptyKeys()
+                EmptyProviders()
             } else {
                 Sparkline(
                     values: BurnEngine.combinedSeries(model.state),
@@ -217,10 +217,10 @@ struct MiniKeyRow: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: DS.Space.xs) {
             HStack(spacing: DS.Space.sm) {
-                Image(systemName: Providers.provider(for: key.provider).symbol)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 14)
+                // The same tile as everywhere else, at panel scale: the name's
+                // own letters, so a glance down this list is a glance at names
+                // rather than at five identical glyphs.
+                ProviderTile(key: key, size: 16)
 
                 Text(key.name)
                     .font(.caption.weight(.medium))

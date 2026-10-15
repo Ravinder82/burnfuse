@@ -296,7 +296,7 @@ public struct WatchedKeys: View {
             }
 
             if model.state.entries.isEmpty {
-                EmptyKeys()
+                EmptyProviders()
             } else {
                 VStack(spacing: DS.Space.sm) {
                     ForEach(model.state.entries) { key in
@@ -362,7 +362,7 @@ public struct StatusFooter: View {
 }
 
 /// Empty state — tells you exactly what to do next, nothing more.
-public struct EmptyKeys: View {
+public struct EmptyProviders: View {
     public init() {}
 
     public var body: some View {
@@ -370,8 +370,8 @@ public struct EmptyKeys: View {
             Image(systemName: "shield.lefthalf.filled")
                 .font(.system(size: 28))
                 .foregroundStyle(.tertiary)
-            Text("No keys watched yet").font(.subheadline.weight(.medium))
-            Text("Add a key to start watching its burn.")
+            Text("Nothing watched yet").font(.subheadline.weight(.medium))
+            Text("Add a provider — paste a key you already use, or name one and type what it spends.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

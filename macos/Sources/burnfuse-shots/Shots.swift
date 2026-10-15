@@ -148,7 +148,7 @@ struct BurnFuseShots {
         let switchOff = demoModel(tripped: false)
         if let openaiKey = switchOff.state.entries.first(where: { $0.provider == "openai" }) {
             switchOff.showSwitchOffPanel(keyID: openaiKey.id)
-            switchOff.accountKeys["openai"] = [
+            switchOff.accountKeys[openaiKey.id] = [
                 Revoke.AccountKey(id: "key_01J8ZQ4K7F2M9T3B6N5R8V1X4C7D0G3H6",
                                   name: "OpenAI prod",
                                   hint: "sk-admin…G3H6",

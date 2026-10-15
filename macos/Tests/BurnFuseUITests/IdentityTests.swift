@@ -96,22 +96,59 @@ final class IdentityTests: XCTestCase {
     }
 
     func testTilePaintsItsProviderColour() throws {
-        let tile = ProviderTile(provider: Providers.provider(for: "openai"), size: 40)
+        // A name BurnFuse knows keeps the colour that provider is known by, so
+        // "OpenAI" on a tile is the indigo OpenAI has always worn.
+        let tile = ProviderTile(name: "OpenAI", size: 40)
         let rep = try XCTUnwrap(render(tile))
         let mean = meanColour(of: rep)
         XCTAssertGreaterThan(mean.painted, 100, "the tile painted almost nothing")
         XCTAssertGreaterThan(mean.b, mean.g, "an indigo tile should not be greyscale")
     }
 
-    /// The whole point of one colour per provider: two providers must produce
+    /// A provider of the person's own making gets a tile too — same wash, same
+    /// border, its own colour from its own name.
+    func testATileForANameBurnFuseHasNeverHeardOf() throws {
+        let tile = ProviderTile(name: "My billing script", size: 40)
+        let rep = try XCTUnwrap(render(tile))
+        XCTAssertGreaterThan(meanColour(of: rep).painted, 100, "the tile painted almost nothing")
+    }
+
+    /// The whole point of one colour per name: two providers must produce
     /// visibly different pixels, or the row-level cue does not exist.
     func testTwoProvidersProduceVisiblyDifferentTiles() throws {
-        let a = try XCTUnwrap(render(ProviderTile(provider: Providers.provider(for: "openai"), size: 40)))
-        let b = try XCTUnwrap(render(ProviderTile(provider: Providers.provider(for: "openrouter"), size: 40)))
-        let (ma, mb) = (meanColour(of: a), meanColour(of: b))
-        let difference = max(abs(ma.r - mb.r), abs(ma.g - mb.g), abs(ma.b - mb.b))
-        XCTAssertGreaterThan(difference, 0.05,
-                             "openai and openrouter tiles rendered the same colour")
+        let openAI = try XCTUnwrap(render(ProviderTile(name: "OpenAI", size: 40)))
+        let openRouter = try XCTUnwrap(render(ProviderTile(name: "OpenRouter", size: 40)))
+        let mine = try XCTUnwrap(render(ProviderTile(name: "My billing script", size: 40)))
+
+        for (a, b) in pairs([openAI, openRouter, mine]) {
+            let (ma, mb) = (meanColour(of: a), meanColour(of: b))
+            let difference = max(abs(ma.r - mb.r), max(abs(ma.g - mb.g), abs(ma.b - mb.b)))
+            XCTAssertGreaterThan(difference, 0.05, "two tiles rendered the same colour")
+        }
+    }
+
+    /// Two providers in one category are the pair most likely to be compared, so
+    /// their letters and their colours both have to differ.
+    func testTwoNamesInOneCategoryLookDifferent() {
+        XCTAssertNotEqual(Providers.monogram(for: "OpenAI prod"), Providers.monogram(for: "OpenAI test"))
+        XCTAssertNotEqual(Providers.tint(forName: "OpenAI prod"), Providers.tint(forName: "OpenAI test"))
+    }
+
+    /// A name keeps its colour, and a name that *is* a provider's own name wears
+    /// that provider's colour however it is spelled.
+    func testANameKeepsItsColour() {
+        XCTAssertEqual(Providers.tint(forName: "My billing script"), Providers.tint(forName: "my billing script"))
+        XCTAssertEqual(Providers.tint(forName: "fal.ai"), Providers.tint(for: "fal"))
+        XCTAssertEqual(Providers.tint(forName: "Claude"), Providers.tint(for: "anthropic"))
+        XCTAssertEqual(Providers.tint(forName: "OpenRouter"), Providers.tint(for: "openrouter"))
+    }
+
+    /// Names the app knows nothing about still spread across the palette rather
+    /// than all landing on one hue.
+    func testUnfamiliarNamesDoNotAllLandOnOneColour() {
+        let names = ["billing script", "images worker", "scraper fleet", "hosting", "vector store"]
+        let colours = Set(names.map { "\(Providers.tint(forName: $0))" })
+        XCTAssertGreaterThan(colours.count, 1, "every unfamiliar name got the same colour")
     }
 
     // MARK: - The band arithmetic
