@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>BurnFuse — A spend breaker for your AI keys.</title>
+    <link rel="preload" as="image" href="assets/launch-16x9.png" />
+    <link rel="preload" as="image" href="assets/states-16x9.png" />
+    <link rel="preload" as="image" href="assets/providers-16x9.png" />
+    <link rel="preload" as="image" href="assets/trip-flow-16x9.png" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="shell">
+      <!-- ================= hero ================= -->
+      <section id="hero" class="section" data-scroll>
+        <div class="hair-top"></div>
+        <p class="kicker" id="kicker">BurnFuse · macOS 14+ · MIT</p>
+        <h1 class="hero">
+          One number<br />
+          in the menu bar.<br />
+          <span class="hero-em">Everything else is noise.</span>
+        </h1>
+        <p class="lede" id="lede">
+          A spend breaker for your AI keys. It reads the provider’s own cost
+          figure every minute — and tells you inside one when something is
+          burning.
+        </p>
+        <div class="hero-media" id="hero-media">
+          <img src="assets/launch-16x9.png" alt="BurnFuse menu bar showing $2.45/hr burning now" class="hero-shot" />
+        </div>
+        <div class="cta" id="cta">
+          <a class="btn btn-solid" href="#install">Download DMG</a>
+          <a class="btn btn-outline" href="https://github.com/Ravinder82/burnfuse/releases/tag/v1.0.0">v1.0.0 on GitHub</a>
+        </div>
+        <div class="mono stamp">One file holds your data — ~/.burnfuse/keys.json</div>
+      </section>
+
+      <!-- ================= states ================= -->
+      <section id="states" class="section" data-scroll>
+        <div class="hair"></div>
+        <div class="section-head">
+          <p class="kicker">01 / three states</p>
+          <h2>Read at a glance.</h2>
+        </div>
+        <div class="grid three">
+          <div class="card state-card settled">
+            <div class="dot"></div>
+            <div class="word">settled</div>
+            <p class="desc">
+              Under its usual rate, under the cap you set. Nothing to do.
+            </p>
+            <div class="mono time">6:40 PM</div>
+          </div>
+          <div class="card state-card climbing">
+            <div class="dot"></div>
+            <div class="word">climbing</div>
+            <p class="desc">
+              Past its normal rate — over the cap, or far above its own usual.
+            </p>
+            <div class="mono time">7:04 PM</div>
+          </div>
+          <div class="card state-card tripped">
+            <div class="dot"></div>
+            <div class="word">tripped</div>
+            <p class="desc">
+              Marked, logged, and you are told — inside a minute. Not in the morning.
+            </p>
+            <div class="mono time" style="color: var(--hot)">7:12 PM</div>
+          </div>
+        </div>
+        <img src="assets/states-16x9.png" alt="The three states of BurnFuse: settled, climbing, tripped" class="decoration" />
+      </section>
+
+      <!-- ================= where the number comes from ================= -->
+      <section id="reads" class="section" data-scroll>
+        <div class="hair"></div>
+        <div class="section-head">
+          <p class="kicker">02 / where the number comes from</p>
+          <h2>The key you already use is the key it watches.</h2>
+        </div>
+        <div class="two-col">
+          <div class="copy">
+            <p class="body">
+              Paste it once. BurnFuse pulls the provider’s own cost figure every
+              minute — no scripts, no numbers typed by hand.
+            </p>
+            <div class="chips">
+              <div class="chip">OpenAI · <span class="up">reads itself</span></div>
+              <div class="chip">Anthropic · <span class="up">reads itself</span></div>
+              <div class="chip">OpenRouter · <span class="up">reads itself</span></div>
+            </div>
+            <p class="note mono">
+              Where a provider publishes no cost figure a key can read, the row
+              says so, names where the number lives, and takes it from you.
+              Thirty providers. Not one dead end.
+            </p>
+          </div>
+          <div class="media">
+            <img src="assets/providers-16x9.png" alt="BurnFuse providers panel" class="shot" />
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= inside a minute ================= -->
+      <section id="trip" class="section" data-scroll>
+        <div class="hair"></div>
+        <div class="section-head">
+          <p class="kicker">03 / inside a minute</p>
+          <h2>From spike to stop.</h2>
+        </div>
+        <div class="two-col reverse">
+          <div class="media">
+            <img src="assets/trip-flow-16x9.png" alt="BurnFuse tripped state in the menu bar" class="shot" />
+          </div>
+          <div class="copy">
+            <p class="body">
+              A trip marks the key, logs the minute, and tells you — menu bar
+              red, a notification, an optional Slack/Discord webhook — and where
+              the provider allows it, offers to switch the key off itself. One
+              more press.
+            </p>
+            <div class="chain">
+              <div class="chain-row">
+                <span class="step hot">menu bar red</span>
+                <span class="arrow">→</span>
+                <span class="step">notification</span>
+                <span class="arrow">→</span>
+              </div>
+              <div class="chain-row">
+                <span class="step">Slack / Discord</span>
+                <span class="arrow">→</span>
+                <span class="step hot">switch off at OpenAI…</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= privacy ================= -->
+      <section id="privacy" class="section" data-scroll>
+        <div class="hair"></div>
+        <div class="section-head centered">
+          <p class="kicker">04 / your mac, not our server</p>
+          <h2>No account.<br />No telemetry.<br />No server.</h2>
+        </div>
+        <div class="two-col">
+          <div class="copy">
+            <p class="body">
+              Keys live in one file, readable by you alone, and are sent only to
+              the provider you named. No analytics, nothing proxied anywhere.
+            </p>
+            <div class="keybox">
+              <div class="mono path">~/.burnfuse/keys.json</div>
+              <div class="mono dim">ONE FILE HOLDS YOUR DATA</div>
+            </div>
+          </div>
+          <div class="chips">
+            <div class="chip">MIT</div>
+            <div class="chip">macOS 14+</div>
+            <div class="chip">native SwiftUI</div>
+            <div class="chip">no account</div>
+            <div class="chip">no telemetry</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= install ================= -->
+      <section id="install" class="section" data-scroll>
+        <div class="hair"></div>
+        <div class="section-head centered">
+          <p class="kicker">install</p>
+          <h2>Get BurnFuse.</h2>
+        </div>
+        <div class="install-block">
+          <div class="mono block">
+            <div class="line"><span class="pr">$</span> git clone github.com/<span class="arg">Ravinder82/burnfuse</span></div>
+            <div class="line"><span class="pr">$</span> cd burnfuse &amp;&amp; ./scripts/install.sh</div>
+          </div>
+          <div class="cta" style="justify-content: center">
+            <a class="btn btn-solid" href="https://github.com/Ravinder82/burnfuse/releases/tag/v1.0.0">Download v1.0.0 DMG</a>
+          </div>
+        </div>
+        <p class="note mono centered">
+          Native SwiftUI · macOS 14+ · MIT · Drag into Applications and it lives in your menu bar.
+        </p>
+      </section>
+
+      <footer class="section">
+        <div class="hair"></div>
+        <p class="mono stamp">Built to be quiet, honest, and right the one time it matters.</p>
+        <p class="mono stamp centered" style="margin-top: 14px; color: var(--ink3);">github.com/Ravinder82/burnfuse</p>
+      </footer>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
