@@ -74,7 +74,7 @@ public struct StatusItemLabel: View {
             return "BurnFuse, \(model.state.tripped.count) keys tripped"
         }
         if empty {
-            return "BurnFuse, no keys watched"
+            return "BurnFuse, nothing watched yet"
         }
         return "BurnFuse, \(Fmt.perHour(model.state.totalBurn)) burning now, \(Int(model.burnFraction * 100)) percent of cap"
     }

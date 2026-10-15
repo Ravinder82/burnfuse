@@ -462,7 +462,7 @@ public final class AppModel: ObservableObject {
             return "\(state.tripped.count) tripped"
         }
         if state.entries.isEmpty {
-            return "No keys yet"
+            return "Nothing watched yet"
         }
         return "\(state.entries.count) armed"
     }
@@ -653,35 +653,6 @@ public final class AppModel: ObservableObject {
 
     public func clearIncidents() {
         state.incidents = []
-        persist()
-    }
-
-    /// Seed a realistic spread so the app has something to show on first run.
-    public func seedDemoData() {
-        let now = Date().timeIntervalSince1970 * 1000
-        func history(_ values: [Double]) -> [Reading] {
-            values.enumerated().map { index, cost in
-                Reading(at: now - Double(values.count - index) * 3_600_000, cost: cost)
-            }
-        }
-        let dayStart = TokenUse.dayStart(for: Date())
-        let seeds: [BurnKey] = [
-            BurnKey(id: BurnEngine.makeID(seed: "OpenAI prod"), name: "OpenAI prod", provider: "openai",
-                    hourlyLimit: 5, readings: history([1.12, 1.28, 1.19, 1.34, 1.22, 1.31]), lastReading: 1.31,
-                    lastCumulative: 11.30, lastCumulativeAt: now,
-                    tokenUse: TokenUse(input: 4_700_000, output: 184_000, cachedInput: 3_900_000,
-                                       requests: 1_240, windowStart: dayStart)),
-            BurnKey(id: BurnEngine.makeID(seed: "Claude batch"), name: "Claude batch", provider: "anthropic",
-                    hourlyLimit: 8, readings: history([0.62, 0.58, 0.71, 0.66, 0.69, 0.63]), lastReading: 0.63,
-                    lastCumulative: 4.60, lastCumulativeAt: now,
-                    tokenUse: TokenUse(input: 1_240_000, output: 96_000, cachedInput: 900_000,
-                                       windowStart: dayStart)),
-            BurnKey(id: BurnEngine.makeID(seed: "Fal images"), name: "Fal images", provider: "fal",
-                    hourlyLimit: 3, readings: history([0.4, 0.5, 0.45, 0.52, 0.48, 0.51]), lastReading: 0.51),
-        ]
-        for key in seeds where !state.entries.contains(where: { $0.name == key.name }) {
-            state.entries.append(key)
-        }
         persist()
     }
 }

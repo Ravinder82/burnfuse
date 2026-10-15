@@ -52,7 +52,7 @@ struct BurnFuseShots {
 
     /// Point the key store at a throwaway file holding obviously fake keys.
     ///
-    /// The two live providers the demo data watches get one each, so the
+    /// The two live providers the sample watches get one each, so the
     /// Settings capture shows the state a real person is working towards — a
     /// stored key, its two ends on show, and the row saying it reads itself.
     @MainActor static func seedFakeKeys() {
@@ -336,11 +336,16 @@ struct BurnFuseShots {
         return image
     }
 
+    /// A model holding the sample spread the marketing renders show: a readable
+    /// provider at a healthy rate, one whose provider answered with token
+    /// counts, and one whose number is typed. The app itself ships with no data
+    /// of any kind and opens on its empty state, so the sample is built here and
+    /// reaches the app the way a real person's data does — through a state file.
     @MainActor static func demoModel(tripped: Bool, heat: Double? = nil) -> AppModel {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("burnfuse-shot-\(UUID().uuidString).json")
+        writeSampleState(to: url)
         let model = AppModel(stateURL: url, pollInterval: 0)
-        model.seedDemoData()
         if let heat {
             // Put every key at the same fraction of its cap so the fleet-level
             // colour in the menu bar reflects the heat, not an unused budget.
@@ -354,6 +359,36 @@ struct BurnFuseShots {
             }
         }
         return model
+    }
+
+    /// The sample state, written the way the app writes its own: one `AppState`
+    /// encoded to JSON. A render opens on the same shape a real
+    /// `~/.burnfuse/state.json` has — nothing here is a special case the app
+    /// does not have.
+    static func writeSampleState(to url: URL) {
+        let now = Date().timeIntervalSince1970 * 1000
+        func history(_ values: [Double]) -> [Reading] {
+            values.enumerated().map { index, cost in
+                Reading(at: now - Double(values.count - index) * 3_600_000, cost: cost)
+            }
+        }
+        let dayStart = TokenUse.dayStart(for: Date())
+        let state = AppState(entries: [
+            BurnKey(id: BurnEngine.makeID(seed: "OpenAI prod"), name: "OpenAI prod", provider: "openai",
+                    hourlyLimit: 5, readings: history([1.12, 1.28, 1.19, 1.34, 1.22, 1.31]), lastReading: 1.31,
+                    lastCumulative: 11.30, lastCumulativeAt: now,
+                    tokenUse: TokenUse(input: 4_700_000, output: 184_000, cachedInput: 3_900_000,
+                                       requests: 1_240, windowStart: dayStart)),
+            BurnKey(id: BurnEngine.makeID(seed: "Claude batch"), name: "Claude batch", provider: "anthropic",
+                    hourlyLimit: 8, readings: history([0.62, 0.58, 0.71, 0.66, 0.69, 0.63]), lastReading: 0.63,
+                    lastCumulative: 4.60, lastCumulativeAt: now,
+                    tokenUse: TokenUse(input: 1_240_000, output: 96_000, cachedInput: 900_000,
+                                       windowStart: dayStart)),
+            BurnKey(id: BurnEngine.makeID(seed: "Fal images"), name: "Fal images", provider: "fal",
+                    hourlyLimit: 3, readings: history([0.4, 0.5, 0.45, 0.52, 0.48, 0.51]), lastReading: 0.51),
+        ])
+        guard let data = try? JSONEncoder().encode(state) else { return }
+        try? data.write(to: url)
     }
 
     // MARK: - Rendering primitives

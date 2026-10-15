@@ -10,8 +10,7 @@ final class StatusItemLabelTests: XCTestCase {
     private func model(_ mutate: (AppModel) -> Void = { _ in }) -> AppModel {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("burnfuse-status-\(UUID().uuidString).json")
-        let model = AppModel(stateURL: url, pollInterval: 0)
-        model.seedDemoData()
+        let model = sampleModel(at: url)
         mutate(model)
         return model
     }
@@ -31,7 +30,8 @@ final class StatusItemLabelTests: XCTestCase {
                 m.record(keyID: first.id, cost: 5)
             }
         }
-        // Caps are 10+10+10 = 30; total burn is 5 plus the two seed readings.
+        // Caps are 10+10+10 = 30; total burn is 5 plus the other two providers'
+        // last readings.
         let expected = m.state.totalBurn / m.state.totalCap
         XCTAssertEqual(m.burnFraction, expected, accuracy: 0.0001)
     }

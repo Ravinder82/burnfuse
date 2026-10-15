@@ -729,9 +729,7 @@ public struct SettingsView: View {
 
     private var aboutSection: some View {
         VStack(alignment: .leading, spacing: DS.Space.sm) {
-            SectionHeader("About") {
-                LinkButton("Load sample data") { model.seedDemoData() }
-            }
+            SectionHeader("About")
             Text("burnfuse · a spend breaker for your AI keys. Everything stays on this Mac — no account, no upload, no telemetry.")
                 .font(.caption)
                 .foregroundStyle(.secondary)

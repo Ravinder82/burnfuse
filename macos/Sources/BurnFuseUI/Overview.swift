@@ -63,16 +63,26 @@ public struct BurnHero: View {
         !model.state.entries.isEmpty && model.state.entries.allSatisfy { $0.readings.isEmpty }
     }
 
+    /// Nothing is watched at all — the fresh install, before any provider
+    /// exists. Same reasoning: the hero says "—" rather than a zero it has not
+    /// measured.
+    private var nothingWatched: Bool { model.state.entries.isEmpty }
+
+    /// The hero has no figure to show: nothing is watched, or nothing watched
+    /// has been measured. Either way the number goes quiet instead of claiming
+    /// a zero.
+    private var heroIsQuiet: Bool { nothingWatched || nothingMeasured }
+
     public var body: some View {
         VStack(alignment: .leading, spacing: DS.Space.sm) {
             DS.eyebrow("Burning now")
 
             HStack(alignment: .firstTextBaseline, spacing: DS.Space.sm) {
-                Text(Fmt.perHour(model.state.totalBurn))
+                Text(nothingWatched ? "—" : Fmt.perHour(model.state.totalBurn))
                     .font(DS.Font.hero)
                     .foregroundStyle(model.state.hasBreach
                                      ? AnyShapeStyle(DS.Tone.breach)
-                                     : (nothingMeasured ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary)))
+                                     : (heroIsQuiet ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary)))
                     .contentTransition(.numericText())
 
                 Spacer()
@@ -92,8 +102,8 @@ public struct BurnHero: View {
             .frame(height: 56)
             .opacity(model.state.entries.isEmpty ? 0 : 1)
 
-            Text(model.state.entries.isEmpty
-                 ? "Add a key to start watching your burn."
+            Text(nothingWatched
+                 ? "Add a provider to start watching your burn."
                  : (nothingMeasured
                     ? "No readings yet — nothing has been measured."
                     : "Trend across your last readings."))
@@ -200,7 +210,11 @@ public struct TokensCard: View {
 
             Card(padding: DS.Space.md) {
                 VStack(alignment: .leading, spacing: DS.Space.sm) {
-                    if reported.isEmpty {
+                    if model.state.entries.isEmpty {
+                        Text("Nothing watched yet.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else if reported.isEmpty {
                         Text(waiting.isEmpty
                              ? "No key here reads from a provider that counts tokens."
                              : "Nothing read from \(list(waiting)) yet.")
@@ -350,9 +364,11 @@ public struct StatusFooter: View {
                 LinkButton("Re-arm all") { model.armAll() }
             }
 
-            LinkButton("Trip all", tint: DS.Tone.breach) { model.tripAll() }
-                .opacity(canCutAll ? 1 : 0.4)
-                .disabled(!canCutAll)
+            if !model.state.entries.isEmpty {
+                LinkButton("Trip all", tint: DS.Tone.breach) { model.tripAll() }
+                    .opacity(canCutAll ? 1 : 0.4)
+                    .disabled(!canCutAll)
+            }
         }
     }
 

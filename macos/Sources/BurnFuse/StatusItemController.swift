@@ -70,7 +70,7 @@ final class StatusItemController: NSObject {
             return "BurnFuse — \(model.state.tripped.count) key\(model.state.tripped.count == 1 ? "" : "s") tripped"
         }
         if model.state.entries.isEmpty {
-            return "BurnFuse — no keys watched"
+            return "BurnFuse — nothing watched yet"
         }
         return "BurnFuse — \(Fmt.perHour(model.state.totalBurn)) burning now"
     }
@@ -120,7 +120,9 @@ final class StatusItemController: NSObject {
         let summary = NSMenuItem(
             title: model.state.hasBreach
                 ? "\(model.state.tripped.count) tripped"
-                : "\(Fmt.perHour(model.state.totalBurn)) burning now",
+                : (model.state.entries.isEmpty
+                   ? "Nothing watched yet"
+                   : "\(Fmt.perHour(model.state.totalBurn)) burning now"),
             action: nil,
             keyEquivalent: ""
         )

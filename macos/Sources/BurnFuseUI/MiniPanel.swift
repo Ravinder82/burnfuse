@@ -25,6 +25,13 @@ public struct MiniPanel: View {
         model.state.hasBreach ? DS.Tone.breach : DS.Tone.calm
     }
 
+    /// Nothing is watched at all, or nothing watched has a reading yet — the
+    /// same rule the Overview follows: with no figure measured, the hero goes
+    /// quiet instead of showing a zero nobody measured.
+    private var heroIsQuiet: Bool {
+        model.state.entries.allSatisfy { $0.readings.isEmpty }
+    }
+
     public var body: some View {
         VStack(alignment: .leading, spacing: DS.Space.md) {
             header
@@ -44,8 +51,10 @@ public struct MiniPanel: View {
             }
 
             Divider().opacity(0.6)
-            actions
-            Divider().opacity(0.6)
+            if !model.state.entries.isEmpty {
+                actions
+                Divider().opacity(0.6)
+            }
             footer
         }
         .padding(DS.Space.md)
@@ -94,9 +103,9 @@ public struct MiniPanel: View {
         VStack(alignment: .leading, spacing: DS.Space.xxs) {
             DS.eyebrow("Burning now")
             HStack(alignment: .firstTextBaseline, spacing: DS.Space.sm) {
-                Text(Fmt.perHour(model.state.totalBurn))
+                Text(heroIsQuiet ? "—" : Fmt.perHour(model.state.totalBurn))
                     .font(DS.Font.metric)
-                    .foregroundStyle(tone)
+                    .foregroundStyle(heroIsQuiet ? AnyShapeStyle(.secondary) : AnyShapeStyle(tone))
                     .contentTransition(.numericText())
 
                 Spacer(minLength: DS.Space.sm)

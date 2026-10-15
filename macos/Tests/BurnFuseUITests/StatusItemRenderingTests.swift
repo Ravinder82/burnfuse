@@ -26,9 +26,7 @@ final class StatusItemRenderingTests: XCTestCase {
     private func demo() -> AppModel {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("burnfuse-render-\(UUID().uuidString).json")
-        let model = AppModel(stateURL: url, pollInterval: 0)
-        model.seedDemoData()
-        return model
+        return sampleModel(at: url)
     }
 
     /// The whole point of the direct `NSStatusItem` is that the drawn colour
