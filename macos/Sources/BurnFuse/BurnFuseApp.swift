@@ -6,8 +6,8 @@ import BurnFuseUI
 /// The BurnFuse app.
 ///
 /// One window holds everything — Overview, Insights and Settings behind a
-/// sidebar. The menu bar keeps the live burn visible and can bring that window
-/// forward, so you can glance at the number or open the whole app.
+/// sidebar. The menu bar keeps a live, colour-coded burn visible at all times,
+/// and clicking it opens a miniature of the app you can keep an eye on.
 @main
 struct BurnFuseApp: App {
     @StateObject private var model: AppModel
@@ -29,17 +29,17 @@ struct BurnFuseApp: App {
             CommandGroup(replacing: .appSettings) {
                 Button("Settings") { open(.settings) }
                     .keyboardShortcut(",", modifiers: .command)
-                Button("Insights") { open(.overview) }
+                Button("Insights") { open(.insights) }
                     .keyboardShortcut("i", modifiers: .command)
             }
         }
 
         MenuBarExtra {
-            MenuBarMenu(model: model, nav: nav)
+            MenuBarContent(model: model, nav: nav)
         } label: {
-            MenuBarLabel(model: model)
+            StatusItemLabel(model: model)
         }
-        .menuBarExtraStyle(.menu)
+        .menuBarExtraStyle(.window)
     }
 
     private func open(_ section: AppSection) {
@@ -48,41 +48,23 @@ struct BurnFuseApp: App {
     }
 }
 
-/// The menu-bar item. A small menu: open the window on any section, or act on
-/// every key at once. The number itself is always readable without opening it.
-struct MenuBarMenu: View {
+/// The menu-bar popover: a miniature of the app, not a menu.
+struct MenuBarContent: View {
     @ObservedObject var model: AppModel
     @ObservedObject var nav: AppNavigation
 
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        Button("Open BurnFuse") { show(.overview) }
-        Button("Insights") { show(.insights) }
-        Button("Settings…") { show(.settings) }
-
-        Divider()
-
-        Text(model.state.hasBreach
-             ? "\(model.state.tripped.count) tripped"
-             : "\(Fmt.perHour(model.state.totalBurn)) burning now")
-
-        if model.state.hasBreach {
-            Button("Re-arm all") { model.armAll() }
-        }
-        Button("Cut all power") { model.tripAll() }
-            .disabled(model.state.entries.isEmpty || model.state.tripped.count == model.state.entries.count)
-
-        Divider()
-
-        Button("Quit BurnFuse") { NSApplication.shared.terminate(nil) }
-            .keyboardShortcut("q")
-    }
-
-    private func show(_ section: AppSection) {
-        nav.section = section
-        openWindow(id: "main")
-        NSApp.activate(ignoringOtherApps: true)
+        MiniPanel(
+            model: model,
+            onOpen: { section in
+                nav.section = section
+                openWindow(id: "main")
+                NSApp.activate(ignoringOtherApps: true)
+            },
+            onQuit: { NSApplication.shared.terminate(nil) }
+        )
     }
 }
 
@@ -96,30 +78,6 @@ final class WindowActivator {
             window.makeKeyAndOrderFront(nil)
         }
         NSApp.activate(ignoringOtherApps: true)
-    }
-}
-
-/// The menu-bar title. Shows the live burn and switches to an alert glyph the
-/// moment anything trips, so you can read it without opening the window.
-struct MenuBarLabel: View {
-    @ObservedObject var model: AppModel
-
-    var body: some View {
-        let breached = model.state.hasBreach
-        HStack(spacing: 3) {
-            Image(systemName: breached ? "flame.fill" : "flame")
-            Text(breached ? "!" : shortText)
-        }
-        .accessibilityLabel(breached
-            ? "BurnFuse, breaker tripped"
-            : "BurnFuse, \(shortText) per hour")
-    }
-
-    private var shortText: String {
-        let total = model.state.totalBurn
-        if total == 0 { return "$0" }
-        if total < 10 { return String(format: "$%.2f", total) }
-        return String(format: "$%.0f", total)
     }
 }
 

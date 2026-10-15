@@ -25,16 +25,34 @@ billing email shows up in the morning — hours after the money is gone.
 BurnFuse watches the meter. When a key burns past the cap you set, or jumps far above
 its normal rate, it **trips** — the key is marked and held before it can keep draining.
 
-It is not a dashboard you have to remember to open. It lives in your menu bar, keeps a
-running total next to your clock, and opens into one window when you want the whole picture.
+It is not a dashboard you have to remember to open. It lives in your menu bar as a
+single colour block that reads at a glance — green when settled, amber as burn climbs,
+red the moment the breaker trips. Click it and you get a miniature of the app: the same
+live number, the same watch list, without leaving what you were doing.
 
 <p align="center">
-  <img src="assets/menubar-dark.png" width="560" alt="BurnFuse in the macOS menu bar showing the live burn rate">
+  <img src="assets/menubar-dark.png" width="560" alt="BurnFuse in the macOS menu bar — green, settled">
+  &nbsp;
+  <img src="assets/menubar-climbing-dark.png" width="560" alt="BurnFuse in the macOS menu bar — amber, climbing">
+</p>
+<p align="center">
+  <img src="assets/menubar-breached-dark.png" width="560" alt="BurnFuse in the macOS menu bar — red, tripped">
+</p>
+
+### Glance, don't open
+
+The menu bar isn't a menu — it's the app, shrunk. Live burn, the trend, every watched key
+and the one action that matters, all in one small panel:
+
+<p align="center">
+  <img src="assets/mini-panel-dark.png" width="300" alt="The BurnFuse menu-bar panel: a miniature of the app with live burn and watched keys">
+  &nbsp;
+  <img src="assets/mini-panel-breach-dark.png" width="300" alt="The BurnFuse menu-bar panel when a key has tripped">
 </p>
 
 ## What it does
 
-- **Shows the burn.** One number in your menu bar: what your keys are spending per hour, right now.
+- **Shows the burn.** One number in your menu bar, in a colour block that reads at a glance: green when settled, amber as it climbs, red when tripped.
 - **Catches the spike.** It learns each key's normal rate and trips when the rate jumps — even if you never set a cap.
 - **Respects the cap.** Set an hourly ceiling per key. Cross it and the breaker trips.
 - **Cuts the power.** One click pauses everything. Auto-cut is there for when you are asleep.
@@ -136,8 +154,8 @@ Then open it:
 open macos/build/BurnFuse.app        # or: cp -R macos/build/BurnFuse.app /Applications/
 ```
 
-It launches as a menu-bar app — no dock icon. Click the flame, or press `⌘,` for Settings
-and `⌘I` for Insights, to open the window.
+It launches as a menu-bar app — no dock icon. Click the colour block for the panel, or
+press `⌘,` for Settings and `⌘I` for Insights, to open the full window.
 
 ## Privacy
 

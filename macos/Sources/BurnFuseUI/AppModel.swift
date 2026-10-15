@@ -184,6 +184,13 @@ public final class AppModel: ObservableObject {
         return "\(state.entries.count) armed"
     }
 
+    /// How close the fleet is to its combined cap, 0...1. Zero when no caps are
+    /// set — the menu-bar colour leans on this, so it never divides by nothing.
+    public var burnFraction: Double {
+        guard state.totalCap > 0 else { return 0 }
+        return min(max(state.totalBurn / state.totalCap, 0), 1)
+    }
+
     // MARK: - Mutations
 
     public func record(keyID: String, cost: Double, model: String? = nil) {

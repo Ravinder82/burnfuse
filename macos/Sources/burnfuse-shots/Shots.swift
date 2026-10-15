@@ -84,6 +84,7 @@ struct BurnFuseShots {
 
     @MainActor static func renderScreens(to dir: URL) {
         let health = demoModel(tripped: false)
+        let climbing = demoModel(tripped: false, heat: 0.72)
         let breach = demoModel(tripped: true)
 
         // The unified window, one screenshot per section. This is the whole app:
@@ -103,8 +104,13 @@ struct BurnFuseShots {
 
         // Marketing: the menu-bar glance, and a social card built from the real
         // window render.
-        let menuBar = capture(AnyView(MenuBarStrip()), scheme: .dark, width: 560, height: 34, fit: true)
-        write("menubar-dark", to: dir, menuBar)
+        write("menubar-dark", to: dir, captureMenuBar(colorScheme: .dark))
+        write("menubar-light", to: dir, captureMenuBar(colorScheme: .light))
+        write("menubar-climbing-dark", to: dir, captureMenuBar(colorScheme: .dark, model: climbing))
+        write("menubar-breached-dark", to: dir, captureMenuBar(colorScheme: .dark, breached: true))
+
+        write("mini-panel-dark", to: dir, captureMiniPanel(health, .dark))
+        write("mini-panel-breach-dark", to: dir, captureMiniPanel(breach, .dark))
 
         let card = renderSocialCard(window: overview)
         write("social-card", to: dir, card)
@@ -128,6 +134,21 @@ struct BurnFuseShots {
             RootView(model: model, nav: nav)
         }
         return capture(AnyView(view), scheme: scheme, width: width, height: height)
+    }
+
+    /// A realistic macOS menu bar with the live BurnFuse item in place.
+    @MainActor static func captureMenuBar(colorScheme: ColorScheme, breached: Bool = false, model: AppModel? = nil) -> NSImage? {
+        let model = model ?? demoModel(tripped: breached)
+        let strip = MenuBarStrip(model: model)
+        return capture(AnyView(strip), scheme: colorScheme, width: 640, height: 34)
+    }
+
+    /// The menu-bar popover: a miniature of the app.
+    @MainActor static func captureMiniPanel(_ model: AppModel, _ scheme: ColorScheme) -> NSImage? {
+        let panel = MiniPanel(model: model)
+            .padding(12)
+            .background(Color(white: scheme == .dark ? 0.12 : 0.95))
+        return capture(AnyView(panel), scheme: scheme, width: 320, height: 400, fit: true)
     }
 
     // MARK: - Marketing card
@@ -215,11 +236,18 @@ struct BurnFuseShots {
         return image
     }
 
-    @MainActor static func demoModel(tripped: Bool) -> AppModel {
+    @MainActor static func demoModel(tripped: Bool, heat: Double? = nil) -> AppModel {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("burnfuse-shot-\(UUID().uuidString).json")
         let model = AppModel(stateURL: url, pollInterval: 0)
         model.seedDemoData()
+        if let heat {
+            // Put every key at the same fraction of its cap so the fleet-level
+            // colour in the menu bar reflects the heat, not an unused budget.
+            for key in model.state.entries {
+                model.record(keyID: key.id, cost: key.hourlyLimit * heat)
+            }
+        }
         if tripped {
             if let first = model.state.entries.first {
                 model.record(keyID: first.id, cost: 9.9)
@@ -283,8 +311,13 @@ struct WindowChrome<Content: View>: View {
     }
 }
 
-/// A realistic macOS menu bar with the BurnFuse item, for marketing.
+/// A realistic macOS menu bar with the real BurnFuse status item in it, for
+/// marketing. Everything but the BurnFuse item is scenery; the item itself is
+/// the shipping `StatusItemLabel`, so the colour block can never drift from the
+/// app.
 struct MenuBarStrip: View {
+    let model: AppModel
+
     var body: some View {
         HStack(spacing: 16) {
             Image(systemName: "apple.logo").font(.system(size: 14, weight: .medium))
@@ -295,18 +328,8 @@ struct MenuBarStrip: View {
 
             Spacer()
 
-            HStack(spacing: 5) {
-                Image(systemName: "flame.fill")
-                    .font(.system(size: 12))
-                    .foregroundStyle(LinearGradient(
-                        colors: [Color(red: 1.00, green: 0.72, blue: 0.20),
-                                 Color(red: 0.92, green: 0.28, blue: 0.13)],
-                        startPoint: .top, endPoint: .bottom))
-                Text("$2.45").font(.system(size: 13, weight: .semibold))
-            }
-            .padding(.horizontal, 9)
-            .padding(.vertical, 3)
-            .background(Capsule().fill(Color.primary.opacity(0.12)))
+            StatusItemLabel(model: model)
+                .scaleEffect(1.25)
 
             Image(systemName: "wifi").font(.system(size: 13))
             Image(systemName: "battery.100percent").font(.system(size: 15))

@@ -36,7 +36,9 @@ rm -f "$ASSETS/_gallery.png"
 expected=(
   window-overview-dark window-overview-light window-breach-dark
   window-insights-dark window-settings-dark window-settings-light
-  menubar-dark social-card icon_512 icon_1024
+  menubar-dark menubar-light menubar-climbing-dark menubar-breached-dark
+  mini-panel-dark mini-panel-breach-dark
+  social-card icon_512 icon_1024
 )
 missing=0
 for name in "${expected[@]}"; do

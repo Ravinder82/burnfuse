@@ -58,11 +58,26 @@ public enum DS {
     public static let accent = Color(red: 0.96, green: 0.62, blue: 0.09)
 }
 
+/// When set, cards draw as translucent glass instead of an opaque surface. The
+/// menu-bar panel turns this on so the panel layers over whatever is behind it.
+private struct GlassPanelsKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+public extension EnvironmentValues {
+    var glassPanels: Bool {
+        get { self[GlassPanelsKey.self] }
+        set { self[GlassPanelsKey.self] = newValue }
+    }
+}
+
 /// A bordered, content-first container. Uses system materials so it layers
 /// correctly in light, dark, and Reduce Transparency.
 public struct Card<Content: View>: View {
     var padding: CGFloat
     @ViewBuilder var content: Content
+
+    @Environment(\.glassPanels) private var glassPanels
 
     public init(padding: CGFloat = DS.Space.lg, @ViewBuilder content: () -> Content) {
         self.padding = padding
@@ -75,7 +90,9 @@ public struct Card<Content: View>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: DS.Radius.large, style: .continuous)
-                    .fill(Color(nsColor: .controlBackgroundColor))
+                    .fill(glassPanels
+                          ? AnyShapeStyle(Material.regular)
+                          : AnyShapeStyle(Color(nsColor: .controlBackgroundColor)))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: DS.Radius.large, style: .continuous)
