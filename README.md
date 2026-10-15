@@ -6,11 +6,11 @@
 
 **A spend breaker for your AI keys.**
 
-Watch burn rate. Cap the damage. Cut the power before a runaway loop drains your card.
+Watch the burn rate. Cap the damage. Know within a minute — not in the morning.
 
 A real macOS app. Sits in your Dock and your menu bar.
 
-[The app](#the-app) · [How it works](#how-it-works) · [Insights](#insights) · [Privacy](#privacy)
+[The app](#the-app) · [How it works](#how-it-works) · [What a trip cannot do](#what-a-trip-cannot-do) · [Insights](#insights) · [Privacy](#privacy)
 
 <img src="assets/social-card.png" alt="BurnFuse — a spend breaker for your AI keys, shown in one macOS window">
 
@@ -25,7 +25,9 @@ nobody is watching. Your AI provider keeps answering, the meter keeps running, a
 billing email shows up in the morning — hours after the money is gone.
 
 BurnFuse watches the meter. When a key burns past the cap you set, or jumps far above
-its normal rate, it **trips** — the key is marked and held before it can keep draining.
+its normal rate, it **trips**: the key is marked, the minute is logged, and you are told
+— menu bar red, a notification, and a webhook if you added one. Hearing about it in a
+minute instead of in the morning is the whole product.
 
 It is not a dashboard you have to remember to open. It lives in your menu bar as a
 single colour block that reads at a glance — green when settled, amber as burn climbs,
@@ -56,13 +58,15 @@ And the colour block itself, in each state:
 - **Shows the burn.** One number in your menu bar, in a colour block that reads at a glance: green when settled, amber as it climbs, red when tripped.
 - **Catches the spike.** It learns each key's normal rate and trips when the rate jumps — even if you never set a cap.
 - **Respects the cap.** Set an hourly ceiling per key. Cross it and the breaker trips.
-- **Cuts the power.** One click pauses everything. Auto-cut is there for when you are asleep.
-- **Tells you after.** Spending is only half the story. Insights shows what the breaker stopped.
+- **Tells you inside a minute.** Menu bar red, a desktop notification, and — if you add one — a Slack or Discord ping. Not a billing email you read tomorrow.
+- **States its own limits.** Reading a cost figure and revoking a credential are different permissions. So BurnFuse never claims to have cut a key it cannot cut: every trip names the console page where that key is revoked, because revoking it is what actually stops the billing.
+- **Tells you after.** Spending is only half the story. Insights shows every trip and what it was on track to spend.
 
 ## The app
 
-BurnFuse is a single window. Everything lives behind the sidebar — your keys, what the
-breaker saved, and how the app keeps itself current. No scattered windows, no submenus.
+BurnFuse is a single window. Everything lives behind the sidebar — your keys, what every
+trip was on track to spend, and how the app keeps itself current. No scattered windows,
+no submenus.
 
 <p align="center">
   <img src="assets/window-overview-dark.png" width="720" alt="The BurnFuse window on Overview, showing live burn rate, trend and watched keys">
@@ -76,7 +80,10 @@ Light and dark follow the system:
 
 ### Keys
 
-Add a key, give it an hourly cap, and choose whether it should auto-cut when it trips.
+Add a key, give it an hourly cap, and choose whether BurnFuse should stop reading a key
+once it trips — the number then freezes where it tripped, as evidence, until you re-arm
+it. What it will not do is pretend to revoke your key: only the provider can, and every
+trip says exactly where.
 
 <p align="center">
   <img src="assets/window-settings-dark.png" width="600" alt="BurnFuse Settings showing per-key caps, live data, readings and sensitivity">
@@ -128,7 +135,7 @@ Two rules, both easy to reason about:
 1. **The cap.** You set `$5/hr`. Spend `$5.01` and the breaker trips.
 2. **The spike.** BurnFuse keeps your recent hourly readings and works out your normal
    rate. A reading far above that trips the breaker on its own — so a key you never
-   capped is still protected. The interface shows this as a multiple ("4× usual"), not a
+   capped still gets caught. The interface shows this as a multiple ("4× usual"), not a
    statistic.
 
 You control how easily a key trips. Slide toward *Calm* to catch small jumps, or *Only
@@ -137,19 +144,43 @@ big* to hear from BurnFuse only when something is genuinely on fire.
 A reading has to be both clearly abnormal *and* worth your attention. Quiet keys with
 tiny numbers are not allowed to cry wolf.
 
-When something trips, the window says so plainly and gives you the one action that matters:
+When something trips, the window says so plainly — what happened, what BurnFuse did
+about it, and the one action that actually ends the spend:
 
 <p align="center">
-  <img src="assets/window-breach-dark.png" width="720" alt="The BurnFuse window with the breaker tripped, showing the one action that matters">
+  <img src="assets/window-breach-dark.png" width="720" alt="The BurnFuse window with the breaker tripped, naming the exact console page where the key is revoked">
 </p>
+
+### What a trip cannot do
+
+Worth being exact about, because "spend breaker" suggests more than any watcher can do:
+
+| On a trip | |
+|---|---|
+| Marks the key, logs the minute, shows it in the list | yes |
+| Menu bar red, desktop notification, optional Slack/Discord ping | yes |
+| Stops reading the key, if you asked it to | yes — the number freezes as evidence |
+| Revokes the key at the provider | **no** — and it will not imply otherwise |
+
+BurnFuse reads a cost figure with a read-only key. Revoking a credential is a different
+permission, and an app holding revocation rights over your keys would be a bigger risk
+than the leak it watches for. So instead of pretending it cut something, it points
+precisely — *OpenAI dashboard → API keys*, *Claude Console → API keys*, *OpenRouter →
+Settings → Keys* — in the banner, the notification and the webhook alike, so whoever
+sees it first knows what to do.
+
+The money is saved when you revoke the key. BurnFuse's job is to make that happen in a
+minute rather than tomorrow morning.
 
 ## Insights
 
-What did the breaker actually save you? Insights adds it up — every trip, what it would
-have cost, and the honest framing that billing emails arrive late.
+What did the breaker actually save you? Insights adds up what each trip was on track to
+spend — the rate it tripped at, held for the next four hours — and frames it as an
+estimate rather than money in the bank. The honest framing that billing emails arrive
+late is the reason the app exists.
 
 <p align="center">
-  <img src="assets/window-insights-dark.png" width="720" alt="BurnFuse Insights showing averted spend and the log of trips">
+  <img src="assets/window-insights-dark.png" width="720" alt="BurnFuse Insights showing what each trip was on track to spend, and the log of trips">
 </p>
 
 ## Providers
@@ -199,7 +230,7 @@ BurnFuse opens to the full window — Overview, Insights and Settings behind the
 exactly like any other Mac app. It also keeps a live item in your menu bar:
 
 - **Click the colour block** for a panel: live burn, the trend, every watched key.
-- **Right-click it** for the quick actions: open the window, cut all power, quit.
+- **Right-click it** for the quick actions: open the window, trip every key, quit.
 - `⌘,` opens Settings, `⌘I` opens Insights, `⌘W` closes the window (BurnFuse keeps
   running in the menu bar; click the Dock icon to bring it back).
 

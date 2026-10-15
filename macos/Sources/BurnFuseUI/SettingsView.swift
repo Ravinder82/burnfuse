@@ -192,13 +192,14 @@ public struct SettingsView: View {
 
                 Spacer()
 
-                Toggle("Auto-cut", isOn: Binding(
+                Toggle("Pause if it trips", isOn: Binding(
                     get: { key.autoKill },
                     set: { model.setAutoKill(keyID: key.id, enabled: $0) }
                 ))
                 .toggleStyle(.switch)
                 .controlSize(.mini)
                 .font(.caption)
+                .help("Stops BurnFuse reading this key once it trips. It does not stop the provider billing.")
             }
         }
     }
@@ -249,13 +250,19 @@ public struct SettingsView: View {
                         model.updateSettings { $0.notifyWebhook = webhookDraft.trimmingCharacters(in: .whitespaces) }
                     }
                 }
-                Toggle("Cut the power automatically when a key trips", isOn: Binding(
+                Toggle("Pause any key that trips", isOn: Binding(
                     get: { model.state.settings.autoKillOnBreach },
                     set: { value in model.updateSettings { $0.autoKillOnBreach = value } }
                 ))
                 .toggleStyle(.switch)
                 .controlSize(.small)
                 .font(.caption)
+                .help("Stops BurnFuse reading a key once it trips. It does not stop the provider billing.")
+                // The one thing worth being blunt about, because everything in
+                // this app's vocabulary suggests otherwise.
+                note("Pausing stops BurnFuse reading a key — nothing more. Only your provider can revoke it, and that is the only thing that stops the billing.",
+                     icon: "info.circle",
+                     tone: AnyShapeStyle(.tertiary))
             }
         }
     }

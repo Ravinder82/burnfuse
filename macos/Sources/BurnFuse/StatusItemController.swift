@@ -127,7 +127,7 @@ final class StatusItemController: NSObject {
         if model.state.hasBreach {
             menu.addItem(withTitle: "Re-arm all", action: #selector(rearmAll), keyEquivalent: "")
         }
-        let cut = NSMenuItem(title: "Cut all power", action: #selector(cutAll), keyEquivalent: "")
+        let cut = NSMenuItem(title: "Trip all keys", action: #selector(cutAll), keyEquivalent: "")
         cut.isEnabled = !model.state.entries.isEmpty
             && model.state.tripped.count != model.state.entries.count
         menu.addItem(cut)

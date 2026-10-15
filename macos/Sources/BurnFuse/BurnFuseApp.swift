@@ -123,7 +123,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let content = UNMutableNotificationContent()
         content.title = "Breaker tripped"
         content.subtitle = incident.name
-        content.body = "\(Fmt.perHour(incident.reading)) against a \(Fmt.money(incident.hourlyLimit)) cap. \(incident.reason.capitalized)."
+        // The trip is only useful if whoever sees it knows the one action that
+        // ends the spend. The key being paused does not stop the provider
+        // billing, so the notification named where to revoke it.
+        let provider = AppDelegate.sharedModel?.state.entries
+            .first(where: { $0.id == incident.entryId })?.provider
+        content.body = "\(Fmt.perHour(incident.reading)) against a \(Fmt.money(incident.hourlyLimit)) cap — \(incident.reason). \(Providers.revokeHint(for: provider ?? "custom"))"
         content.sound = .default
         let request = UNNotificationRequest(
             identifier: "burnfuse-\(Int(incident.at))",

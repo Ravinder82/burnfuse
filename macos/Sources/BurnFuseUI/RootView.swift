@@ -111,7 +111,13 @@ public struct RootView: View {
     private var detail: some View {
         switch nav.section {
         case .overview:
-            scrollable { OverviewView(model: model) { nav.section = .settings } }
+            scrollable {
+                OverviewView(
+                    model: model,
+                    onAddKey: { nav.section = .settings },
+                    onSeeTrips: { nav.section = .insights }
+                )
+            }
         case .insights:
             scrollable { InsightsView(model: model, width: nil) }
         case .settings:

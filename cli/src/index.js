@@ -8,10 +8,10 @@ import {
   makeId,
   resolveEntry,
 } from "./store.js";
-import { assess, money, multiple, projectBurn } from "./stats.js";
+import { assess, money, multiple, projectBurn, shouldPauseOnBreach } from "./stats.js";
 import { fetchSpend, measuresTotal, rateFromTotal, notify } from "./poll.js";
 import { scanEnvFiles } from "./env.js";
-import { providerList, getProvider } from "./providers.js";
+import { providerList, getProvider, revokeHint } from "./providers.js";
 import {
   banner,
   c,
@@ -115,14 +115,14 @@ async function runVerdict(state, entry, { persist = true, label = "check" } = {}
     state.incidents = state.incidents.slice(0, 200);
     if (state.settings.notifyWebhook) {
       await notify(state.settings.notifyWebhook, {
-        text: `⛔ burnfuse tripped ${entry.name} — ${money(entry.lastReading)}/hr vs ${money(entry.hourlyLimit)}/hr cap (${multiple(entry.lastReading, verdict.baseline || entry.lastReading)} its usual rate)`,
+        text: `⛔ burnfuse tripped ${entry.name} — ${money(entry.lastReading)}/hr vs ${money(entry.hourlyLimit)}/hr cap (${multiple(entry.lastReading, verdict.baseline || entry.lastReading)} its usual rate). ${revokeHint(entry)}`,
       });
     }
   }
-  if (entry.armed && entry.autoKill && entry.status === "tripped") {
-    const provider = getProvider(entry.provider);
-    const killUrl = provider.killUrl ? provider.killUrl(entry) : null;
-    entry.killAvailable = Boolean(killUrl);
+  // Pausing stops this reading the key. Nothing more — it does not stop the
+  // provider billing, which is why every trip names where to revoke it.
+  if (verdict.breach && wasArmed && shouldPauseOnBreach(entry, state.settings)) {
+    entry.armed = false;
   }
   if (persist) saveState(state, state.__file);
   return verdict;
@@ -179,7 +179,7 @@ function cmdList(state, { json, flags }) {
     console.log(`  ${c.bold(entry.name)} ${c.gray(`(${entry.id})`)}`);
     console.log(kv("provider", getProvider(entry.provider).label));
     console.log(kv("readings", `${entry.readings.length}`));
-    console.log(kv("auto-kill", entry.autoKill ? "on" : "off"));
+    console.log(kv("pause if it trips", entry.autoKill ? "on" : "off"));
     console.log("");
   }
 }
@@ -196,7 +196,7 @@ function cmdAdd(state, positional, flags) {
     provider,
     hourlyLimit: limit,
     armed: true,
-    autoKill: flags["auto-kill"] ? flags["auto-kill"] !== "false" : true,
+    autoKill: flags["auto-kill"] ? flags["auto-kill"] !== "false" : false,
     status: "armed",
     readings: [],
     source:
@@ -249,7 +249,7 @@ function cmdRecord(state, positional, flags) {
   if (verdict.breach) {
     if (state.settings.notifyWebhook) {
       notify(state.settings.notifyWebhook, {
-        text: `⛔ burnfuse tripped ${entry.name} — ${money(value)}/hr vs ${money(entry.hourlyLimit)}/hr cap`,
+        text: `⛔ burnfuse tripped ${entry.name} — ${money(value)}/hr vs ${money(entry.hourlyLimit)}/hr cap. ${revokeHint(entry)}`,
       }).catch(() => {});
       console.log(note("Alert webhook fired."));
     }
@@ -335,6 +335,8 @@ function cmdTrip(state, positional) {
   saveState(state, state.__file);
   console.log("");
   console.log(`  ${c.red("⛔ Tripped")} ${targets.length} key${targets.length > 1 ? "s" : ""}: ${targets.map((t) => t.name).join(", ")}`);
+  console.log(note("Stopped reading it. This does not stop the provider billing."));
+  if (targets.length === 1) console.log(note(revokeHint(targets[0])));
   console.log(note(`Re-arm with ${c.bold("burnfuse arm all")}`));
 }
 
@@ -428,7 +430,7 @@ function cmdScan(state, positional, flags) {
         provider: item.provider,
         hourlyLimit: Number(flags.limit || 5),
         armed: true,
-        autoKill: true,
+        autoKill: false,
         status: "armed",
         readings: [],
         lastReading: 0,
@@ -516,7 +518,7 @@ function cmdDemo(state) {
       provider: s.provider,
       hourlyLimit: s.limit,
       armed: true,
-      autoKill: true,
+      autoKill: false,
       status: "armed",
       readings: s.readings.map((cost, i) => ({ at: Date.now() - (s.readings.length - i) * 3600_000, cost, model: null })),
       lastReading: s.readings[s.readings.length - 1],
@@ -549,7 +551,7 @@ function cmdHelp() {
   console.log(`    ${b("poll")} [key|all]          pull live spend where the provider allows`);
   console.log("");
   console.log(`  ${c.gray("CONTROL")}`);
-  console.log(`    ${b("trip")} <key|all>         cut the power now`);
+  console.log(`    ${b("trip")} <key|all>         mark it and stop reading it now`);
   console.log(`    ${b("arm")} <key|all> [--clear]   re-arm after a fix`);
   console.log(`    ${b("cap")} <key> <$/hr>       set the hourly ceiling`);
   console.log(`    ${b("sensitivity")} <number>    how big a spike trips the breaker (default 2.5)`);

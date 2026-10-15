@@ -40,6 +40,14 @@ export function isOverCap(reading, hourlyLimit) {
   return Number(reading) > Number(hourlyLimit);
 }
 
+/**
+ * On a breach, should BurnFuse stop reading this key? The blanket rule, or the
+ * key's own flag. Not protection — see the note on `autoKill` in the store.
+ */
+export function shouldPauseOnBreach(entry, settings = {}) {
+  return Boolean(settings.autoKillOnBreach) || Boolean(entry.autoKill);
+}
+
 export function isSpike(z, zThreshold) {
   return Number(z) >= Number(zThreshold);
 }

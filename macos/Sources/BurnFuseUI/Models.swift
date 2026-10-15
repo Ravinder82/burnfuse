@@ -33,7 +33,6 @@ public struct Reading: Codable, Identifiable, Hashable, Sendable {
 public struct KeySource: Codable, Hashable, Sendable {
     public var spendUrl: String?
     public var jsonPath: String?
-    public var killUrl: String?
     /// A request header to send the key under, for endpoints that do not want
     /// `Authorization: Bearer …`.
     public var header: String?
@@ -42,17 +41,16 @@ public struct KeySource: Codable, Hashable, Sendable {
     /// two reads.
     public var measures: String?
 
-    public init(spendUrl: String? = nil, jsonPath: String? = nil, killUrl: String? = nil, header: String? = nil, measures: String? = nil) {
+    public init(spendUrl: String? = nil, jsonPath: String? = nil, header: String? = nil, measures: String? = nil) {
         self.spendUrl = spendUrl
         self.jsonPath = jsonPath
-        self.killUrl = killUrl
         self.header = header
         self.measures = measures
     }
 
     /// True when nothing here configures a live read.
     public var isEmpty: Bool {
-        [spendUrl, jsonPath, killUrl, header, measures].allSatisfy { $0?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true }
+        [spendUrl, jsonPath, header, measures].allSatisfy { $0?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true }
     }
 }
 
@@ -77,6 +75,12 @@ public struct BurnKey: Codable, Identifiable, Hashable, Sendable {
     public var provider: String
     public var hourlyLimit: Double
     public var armed: Bool
+    /// Stop reading this key once it trips, instead of watching it come down.
+    ///
+    /// Off by default, and worth knowing why: pausing is not protection. It stops
+    /// BurnFuse reading a figure, and does nothing whatever about the provider
+    /// still billing. Left off, a tripped key keeps reporting, so a runaway that
+    /// is still running looks like one.
     public var autoKill: Bool
     public var status: String            // armed | tripped | paused
     public var readings: [Reading]
@@ -122,7 +126,7 @@ public struct BurnKey: Codable, Identifiable, Hashable, Sendable {
         provider: String = "custom",
         hourlyLimit: Double = 5,
         armed: Bool = true,
-        autoKill: Bool = true,
+        autoKill: Bool = false,
         status: String = "armed",
         readings: [Reading] = [],
         lastReading: Double = 0,
@@ -161,7 +165,7 @@ public struct BurnKey: Codable, Identifiable, Hashable, Sendable {
         provider = try c.decodeIfPresent(String.self, forKey: .provider) ?? "custom"
         hourlyLimit = try c.decodeIfPresent(Double.self, forKey: .hourlyLimit) ?? 5
         armed = try c.decodeIfPresent(Bool.self, forKey: .armed) ?? true
-        autoKill = try c.decodeIfPresent(Bool.self, forKey: .autoKill) ?? true
+        autoKill = try c.decodeIfPresent(Bool.self, forKey: .autoKill) ?? false
         status = try c.decodeIfPresent(String.self, forKey: .status) ?? "armed"
         readings = try c.decodeIfPresent([Reading].self, forKey: .readings) ?? []
         lastReading = try c.decodeIfPresent(Double.self, forKey: .lastReading) ?? 0
@@ -176,6 +180,8 @@ public struct BurnKey: Codable, Identifiable, Hashable, Sendable {
 public struct Settings: Codable, Hashable, Sendable {
     public var zThreshold: Double
     public var minStdDev: Double
+    /// The blanket version of a key's own pause-on-trip flag: stop reading keys
+    /// that trip, until they are re-armed. Only reading — never billing.
     public var autoKillOnBreach: Bool
     public var notifyWebhook: String
     public var historyWindow: Int
@@ -301,6 +307,13 @@ public enum Fmt {
 
     public static func perHour(_ value: Double) -> String {
         "\(money(value))/hr"
+    }
+
+    /// Money at the size it actually is: whole dollars once there are enough of
+    /// them, cents while the number is still small. Rounding a real $0.40 down to
+    /// "$0" reads as a bug, or worse, as a claim that nothing happened.
+    public static func roughly(_ value: Double) -> String {
+        value >= 10 ? money(value, digits: 0) : money(value, digits: 2)
     }
 
     public static func multiple(_ current: Double, _ baseline: Double) -> String {

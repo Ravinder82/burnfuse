@@ -18,6 +18,15 @@ public struct Provider: Identifiable, Hashable, Sendable {
     /// the difference between adding a key and giving up.
     public let whereToGet: String?
 
+    /// Where the same key is revoked or rotated, in plain words.
+    ///
+    /// This is the one action that actually stops spend, and BurnFuse cannot take
+    /// it on the user's behalf: reading a cost figure and revoking a credential
+    /// are different permissions, and a spend watcher holding revocation rights
+    /// over your keys would be a worse thing to install than the problem it
+    /// solves. So the app points, precisely, instead of gesturing.
+    public let whereToRevoke: String?
+
     public init(
         id: String,
         label: String,
@@ -25,7 +34,8 @@ public struct Provider: Identifiable, Hashable, Sendable {
         symbol: String,
         keyLabel: String,
         keyHint: String,
-        whereToGet: String? = nil
+        whereToGet: String? = nil,
+        whereToRevoke: String? = nil
     ) {
         self.id = id
         self.label = label
@@ -34,6 +44,7 @@ public struct Provider: Identifiable, Hashable, Sendable {
         self.keyLabel = keyLabel
         self.keyHint = keyHint
         self.whereToGet = whereToGet
+        self.whereToRevoke = whereToRevoke
     }
 }
 
@@ -50,7 +61,8 @@ public enum Providers {
             symbol: "sparkles",
             keyLabel: "OpenAI admin key",
             keyHint: "Reads your organization's costs. Stored on this Mac only.",
-            whereToGet: "OpenAI dashboard → Settings → Organization → Admin keys"
+            whereToGet: "OpenAI dashboard → Settings → Organization → Admin keys",
+            whereToRevoke: "OpenAI dashboard → API keys"
         ),
         Provider(
             id: "anthropic",
@@ -59,7 +71,8 @@ public enum Providers {
             symbol: "text.book.closed",
             keyLabel: "Anthropic admin key",
             keyHint: "Reads your organization's costs. Needs an Admin key on an organization account — individual accounts have no Admin API.",
-            whereToGet: "Claude Console → Settings → Admin keys"
+            whereToGet: "Claude Console → Settings → Admin keys",
+            whereToRevoke: "Claude Console → API keys"
         ),
         Provider(
             id: "openrouter",
@@ -68,7 +81,8 @@ public enum Providers {
             symbol: "arrow.triangle.branch",
             keyLabel: "OpenRouter key",
             keyHint: "Reads your credit usage. Stored on this Mac only.",
-            whereToGet: "OpenRouter → Settings → Keys"
+            whereToGet: "OpenRouter → Settings → Keys",
+            whereToRevoke: "OpenRouter → Settings → Keys"
         ),
         Provider(
             id: "custom",
@@ -84,7 +98,8 @@ public enum Providers {
             supportsLiveSpend: false,
             symbol: "square.stack.3d.up",
             keyLabel: "Replicate token",
-            keyHint: "No public spend read. Log a reading, or point a custom endpoint at one."
+            keyHint: "No public spend read. Log a reading, or point a custom endpoint at one.",
+            whereToRevoke: "Replicate → Account → API tokens"
         ),
         Provider(
             id: "groq",
@@ -92,7 +107,8 @@ public enum Providers {
             supportsLiveSpend: false,
             symbol: "bolt.fill",
             keyLabel: "Groq key",
-            keyHint: "No public spend read. Log a reading, or point a custom endpoint at one."
+            keyHint: "No public spend read. Log a reading, or point a custom endpoint at one.",
+            whereToRevoke: "Groq Console → API Keys"
         ),
         Provider(
             id: "aws",
@@ -100,7 +116,8 @@ public enum Providers {
             supportsLiveSpend: false,
             symbol: "cloud",
             keyLabel: "AWS access key",
-            keyHint: "No single cost read. Cost Explorer can export one — point a custom endpoint at it, or log a reading."
+            keyHint: "No single cost read. Cost Explorer can export one — point a custom endpoint at it, or log a reading.",
+            whereToRevoke: "AWS IAM → Access keys"
         ),
     ]
 
@@ -108,6 +125,16 @@ public enum Providers {
         // Delegating keeps this and `provider(for:)` describing an unknown id
         // the same way — a key labelled two different things is a bug report.
         provider(for: id).label
+    }
+
+    /// The one line that belongs with a trip: the only action that ends the
+    /// spend. Said in the notification, the webhook and the banner alike, so
+    /// whoever sees it first knows what to do without opening anything.
+    public static func revokeHint(for id: String) -> String {
+        if let whereToRevoke = provider(for: id).whereToRevoke {
+            return "Revoke the key at \(whereToRevoke) to stop the spend."
+        }
+        return "Revoke the key where you issued it to stop the spend."
     }
 
     public static func provider(for id: String) -> Provider {

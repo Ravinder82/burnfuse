@@ -309,10 +309,11 @@ public final class AppModel: ObservableObject {
 
     public func record(keyID: String, cost: Double, model: String? = nil) {
         if let incident = BurnEngine.recordReading(&state, keyID: keyID, cost: cost, model: model) {
-            // "Cut the power automatically" means the key stops dead, not just
-            // gets marked — so it cannot keep draining if you are asleep.
-            if state.settings.autoKillOnBreach,
-               let index = state.entries.firstIndex(where: { $0.id == keyID }) {
+            // Pausing on a trip stops BurnFuse reading the key — nothing more.
+            // It cannot stop the provider billing, and the interface says so
+            // rather than implying this is protection it is not.
+            if let index = state.entries.firstIndex(where: { $0.id == keyID }),
+               BurnEngine.shouldPauseOnTrip(state.entries[index], settings: state.settings) {
                 state.entries[index].armed = false
             }
             onIncident?(incident)
@@ -324,7 +325,8 @@ public final class AppModel: ObservableObject {
     private func sendWebhook(for incident: Incident) {
         let webhook = state.settings.notifyWebhook
         guard !webhook.isEmpty else { return }
-        let text = "⛔ burnfuse tripped \(incident.name) — \(Fmt.perHour(incident.reading)) vs \(Fmt.money(incident.hourlyLimit)) cap (\(incident.reason))."
+        let provider = state.entries.first(where: { $0.id == incident.entryId })?.provider ?? "custom"
+        let text = "⛔ burnfuse tripped \(incident.name) — \(Fmt.perHour(incident.reading)) vs \(Fmt.money(incident.hourlyLimit)) cap (\(incident.reason)). \(Providers.revokeHint(for: provider))"
         Task { await SpendPoller.notify(webhook: webhook, text: text) }
     }
 

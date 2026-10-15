@@ -14,7 +14,7 @@ public struct InsightsView: View {
     }
 
     private var averted: Double { BurnEngine.totalAverted(model.state) }
-    private var atRisk: Double { model.state.totalBurn * BurnEngine.exposureHours }
+    private var exposure: Int { Int(BurnEngine.exposureHours) }
 
     public var body: some View {
         Group {
@@ -39,14 +39,17 @@ public struct InsightsView: View {
 
     private var headline: some View {
         VStack(alignment: .leading, spacing: DS.Space.xs) {
-            DS.eyebrow("Averted so far")
-            Text(Fmt.money(averted, digits: 0))
+            DS.eyebrow("Caught early")
+            Text(Fmt.roughly(averted))
                 .font(.system(size: 40, weight: .semibold, design: .rounded))
                 .foregroundStyle(averted > 0 ? DS.Tone.calm : .primary)
                 .contentTransition(.numericText())
+            // The one number on this screen that could be read as money in the
+            // bank, so it says what it is instead: a projection, not a saving.
+            // BurnFuse ends nothing by itself — revoking the key does that.
             Text(averted > 0
-                 ? "Estimated spend the breaker stopped before it landed on your card."
-                 : "Once a key trips, the spend it stopped shows up here.")
+                 ? "What these trips were on track to spend over the next \(exposure) hours, at the rate they tripped at. An estimate — the money is saved when you revoke the key."
+                 : "When a key trips, what it was on track to spend over the next \(exposure) hours shows up here.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -75,7 +78,7 @@ public struct InsightsView: View {
     private func projection(_ label: String, _ value: Double) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label).font(.caption2).foregroundStyle(.secondary)
-            Text(Fmt.money(value, digits: 0))
+            Text(Fmt.roughly(value))
                 .font(DS.Font.metric)
                 .foregroundStyle(value > 0 ? DS.Tone.watch : .primary)
         }
@@ -101,16 +104,26 @@ public struct InsightsView: View {
                     }
                 }
             } else {
-                VStack(spacing: DS.Space.sm) {
-                    ForEach(model.state.incidents.prefix(20)) { incident in
+                VStack(alignment: .leading, spacing: DS.Space.sm) {
+                    ForEach(model.state.incidents.prefix(Self.logLimit)) { incident in
                         Card(padding: DS.Space.md) {
                             incidentRow(incident)
                         }
+                    }
+                    if model.state.incidents.count > Self.logLimit {
+                        // A list that quietly stops at twenty is a list that lies
+                        // about how often this has happened.
+                        Text("Showing the \(Self.logLimit) most recent of \(model.state.incidents.count).")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
                     }
                 }
             }
         }
     }
+
+    /// How many trips the log shows before it says so.
+    static let logLimit = 20
 
     private func incidentRow(_ incident: Incident) -> some View {
         HStack(alignment: .top, spacing: DS.Space.sm) {
@@ -132,10 +145,10 @@ public struct InsightsView: View {
             Spacer(minLength: DS.Space.sm)
 
             VStack(alignment: .trailing, spacing: 1) {
-                Text(Fmt.money(BurnEngine.averted(incident), digits: 0))
+                Text(Fmt.roughly(BurnEngine.averted(incident)))
                     .font(DS.Font.mono)
                     .foregroundStyle(DS.Tone.calm)
-                Text("averted").font(.caption2).foregroundStyle(.tertiary)
+                Text("next \(exposure) hrs").font(.caption2).foregroundStyle(.tertiary)
             }
         }
     }

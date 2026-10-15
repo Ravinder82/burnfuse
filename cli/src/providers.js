@@ -1,13 +1,15 @@
 /**
  * Provider registry. Each provider knows three optional things:
  *
- *   spendUrl(key)   -> where to read today's spend
- *   parse(json)     -> how to pull a dollar number out of that response
- *   killUrl(entry)  -> where to disable/revoke a key
+ *   spendUrl(key)     -> where to read today's spend
+ *   parse(json)       -> how to pull a dollar number out of that response
+ *   whereToRevoke     -> where in the console the key itself is revoked
  *
- * Read-only by default. A provider only gets a kill path if the API genuinely
- * supports revocation. `custom` lets you point BurnFuse at any read-only
- * cost endpoint of your own.
+ * Read-only by design. Nothing here ever revokes anything: reading a cost figure
+ * and killing a credential are different permissions, and holding the second one
+ * would make BurnFuse a bigger risk than the leak it watches for. So a trip names
+ * the console page where the key is revoked instead of pretending to cut it.
+ * `custom` lets you point BurnFuse at any read-only cost endpoint of your own.
  */
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -32,9 +34,10 @@ export const providers = {
       const buckets = json?.data || [];
       return buckets.reduce((acc, b) => acc + (b?.results || []).reduce((s, r) => s + (r?.amount?.value || 0), 0), 0);
     },
-    killUrl: (entry) => (entry.providerKeyId ? `https://api.openai.com/v1/organization/admin_api_keys/${entry.providerKeyId}` : null),
-    killMethod: "DELETE",
-    killHeaders: (key) => ({ Authorization: `Bearer ${key}` }),
+    // Where the key is revoked. Not an endpoint BurnFuse calls: reading a cost
+    // figure and revoking a credential are different permissions, and this never
+    // holds the second one. Named so the trip output can say where to go.
+    whereToRevoke: "OpenAI dashboard → API keys",
   },
   anthropic: {
     label: "Anthropic",
@@ -64,8 +67,7 @@ export const providers = {
         (acc, b) => acc + (b?.results || []).reduce((s, r) => s + (Number(r?.amount) || 0), 0),
         0,
       ) / 100,
-    killUrl: (entry) => (entry.providerKeyId ? `https://api.anthropic.com/v1/organizations/api_keys/${entry.providerKeyId}` : null),
-    killMethod: "POST",
+    whereToRevoke: "Claude Console → API keys",
   },
   openrouter: {
     label: "OpenRouter",
@@ -82,7 +84,7 @@ export const providers = {
     // robust number to take a difference from. Older responses only carried
     // the daily figure.
     parse: (json) => Number(json?.data?.usage ?? json?.data?.usage_daily ?? 0),
-    killUrl: () => null,
+    whereToRevoke: "OpenRouter → Settings → Keys",
   },
   replicate: {
     label: "Replicate",
@@ -90,7 +92,7 @@ export const providers = {
     signal: "REPLICATE_API_TOKEN",
     spendUrl: null,
     parse: null,
-    killUrl: () => null,
+    whereToRevoke: "Replicate → Account → API tokens",
   },
   groq: {
     label: "Groq",
@@ -98,7 +100,7 @@ export const providers = {
     signal: "GROQ_API_KEY",
     spendUrl: null,
     parse: null,
-    killUrl: () => null,
+    whereToRevoke: "Groq Console → API Keys",
   },
   aws: {
     label: "AWS",
@@ -106,7 +108,7 @@ export const providers = {
     signal: "AWS_ACCESS_KEY_ID",
     spendUrl: null,
     parse: null,
-    killUrl: () => null,
+    whereToRevoke: "AWS IAM → Access keys",
   },
   custom: {
     label: "Custom endpoint",
@@ -125,8 +127,7 @@ export const providers = {
       return { [header]: header.toLowerCase() === "authorization" ? `Bearer ${key}` : key };
     },
     parse: null,
-    killUrl: (entry) => entry.source?.killUrl || null,
-    killMethod: "POST",
+    whereToRevoke: null,
   },
 };
 
@@ -134,6 +135,18 @@ export const providerList = Object.entries(providers).map(([id, p]) => ({ id, ..
 
 export function getProvider(id) {
   return providers[id] || providers.custom;
+}
+
+/**
+ * The one line that belongs with a trip: the only action that ends the spend.
+ * Reading a cost figure and revoking a credential are different permissions, so
+ * this says where to revoke rather than implying the trip stopped anything.
+ */
+export function revokeHint(entry) {
+  const where = getProvider(entry.provider).whereToRevoke;
+  return where
+    ? `Revoke the key at ${where} to stop the spend.`
+    : "Revoke the key where you issued it to stop the spend.";
 }
 
 /**

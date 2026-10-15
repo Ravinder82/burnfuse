@@ -15,14 +15,14 @@ from the product. Run `./scripts/screenshots.sh` to regenerate the whole set.
 | `assets/menubar-climbing-dark.png` | 640×34 | Menu-bar item, climbing (amber) |
 | `assets/menubar-breached-dark.png` | 640×34 | Menu-bar item, tripped (red) |
 | `assets/menubar-light.png` | 640×34 | Menu-bar item in light appearance |
-| `assets/mini-panel-dark.png` | 300 wide | The menu-bar panel, healthy |
-| `assets/mini-panel-breach-dark.png` | 300 wide | The menu-bar panel, tripped |
+| `assets/mini-panel-dark.png` | 320 wide | The menu-bar panel, healthy |
+| `assets/mini-panel-breach-dark.png` | 320 wide | The menu-bar panel, tripped |
 | `assets/window-overview-dark.png` | 900×620 | Primary product shot — README, landing page |
 | `assets/window-overview-light.png` | 900×620 | Light-mode shot |
 | `assets/window-breach-dark.png` | 900×700 | "The moment it matters" — the trip |
-| `assets/window-insights-dark.png` | 900×620 | What the breaker saved you |
-| `assets/window-settings-dark.png` | 900×1600 | Feature shot — provider keys, caps, readings, sensitivity |
-| `assets/window-settings-light.png` | 900×1600 | Light-mode feature shot |
+| `assets/window-insights-dark.png` | 900×620 | What the trips were on track to spend |
+| `assets/window-settings-dark.png` | 900×1760 | Feature shot — provider keys, caps, readings, sensitivity |
+| `assets/window-settings-light.png` | 900×1760 | Light-mode feature shot |
 
 ## Where each one is used
 
@@ -35,8 +35,8 @@ from the product. Run `./scripts/screenshots.sh` to regenerate the whole set.
 
 ## One line
 
-> **BurnFuse — a spend breaker for your AI keys.** Watch burn rate. Cap the damage. Cut
-> the power before a runaway loop drains your card.
+> **BurnFuse — a spend breaker for your AI keys.** Watch the burn rate. Cap the damage.
+> Know within a minute, not in the morning.
 
 ## Three lines
 
@@ -45,6 +45,9 @@ from the product. Run `./scripts/screenshots.sh` to regenerate the whole set.
 - Click it and you get a miniature of the app — live burn, the trend, every watched key —
   without leaving what you were doing.
 - Native macOS, everything on your Mac. No account, no telemetry, no server.
+- It tells you inside a minute, and it names the console page where the key is revoked —
+  because revoking it is what stops the spend, and an app that could do that for you
+  would be a bigger risk than the leak it watches for.
 
 ## What to lead with
 
@@ -65,3 +68,9 @@ from the product. Run `./scripts/screenshots.sh` to regenerate the whole set.
   figure on the second read, saying so while it works it out instead of inventing a number.
 - **"Nothing is a dead end."** Providers with no public cost read are listed with what to
   do instead — log a reading, or point BurnFuse at a cost endpoint of your own.
+- **"It tells you what it cannot do."** The hardest claim to make in this category, and
+  the one worth leading with to anyone technical: BurnFuse reads spend, so it cannot
+  revoke a key, and it never says otherwise. Every trip — banner, notification and
+  webhook alike — names the exact console page where the key is revoked, because
+  revoking it is what stops the billing. No other spend watcher is that specific about
+  its own limits, and it is the reason to trust the number it does report.

@@ -422,7 +422,7 @@ struct SocialCard: View {
                         .font(.system(size: 24, weight: .semibold))
                         .foregroundStyle(Color(red: 1.0, green: 0.80, blue: 0.55))
 
-                    Text("Watch burn rate. Cap the damage.\nCut the power before a runaway loop drains your card.")
+                    Text("Watch the burn rate. Cap the damage.\nKnow within a minute, not in the morning.")
                         .font(.system(size: 16))
                         .foregroundStyle(.white.opacity(0.72))
                         .fixedSize(horizontal: false, vertical: true)

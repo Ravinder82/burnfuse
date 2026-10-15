@@ -47,7 +47,7 @@ function normalizeEntry(e) {
     provider: e.provider || "custom",
     hourlyLimit: num(e.hourlyLimit, 5),
     armed: e.armed !== false,
-    autoKill: e.autoKill !== false,
+    autoKill: e.autoKill === true,
     status: e.status || "armed",
     readings: Array.isArray(e.readings) ? e.readings : [],
     source: e.source || null,

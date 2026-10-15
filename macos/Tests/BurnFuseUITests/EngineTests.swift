@@ -134,7 +134,9 @@ final class AppModelTests: XCTestCase {
         XCTAssertTrue(model.stateURL.path.contains("burnfuse-test-"))
     }
 
-    func testAutoCutDisarmsAKeyWhenItTrips() {
+    /// The blanket rule — `autoKillOnBreach` — still pauses a tripped key, which is
+    /// what the switch in Alerts has always said it does.
+    func testTheBlanketRulePausesAKeyWhenItTrips() {
         let model = makeModel()
         let key = model.addKey(name: "Burner", provider: "custom", cap: 2)
         model.updateSettings { $0.autoKillOnBreach = true }
@@ -142,10 +144,34 @@ final class AppModelTests: XCTestCase {
         model.record(keyID: key.id, cost: 12)
 
         XCTAssertTrue(model.state.hasBreach)
-        XCTAssertFalse(model.state.entries.first?.armed ?? true, "auto-cut disarms the key")
+        XCTAssertFalse(model.state.entries.first?.armed ?? true, "the blanket rule pauses the key")
     }
 
-    func testAutoCutOffLeavesTheKeyArmedButTripped() {
+    func testPauseOnTripIsTheBlanketRuleOrTheKeysOwnFlag() {
+        let key = BurnKey(id: "a", name: "a", provider: "custom")
+        XCTAssertFalse(BurnEngine.shouldPauseOnTrip(key, settings: Settings()), "off unless asked")
+        XCTAssertTrue(BurnEngine.shouldPauseOnTrip(key, settings: Settings(autoKillOnBreach: true)))
+
+        var own = key
+        own.autoKill = true
+        XCTAssertTrue(BurnEngine.shouldPauseOnTrip(own, settings: Settings()))
+        XCTAssertTrue(BurnEngine.shouldPauseOnTrip(own, settings: Settings(autoKillOnBreach: true)))
+    }
+
+    /// The per-key switch used to be written to the state file and never read by
+    /// anything: a control that did nothing. Pinned so it cannot go quiet again.
+    func testThePerKeyPauseFlagActuallyPauses() {
+        let model = makeModel()
+        let key = model.addKey(name: "Burner", provider: "custom", cap: 2)
+        model.setAutoKill(keyID: key.id, enabled: true)
+        for cost in [0.4, 0.5, 0.45, 0.48] { model.record(keyID: key.id, cost: cost) }
+        model.record(keyID: key.id, cost: 12)
+
+        XCTAssertTrue(model.state.hasBreach)
+        XCTAssertFalse(model.state.entries.first?.armed ?? true, "the key's own flag pauses it")
+    }
+
+    func testAnUntouchedKeyKeepsBeingReadAfterATrip() {
         let model = makeModel()
         let key = model.addKey(name: "Burner", provider: "custom", cap: 2)
         for cost in [0.4, 0.5, 0.45, 0.48] { model.record(keyID: key.id, cost: cost) }
@@ -153,6 +179,23 @@ final class AppModelTests: XCTestCase {
 
         XCTAssertTrue(model.state.hasBreach)
         XCTAssertTrue(model.state.entries.first?.armed ?? false, "still armed, just tripped")
+    }
+
+    /// Every provider that holds a credential must be able to name the page where
+    /// it is revoked. That revoke is the only thing that ends the spend, and the
+    /// app deliberately cannot do it — so pointing at it is the whole job.
+    func testEveryProviderThatTakesAKeyNamesWhereToRevokeIt() {
+        for provider in Providers.all where provider.id != "custom" {
+            let whereToRevoke = provider.whereToRevoke
+            XCTAssertNotNil(whereToRevoke, provider.id)
+            let hint = Providers.revokeHint(for: provider.id)
+            XCTAssertTrue(hint.contains(whereToRevoke ?? "—"), "\(provider.id): \(hint)")
+        }
+
+        // A custom endpoint's key is the user's own, and an unknown provider id
+        // still gets a sentence rather than a dead end.
+        XCTAssertTrue(Providers.revokeHint(for: "custom").contains("where you issued it"))
+        XCTAssertTrue(Providers.revokeHint(for: "nope").contains("where you issued it"))
     }
 
     func testSourceRoundTripsThroughDisk() {

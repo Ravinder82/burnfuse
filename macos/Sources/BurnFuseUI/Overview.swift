@@ -5,10 +5,12 @@ import SwiftUI
 public struct OverviewView: View {
     @ObservedObject var model: AppModel
     var onAddKey: () -> Void = {}
+    var onSeeTrips: (() -> Void)? = nil
 
-    public init(model: AppModel, onAddKey: @escaping () -> Void = {}) {
+    public init(model: AppModel, onAddKey: @escaping () -> Void = {}, onSeeTrips: (() -> Void)? = nil) {
         self.model = model
         self.onAddKey = onAddKey
+        self.onSeeTrips = onSeeTrips
     }
 
     public var body: some View {
@@ -16,8 +18,9 @@ public struct OverviewView: View {
             if let incident = model.state.tripped.first {
                 BreachBanner(
                     key: incident,
+                    othersTripped: max(0, model.state.tripped.count - 1),
                     onArm: { model.arm(keyID: incident.id) },
-                    onReview: onAddKey
+                    onSeeTrips: onSeeTrips
                 )
             }
 
@@ -147,7 +150,7 @@ public struct StatusFooter: View {
                 LinkButton("Re-arm all") { model.armAll() }
             }
 
-            LinkButton("Cut all", tint: DS.Tone.breach) { model.tripAll() }
+            LinkButton("Trip all", tint: DS.Tone.breach) { model.tripAll() }
                 .opacity(canCutAll ? 1 : 0.4)
                 .disabled(!canCutAll)
         }
@@ -179,16 +182,24 @@ public struct EmptyKeys: View {
 }
 
 /// Shown at the top of the Overview when the breaker has tripped. States plainly
-/// what happened, what it averted, and the one recovery action.
+/// what happened, what BurnFuse actually did about it, and the one action that
+/// ends the spend — which is not an action BurnFuse can take.
 public struct BreachBanner: View {
     let key: BurnKey
+    let othersTripped: Int
     let onArm: () -> Void
-    let onReview: () -> Void
+    let onSeeTrips: (() -> Void)?
 
-    public init(key: BurnKey, onArm: @escaping () -> Void, onReview: @escaping () -> Void) {
+    public init(
+        key: BurnKey,
+        othersTripped: Int = 0,
+        onArm: @escaping () -> Void,
+        onSeeTrips: (() -> Void)? = nil
+    ) {
         self.key = key
+        self.othersTripped = othersTripped
         self.onArm = onArm
-        self.onReview = onReview
+        self.onSeeTrips = onSeeTrips
     }
 
     public var body: some View {
@@ -199,14 +210,35 @@ public struct BreachBanner: View {
                 Text("Breaker tripped").font(.subheadline.weight(.semibold))
                 Spacer()
             }
-            Text("\(key.name) hit \(Fmt.perHour(key.lastReading)) against a \(Fmt.money(key.hourlyLimit)) cap. It is paused so it cannot keep draining.")
+            Text("\(key.name) hit \(Fmt.perHour(key.lastReading)) against a \(Fmt.money(key.hourlyLimit)) cap.")
+                .font(.caption.weight(.medium))
+                .fixedSize(horizontal: false, vertical: true)
+
+            // What BurnFuse did, then what would actually end the spend. Watching
+            // is not cutting: the app can stop reading a key, but the provider is
+            // the only party that can stop billing for it, so it says where.
+            Text(key.armed
+                 ? "BurnFuse is still reading it, so you can watch it come down. \(Providers.revokeHint(for: key.provider))"
+                 : "BurnFuse has stopped reading it. \(Providers.revokeHint(for: key.provider))")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
+            if othersTripped > 0 {
+                // Naming one tripped key and staying quiet about the rest is how
+                // a second runaway goes unnoticed.
+                Text(othersTripped == 1
+                     ? "One other key has tripped as well."
+                     : "\(othersTripped) other keys have tripped as well.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             HStack(spacing: DS.Space.sm) {
                 PrimaryButton("Re-arm", tint: DS.accent, action: onArm)
-                SecondaryButton("Review", action: onReview)
+                if let onSeeTrips {
+                    SecondaryButton("All trips", action: onSeeTrips)
+                }
             }
         }
         .padding(DS.Space.lg)

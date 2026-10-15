@@ -35,6 +35,13 @@ public enum BurnEngine {
         return variance.squareRoot()
     }
 
+    /// On a trip, should BurnFuse stop reading this key? The blanket rule, or the
+    /// key's own flag. Not protection: pausing stops the reading, and the provider
+    /// carries on billing regardless.
+    public static func shouldPauseOnTrip(_ key: BurnKey, settings: Settings) -> Bool {
+        key.autoKill || settings.autoKillOnBreach
+    }
+
     public static func assess(_ key: BurnKey, settings: Settings) -> Assessment {
         let window = max(1, settings.historyWindow)
         let history = key.readings.suffix(window).map(\.cost)
@@ -167,10 +174,15 @@ public enum BurnEngine {
     // MARK: - Outcomes
 
     /// Hours of unattended burn we assume before you would have noticed a leak.
-    /// Used only for a clearly-labelled "averted" estimate — never a promise.
+    /// Used only for a clearly-labelled estimate — never a promise.
     public static let exposureHours: Double = 4
 
-    /// Spend that did not happen because the breaker cut a key.
+    /// What a trip was on track to spend: the rate it tripped at, held for the
+    /// hours a leak usually runs unnoticed.
+    ///
+    /// Deliberately not called a saving. BurnFuse stops nothing by itself; it
+    /// shortens the gap between the money going out and you knowing, and the
+    /// money is saved when you revoke the key.
     public static func averted(_ incident: Incident) -> Double {
         max(0, incident.reading * exposureHours)
     }

@@ -98,7 +98,10 @@ public struct MiniPanel: View {
             }
 
             if let incident = model.state.tripped.first {
-                Text("\(incident.name) tripped — paused before it kept draining.")
+                let more = model.state.tripped.count - 1
+                Text(more > 0
+                     ? "\(incident.name) and \(more) more tripped — revoke the keys to stop the spend."
+                     : "\(incident.name) tripped — revoke its key to stop the spend.")
                     .font(.caption2)
                     .foregroundStyle(DS.Tone.breach)
                     .lineLimit(2)
@@ -142,7 +145,7 @@ public struct MiniPanel: View {
                 PrimaryButton("Re-arm all", tint: DS.Tone.calm) { model.armAll() }
             }
             Spacer(minLength: DS.Space.sm)
-            SecondaryButton("Cut all power", tint: DS.Tone.breach) { model.tripAll() }
+            SecondaryButton("Trip all", tint: DS.Tone.breach) { model.tripAll() }
                 .opacity(canCutAll ? 1 : 0.4)
                 .disabled(!canCutAll)
         }
@@ -212,7 +215,7 @@ struct MiniKeyRow: View {
                 if key.isTripped {
                     IconButton("arrow.clockwise", tint: DS.Tone.calm, help: "Re-arm", action: onArm)
                 } else {
-                    IconButton("power", tint: DS.Tone.breach, help: "Cut power", action: onTrip)
+                    IconButton("power", tint: DS.Tone.breach, help: "Trip this key", action: onTrip)
                 }
             }
 

@@ -103,7 +103,10 @@ public struct KeyRow: View {
                 if key.isTripped {
                     SecondaryButton("Re-arm", tint: DS.Tone.calm, action: onArm)
                 } else {
-                    SecondaryButton("Cut power", tint: DS.Tone.breach, action: onTrip)
+                    // Named for what it does to BurnFuse — mark the key and stop
+                    // reading it. "Cut power" promised something the app cannot
+                    // do, which is stop the provider billing.
+                    SecondaryButton("Trip now", tint: DS.Tone.breach, action: onTrip)
                 }
             }
         }

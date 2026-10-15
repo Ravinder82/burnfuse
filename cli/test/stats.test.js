@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { assess, evaluate, isOverCap, isSpike, mean, stdDev, sigma, projectBurn } from "../src/stats.js";
-import { readPath, getProvider, providers } from "../src/providers.js";
+import { assess, evaluate, isOverCap, isSpike, mean, stdDev, sigma, projectBurn, shouldPauseOnBreach } from "../src/stats.js";
+import { readPath, getProvider, providers, revokeHint } from "../src/providers.js";
 import { requiresKey, fetchSpend } from "../src/poll.js";
 import { mask } from "../src/env.js";
 
@@ -126,6 +126,33 @@ test("a custom endpoint is still tried without a key", () => {
   // A custom address may be public, so only the user can know whether it wants one.
   assert.equal(requiresKey({ id: "d", provider: "custom" }), false);
   assert.equal(requiresKey({ id: "d", provider: "unknown-thing" }), false);
+});
+
+test("a trip pauses a key only when asked — by the blanket rule or by the key", () => {
+  const off = { autoKill: false };
+  assert.equal(shouldPauseOnBreach(off, {}), false);
+  assert.equal(shouldPauseOnBreach(off, { autoKillOnBreach: false }), false);
+  assert.equal(shouldPauseOnBreach({ autoKill: true }, {}), true);
+  assert.equal(shouldPauseOnBreach(off, { autoKillOnBreach: true }), true);
+});
+
+test("every provider that takes a key says where to revoke it", () => {
+  for (const [id, p] of Object.entries(providers)) {
+    if (!p.signal) continue; // custom takes whatever the user gives it
+    assert.ok(p.whereToRevoke, `${id} should say where its key is revoked`);
+  }
+  // And no provider claims a revocation endpoint: reading spend and revoking a
+  // credential are different permissions, and this side only ever does the first.
+  for (const [id, p] of Object.entries(providers)) {
+    assert.equal(p.killUrl, undefined, `${id} must not carry a revocation endpoint`);
+  }
+});
+
+test("a trip names the console page where the key is revoked", () => {
+  assert.match(revokeHint({ provider: "openai" }), /OpenAI dashboard/);
+  assert.match(revokeHint({ provider: "anthropic" }), /Claude Console/);
+  // An unknown provider still gets a usable sentence rather than a dead end.
+  assert.match(revokeHint({ provider: "nope" }), /where you issued it/);
 });
 
 test("unknown provider falls back to custom", () => {
