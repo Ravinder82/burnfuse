@@ -134,6 +134,12 @@ invalid: the app says it has nothing to read with, which is a different problem 
 that was turned down. Saving an empty field will not quietly delete a key you already
 have — removing one is its own button, on purpose.
 
+A key you paste here is the one BurnFuse uses, full stop. If a variable of the same name
+exists in the shell that launched the app, the saved key wins and the row says what it is
+ignoring; a variable holding the stand-in from a sample file is named and ignored rather
+than sent. That matters because a shell can be lying around for months: a 401 from a
+provider is always about a key that was really sent.
+
 Some providers count money up instead of reporting an hourly figure. Those need two reads
 — the first saves a baseline, the next one gives you a rate — and the app says so while it
 is measuring, rather than showing a number it cannot back up.

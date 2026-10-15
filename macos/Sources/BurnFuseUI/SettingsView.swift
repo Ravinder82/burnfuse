@@ -390,8 +390,8 @@ public struct SettingsView: View {
     /// says which one it is — the two ends of it, never the whole thing.
     @ViewBuilder
     private func liveBlock(_ key: BurnKey, provider: Provider) -> some View {
-        let stored = Credentials.key(for: provider.id) != nil
-        let fromEnvironment = Credentials.isFromEnvironment(for: provider.id)
+        let resolved = Credentials.resolve(for: provider.id)
+        let stored = resolved.source == .stored
         let editing = replacing == provider.id || !stored
         let draft = keyDrafts[provider.id] ?? ""
         let verdict = KeyShape.check(draft, for: provider.id)
@@ -422,7 +422,7 @@ public struct SettingsView: View {
                         Label(masked, systemImage: "checkmark.seal.fill")
                             .font(DS.Font.monoSmall)
                             .foregroundStyle(DS.Tone.calm)
-                            .help("The two ends of the stored key, so you can tell which one it is")
+                            .help("The two ends of the key in use, so you can tell which one it is")
                     }
                     Spacer(minLength: DS.Space.sm)
                     LinkButton("Test") { Task { await model.testCredential(provider.id) } }
@@ -434,7 +434,7 @@ public struct SettingsView: View {
             }
 
             statusLine(key, provider: provider, test: test, verdict: verdict,
-                       stored: stored, fromEnvironment: fromEnvironment, hasDraft: draft != "")
+                       resolved: resolved, hasDraft: draft != "")
         }
     }
 
@@ -447,8 +447,7 @@ public struct SettingsView: View {
         provider: Provider,
         test: KeyTest?,
         verdict: KeyVerdict,
-        stored: Bool,
-        fromEnvironment: Bool,
+        resolved: Credentials.Resolution,
         hasDraft: Bool
     ) -> some View {
         VStack(alignment: .leading, spacing: DS.Space.xxs) {
@@ -468,15 +467,29 @@ public struct SettingsView: View {
                         }
                     }
                 }
-            } else if verdict.severity == .warning, let message = verdict.message {
+            } else if verdict.severity == .warning, let message = verdict.message, hasDraft {
                 // The wrong kind of key, caught before it costs a failed read.
                 note(message, icon: "exclamationmark.triangle.fill", tone: AnyShapeStyle(DS.Tone.watch))
-            } else if !stored {
-                note(provider.readHint, icon: nil, tone: AnyShapeStyle(.tertiary))
-                if let whereToGet = provider.whereToGet {
-                    note(whereToGet, icon: "mappin.and.ellipse", tone: AnyShapeStyle(.tertiary))
-                }
             } else {
+                sourceLine(key, provider: provider, resolved: resolved)
+            }
+
+            if hasDraft, resolved.source != .stored {
+                note("Press Test to try the key in the field before saving it.", icon: "wand.and.stars", tone: AnyShapeStyle(.tertiary))
+            }
+        }
+    }
+
+    /// Where this row's key comes from, and what is being ignored to get there.
+    ///
+    /// This is the line that answers "I added my key and it still says the key
+    /// is invalid": either the key in use is not the one you think it is, or
+    /// something you forgot about is sitting in its place.
+    @ViewBuilder
+    private func sourceLine(_ key: BurnKey, provider: Provider, resolved: Credentials.Resolution) -> some View {
+        VStack(alignment: .leading, spacing: DS.Space.xxs) {
+            switch resolved.source {
+            case .stored:
                 if let read = model.lastMessageByKey[key.id] {
                     note(read.message,
                          icon: read.failed ? "exclamationmark.triangle.fill" : "arrow.clockwise",
@@ -492,16 +505,50 @@ public struct SettingsView: View {
                 } else {
                     note("BurnFuse reads this one for you, every minute.", icon: nil, tone: AnyShapeStyle(.tertiary))
                 }
-                if fromEnvironment, let variable = Credentials.environmentVariable(for: provider.id) {
-                    note("Using \(variable) from your environment, which wins over anything saved here.",
-                         icon: "terminal", tone: AnyShapeStyle(.tertiary))
+                environmentNote(provider: provider)
+
+            case .environment(let variable):
+                note("Nothing is saved here, so BurnFuse is using \(variable) from your environment\(maskedSuffix(provider)). Paste a key here and that one will be used instead.",
+                     icon: "terminal", tone: AnyShapeStyle(.tertiary))
+
+            case .storedPlaceholder:
+                note("The value saved here is the placeholder from a sample file, not a real key. Paste the key itself from your \(provider.label) console.",
+                     icon: "exclamationmark.triangle.fill", tone: AnyShapeStyle(DS.Tone.watch))
+
+            case .environmentPlaceholder(let variable):
+                note("\(variable) in your environment is the placeholder from a sample file, not a real key — BurnFuse ignores it. Paste a real key here to read spend.",
+                     icon: "exclamationmark.triangle.fill", tone: AnyShapeStyle(DS.Tone.watch))
+
+            case .none:
+                note(provider.readHint, icon: nil, tone: AnyShapeStyle(.tertiary))
+                if let whereToGet = provider.whereToGet {
+                    note(whereToGet, icon: "mappin.and.ellipse", tone: AnyShapeStyle(.tertiary))
                 }
             }
+        }
+    }
 
-            if hasDraft, stored == false {
-                note("Press Test to try the key in the field before saving it.", icon: "wand.and.stars", tone: AnyShapeStyle(.tertiary))
+    /// Says out loud what is being ignored, when a stored key is in use and the
+    /// environment also has something for this provider. Silence here is how a
+    /// forgotten export becomes a support thread.
+    @ViewBuilder
+    private func environmentNote(provider: Provider) -> some View {
+        if let variable = Credentials.environmentVariable(for: provider.id),
+           Credentials.source(for: provider.id) == .stored,
+           let value = Credentials.sanitize(ProcessInfo.processInfo.environment[variable] ?? "") {
+            if KeyShape.looksLikeAPlaceholder(value) {
+                note("\(variable) is set in your environment to a placeholder from a sample file — ignored. The key saved here is the one in use.",
+                     icon: "terminal", tone: AnyShapeStyle(.tertiary))
+            } else {
+                note("\(variable) is set in your environment and is ignored: the key saved here is the one in use.",
+                     icon: "terminal", tone: AnyShapeStyle(.tertiary))
             }
         }
+    }
+
+    private func maskedSuffix(_ provider: Provider) -> String {
+        guard let masked = Credentials.masked(for: provider.id) else { return "" }
+        return " (\(masked))"
     }
 
     private func note(_ text: String, icon: String?, tone: AnyShapeStyle) -> some View {

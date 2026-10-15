@@ -59,8 +59,13 @@ struct BurnFuseShots {
         let fake = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("burnfuse-shot-keys.json")
         let seeded: [String: String] = [
-            "openai": "sk-admin-EXAMPLEFORTHEGUIDE1234",
-            "anthropic": "sk-ant-admin01-EXAMPLEFORTHEGUIDE9876",
+            // Shaped like the real thing — an OpenAI Admin key, an Anthropic
+            // Admin key — and made of characters that read as a key rather than
+            // as someone's stand-in: BurnFuse now refuses to send anything it
+            // recognises as a placeholder, and a screenshot must not be the one
+            // place that shows a warning nobody can see in the app.
+            "openai": "sk-admin-01J8ZQ4K7F2M9T3B6N5R8V1X4C7D0G3H6",
+            "anthropic": "sk-ant-admin01-K9mQ2rT5vX8zB3nM6pL1wY4cD7fG0hJ3",
         ]
         guard let data = try? JSONSerialization.data(
             withJSONObject: seeded,
@@ -175,7 +180,7 @@ struct BurnFuseShots {
             RootView(
                 model: model,
                 nav: nav,
-                previewAddKey: "sk-or-v1-EXAMPLEFORTHEGUIDE00000000000000",
+                previewAddKey: "sk-or-v1-7f3a91c4d8b2e6f0a5c7d9e1b3f4a2c8d6e0f1a3b5c7d9e2",
                 displayStatePath: displayStatePath
             )
         }

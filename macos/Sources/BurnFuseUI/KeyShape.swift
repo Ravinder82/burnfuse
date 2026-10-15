@@ -81,18 +81,24 @@ public enum KeyShape {
 
     /// Does this look like a value written for a human to replace, rather than
     /// a key? Kept to fragments that cannot plausibly appear inside a real key,
-    /// because a warning that fires on good keys is worse than no warning.
-    private static func looksLikeAPlaceholder(_ key: String) -> Bool {
+    /// because a warning that fires on good keys is worse than no warning — and
+    /// this one is not only a warning: a value it flags is never sent.
+    public static func looksLikeAPlaceholder(_ key: String) -> Bool {
         let fragments = [
-            "your_api", "your_key", "yourapi", "yourkey", "your-openai", "your_openrouter",
-            "api_key_here", "apikeyhere", "token_here", "changeme", "change_me",
-            "replace_me", "replaceme", "placeholder", "example", "insert_your",
+            "your_api", "your_key", "your-key", "yourapi", "yourkey", "your-openai",
+            "your_openrouter", "your_openai", "your_anthropic", "your_github",
+            "api_key", "apikey", "api-key", "key_here", "token_here", "secret_here",
+            "changeme", "change_me", "replace_me", "replaceme", "replacethis", "placeholder",
+            "example", "apikeyhere", "insert_your", "insert_your_key", "paste_your", "pasteyour",
+            "put_your", "addyour", "dummy", "sample_key", "test_key", "fake_key",
+            "not_a_real", "nokey", "no_key",
         ]
         let lowered = key.lowercased()
         if fragments.contains(where: { lowered.contains($0) }) { return true }
         // Bracketed or elided values straight out of a doc: <YOUR_KEY>, sk-…,
         // sk-xxxxxxxxxxxx.
         return lowered.contains("<") || lowered.contains(">")
-            || lowered.contains("...") || lowered.contains("xxxx")
+            || lowered.contains("...") || lowered.contains("…")
+            || lowered.contains("xxxx")
     }
 }

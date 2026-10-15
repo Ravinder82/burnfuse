@@ -314,13 +314,13 @@ final class SpendSourceTests: XCTestCase {
         let result = await SpendPoller.fetch(key, apiKey: nil, session: StubURLProtocol.session())
         XCTAssertFalse(result.ok)
         XCTAssertNil(result.status, "no request should have been made")
-        XCTAssertTrue(result.message.contains("No OpenAI key stored yet"), result.message)
+        XCTAssertTrue(result.message.contains("No OpenAI key saved yet"), result.message)
         XCTAssertTrue(result.message.contains("Settings"), result.message)
         XCTAssertFalse(result.message.contains("401"), result.message)
 
         // A blank string is the same as no key.
         let blank = await SpendPoller.fetch(key, apiKey: "   ", session: StubURLProtocol.session())
-        XCTAssertTrue(blank.message.contains("No OpenAI key stored yet"), blank.message)
+        XCTAssertTrue(blank.message.contains("No OpenAI key saved yet"), blank.message)
     }
 
     /// A custom endpoint is still tried with no key, because it may not want one.
@@ -343,8 +343,32 @@ final class SpendSourceTests: XCTestCase {
 final class StubURLProtocol: URLProtocol {
     static var responder: ((URLRequest) -> (Int, Data))?
     static let lock = NSLock()
+    private static var count = 0
+    private static var request: URLRequest?
 
-    static func reset() { responder = nil }
+    /// How many requests were actually handed to the stub. Lets a test prove
+    /// that something was *not* sent — a placeholder, for instance.
+    static var requestedCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return count
+    }
+
+    /// The last request the stub answered, so a test can assert on what went out
+    /// rather than on what the code meant to send.
+    static var lastRequest: URLRequest? {
+        lock.lock()
+        defer { lock.unlock() }
+        return request
+    }
+
+    static func reset() {
+        lock.lock()
+        responder = nil
+        count = 0
+        request = nil
+        lock.unlock()
+    }
 
     static func session() -> URLSession {
         let config = URLSessionConfiguration.ephemeral
@@ -357,6 +381,8 @@ final class StubURLProtocol: URLProtocol {
 
     override func startLoading() {
         StubURLProtocol.lock.lock()
+        StubURLProtocol.count += 1
+        StubURLProtocol.request = request
         let responder = StubURLProtocol.responder
         StubURLProtocol.lock.unlock()
 
@@ -398,20 +424,6 @@ final class CredentialsTests: XCTestCase {
 
         Credentials.set("   ", for: "openrouter")
         XCTAssertNil(Credentials.key(for: "openrouter"), "whitespace clears the key")
-    }
-
-    func testEnvironmentValueWinsOverStoredFile() {
-        let url = tempKeysURL()
-        setenv("BURNFUSE_KEYS", url.path, 1)
-        setenv("OPENROUTER_API_KEY", "from-environment", 1)
-        defer {
-            unsetenv("BURNFUSE_KEYS")
-            unsetenv("OPENROUTER_API_KEY")
-            try? FileManager.default.removeItem(at: url)
-        }
-
-        Credentials.set("from-file", for: "openrouter")
-        XCTAssertEqual(Credentials.key(for: "openrouter"), "from-environment")
     }
 
     func testStoredFileIsOwnerReadableOnly() throws {
@@ -504,22 +516,122 @@ final class CredentialsTests: XCTestCase {
         XCTAssertEqual(Credentials.masked(for: "openrouter"), "sk-o…cdef")
     }
 
-    func testTheAppSaysWhenAKeyComesFromTheEnvironment() {
+    /// The bug this rule exists for: a shell export of the sample value from
+    /// `.env.example` sat in the environment, replaced the real key the user had
+    /// pasted and saved, and OpenRouter correctly answered "this key is not
+    /// valid (401)" — about a key the user never entered.
+    func testTheKeyYouSavedWinsOverTheEnvironment() {
         let url = tempKeysURL()
         setenv("BURNFUSE_KEYS", url.path, 1)
+        setenv("OPENROUTER_API_KEY", "sk-or-v1-from-environment", 1)
         defer {
             unsetenv("BURNFUSE_KEYS")
             unsetenv("OPENROUTER_API_KEY")
             try? FileManager.default.removeItem(at: url)
         }
 
-        XCTAssertFalse(Credentials.isFromEnvironment(for: "openrouter"))
-        Credentials.set("from-file", for: "openrouter")
-        XCTAssertFalse(Credentials.isFromEnvironment(for: "openrouter"), "the file is not the environment")
+        Credentials.set("sk-or-v1-pasted-in-the-app", for: "openrouter")
+        XCTAssertEqual(Credentials.key(for: "openrouter"), "sk-or-v1-pasted-in-the-app",
+                       "an export the user has forgotten about must not replace the key they pasted")
+        XCTAssertEqual(Credentials.source(for: "openrouter"), .stored)
 
-        setenv("OPENROUTER_API_KEY", "from-environment", 1)
-        XCTAssertTrue(Credentials.isFromEnvironment(for: "openrouter"))
-        // And the environment still wins for the value itself.
-        XCTAssertEqual(Credentials.key(for: "openrouter"), "from-environment")
+        // With nothing saved, the environment is still used: a key can be
+        // injected without the app ever persisting it.
+        Credentials.set(nil, for: "openrouter")
+        XCTAssertEqual(Credentials.key(for: "openrouter"), "sk-or-v1-from-environment")
+        XCTAssertEqual(Credentials.source(for: "openrouter"),
+                       .environment(variable: "OPENROUTER_API_KEY"))
+    }
+
+    /// A stand-in out of a sample file is not a key, from either place, and is
+    /// never sent — so no provider gets to answer "invalid key" about it.
+    func testASampleValueIsNeverUsedAsAKey() {
+        let url = tempKeysURL()
+        setenv("BURNFUSE_KEYS", url.path, 1)
+        setenv("OPENROUTER_API_KEY", "your_openrouter_api_key_here", 1)
+        defer {
+            unsetenv("BURNFUSE_KEYS")
+            unsetenv("OPENROUTER_API_KEY")
+            try? FileManager.default.removeItem(at: url)
+        }
+
+        XCTAssertNil(Credentials.key(for: "openrouter"))
+        XCTAssertEqual(Credentials.source(for: "openrouter"),
+                       .environmentPlaceholder(variable: "OPENROUTER_API_KEY"))
+
+        // Saved by mistake: still not a key.
+        Credentials.set("your_openrouter_api_key_here", for: "openrouter")
+        XCTAssertNil(Credentials.key(for: "openrouter"))
+        XCTAssertEqual(Credentials.source(for: "openrouter"), .storedPlaceholder)
+
+        // A placeholder saved here does not block a real key in the environment.
+        setenv("OPENROUTER_API_KEY", "sk-or-v1-from-environment", 1)
+        XCTAssertEqual(Credentials.key(for: "openrouter"), "sk-or-v1-from-environment")
+
+        // And a real key saved here beats a placeholder in the environment.
+        Credentials.set("sk-or-v1-pasted-in-the-app", for: "openrouter")
+        setenv("OPENROUTER_API_KEY", "your_openrouter_api_key_here", 1)
+        XCTAssertEqual(Credentials.key(for: "openrouter"), "sk-or-v1-pasted-in-the-app")
+        XCTAssertEqual(Credentials.source(for: "openrouter"), .stored)
+    }
+
+    /// Other shapes of the same thing, so the rule is not tuning for one string.
+    func testTheShapesASampleValueComesIn() {
+        for value in ["YOUR_OPENAI_KEY", "sk-or-v1-xxxxxxxxxxxx", "<your key here>",
+                      "sk-ant-...", "REPLACE_WITH_YOUR_KEY", "sk-live-changeme",
+                      "your-api-key-here", "api_key", "insert_your_key_here"] {
+            XCTAssertTrue(KeyShape.looksLikeAPlaceholder(value), "should be treated as a sample: \(value)")
+        }
+
+        for value in ["sk-or-v1-0123456789abcdef", "sk-admin-livekeymaterial",
+                      "sk-ant-admin01-abcdefghijklmnop", "abc123=="] {
+            XCTAssertFalse(KeyShape.looksLikeAPlaceholder(value), "a real key must never be refused: \(value)")
+        }
+    }
+
+    /// What the app says when it cannot read, per reason. None of these may
+    /// describe a key as invalid: no key was ever sent.
+    func testAMissingKeySaysWhichKindOfMissing() {
+        let key = BurnKey(id: "k", name: "OpenRouter", provider: "openrouter")
+
+        let env = SpendPoller.missingKeyMessage(for: key, source: .environmentPlaceholder(variable: "OPENROUTER_API_KEY"))
+        XCTAssertTrue(env.contains("OPENROUTER_API_KEY"), env)
+        XCTAssertTrue(env.contains("placeholder from a sample file"), env)
+
+        let stored = SpendPoller.missingKeyMessage(for: key, source: .storedPlaceholder)
+        XCTAssertTrue(stored.contains("placeholder from a sample file"), stored)
+
+        let none = SpendPoller.missingKeyMessage(for: key, source: .none)
+        XCTAssertTrue(none.contains("No OpenRouter key saved yet"), none)
+
+        for message in [env, stored, none] {
+            XCTAssertFalse(message.lowercased().contains("not valid"),
+                           "the provider never saw this value: \(message)")
+        }
+    }
+
+    func testTheRowKnowsWhereItsKeyComesFrom() {
+        let url = tempKeysURL()
+        setenv("BURNFUSE_KEYS", url.path, 1)
+        unsetenv("OPENROUTER_API_KEY")
+        defer {
+            unsetenv("BURNFUSE_KEYS")
+            unsetenv("OPENROUTER_API_KEY")
+            try? FileManager.default.removeItem(at: url)
+        }
+
+        XCTAssertEqual(Credentials.source(for: "openrouter"), Credentials.KeySource.none)
+        XCTAssertFalse(Credentials.hasAny(), "a file with no key in it is not set up")
+
+        Credentials.set("your_key_here", for: "openrouter")
+        XCTAssertFalse(Credentials.hasAny(), "a placeholder must not make the app look set up")
+
+        Credentials.set("sk-or-v1-0123456789abcdef", for: "openrouter")
+        XCTAssertTrue(Credentials.hasAny())
+        XCTAssertEqual(Credentials.source(for: "openrouter"), .stored)
+
+        setenv("OPENROUTER_API_KEY", "sk-or-v1-from-environment", 1)
+        XCTAssertEqual(Credentials.source(for: "openrouter"), .stored,
+                       "the row must say the saved key is the one in use")
     }
 }

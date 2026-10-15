@@ -189,10 +189,17 @@ public final class AppModel: ObservableObject {
         var byKey: [String: KeyReadNote] = [:]
         for key in state.entries where key.armed && !key.isTripped {
             guard SpendSource.canReadLive(key) else { continue }
-            let result = await SpendPoller.fetch(key, apiKey: Credentials.key(for: key.provider), session: session)
+            let resolution = Credentials.resolve(for: key.provider)
+            let result = await SpendPoller.fetch(key, apiKey: resolution.key, session: session)
             guard result.ok, let figure = result.cost else {
-                messages.append("\(key.name): \(result.message)")
-                byKey[key.id] = KeyReadNote(message: result.message, failed: true)
+                // When there was nothing to send, the provider never saw the
+                // request — so its "invalid key" answer would be about a key it
+                // was never given. Say what actually stopped the read instead.
+                let message = resolution.key == nil
+                    ? SpendPoller.missingKeyMessage(for: key, source: resolution.source)
+                    : result.message
+                messages.append("\(key.name): \(message)")
+                byKey[key.id] = KeyReadNote(message: message, failed: true)
                 continue
             }
 
@@ -274,7 +281,9 @@ public final class AppModel: ObservableObject {
             }
             probe.source = entry.source
         } else if apiKey == nil {
-            keyTests[providerID] = .failed("No \(Providers.label(for: providerID)) key saved yet — paste one next to it and press Save.")
+            keyTests[providerID] = .failed(
+                SpendPoller.missingKeyMessage(for: probe, source: Credentials.source(for: providerID))
+            )
             return
         }
 

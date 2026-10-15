@@ -4,6 +4,27 @@ import Foundation
 /// temporary URL in tests.
 public enum SpendPoller {
 
+    /// Why nothing could even be tried, in plain words.
+    ///
+    /// A 401 from a provider is a sentence about a key: "this key is not valid".
+    /// When the value that would have been sent is a stand-in out of a sample
+    /// file, that sentence is false — no key was sent at all — so the reason is
+    /// named here instead of asking the provider to mis-describe it.
+    public static func missingKeyMessage(
+        for key: BurnKey,
+        source: Credentials.KeySource
+    ) -> String {
+        let label = Providers.label(for: key.provider)
+        switch source {
+        case .storedPlaceholder:
+            return "The \(label) key saved here is the placeholder from a sample file, not a real key. Paste the key itself from the \(label) console."
+        case .environmentPlaceholder(let variable):
+            return "\(variable) in your environment is the placeholder from a sample file, not a real key, so BurnFuse ignores it. Paste a real \(label) key in Settings."
+        case .stored, .environment, .none:
+            return "No \(label) key saved yet. Paste one in Settings to read spend live."
+        }
+    }
+
     /// Read live spend for a key. Returns a structured result rather than
     /// throwing, so callers can always show a plain-language message.
     public static func fetch(
@@ -17,10 +38,9 @@ public enum SpendPoller {
         // this app could say to someone who simply has not pasted a key yet.
         if SpendSource.requiresKey(key),
            apiKey?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true {
-            let label = Providers.label(for: key.provider)
             return SpendSource.LiveResult(
                 ok: false,
-                message: "No \(label) key stored yet. Paste one in Settings to read spend live."
+                message: missingKeyMessage(for: key, source: .none)
             )
         }
 

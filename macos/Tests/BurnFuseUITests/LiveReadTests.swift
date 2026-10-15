@@ -198,6 +198,49 @@ final class LiveReadTests: XCTestCase {
         XCTAssertEqual(m.lastMessageByKey[key.id]?.failed, false)
     }
 
+    /// The whole bug, end to end: the sample value from `.env.example` sits in
+    /// the shell that launched the app, the user's real key is saved in the app,
+    /// and nothing may come back saying the key is invalid.
+    func testASampleValueInTheEnvironmentNeverReachesTheProvider() async throws {
+        let keysURL = try isolate()
+        defer { restore(keysURL) }
+
+        StubURLProtocol.reset()
+        defer { StubURLProtocol.reset() }
+        StubURLProtocol.responder = { _ in (401, Data(#"{"error":{"message":"No auth credentials found"}}"#.utf8)) }
+
+        setenv("OPENROUTER_API_KEY", "your_openrouter_api_key_here", 1)
+        defer { unsetenv("OPENROUTER_API_KEY") }
+
+        let m = model()
+        let key = m.addKey(name: "Openrouter-Test", provider: "openrouter", cap: 5)
+        Credentials.set("sk-or-v1-the-real-pasted-key", for: "openrouter")
+
+        await m.refreshLive(session: StubURLProtocol.session())
+
+        // The saved key is the one that went out, in the header, over the
+        // sample value sitting in the environment.
+        XCTAssertEqual(StubURLProtocol.requestedCount, 1)
+        XCTAssertEqual(StubURLProtocol.lastRequest?.value(forHTTPHeaderField: "Authorization"),
+                       "Bearer sk-or-v1-the-real-pasted-key")
+
+        // Now the same setup with *no* saved key: the placeholder is the only
+        // thing left, and it must not be sent at all.
+        Credentials.set(nil, for: "openrouter")
+        StubURLProtocol.reset()
+        StubURLProtocol.responder = { _ in (401, Data()) }
+
+        await m.refreshLive(session: StubURLProtocol.session())
+
+        XCTAssertEqual(StubURLProtocol.requestedCount, 0,
+                       "a sample value is not a key, so nothing may be sent")
+        let message = m.lastMessageByKey[key.id]?.message ?? ""
+        XCTAssertTrue(message.contains("OPENROUTER_API_KEY"), message)
+        XCTAssertTrue(message.contains("placeholder from a sample file"), message)
+        XCTAssertFalse(message.lowercased().contains("not valid"),
+                       "the provider never saw a key, so it cannot have called one invalid")
+    }
+
     /// A provider with no public spend endpoint must never be a dead end.
     func testAProviderWithoutAnEndpointPointsAtTheManualPath() async throws {
         let keysURL = try isolate()
@@ -427,7 +470,7 @@ final class LiveReadTests: XCTestCase {
         m.addKey(name: "OpenAI prod", provider: "openai", cap: 5)
         await m.refreshLive(session: StubURLProtocol.session())
 
-        XCTAssertTrue(m.lastReadMessage?.contains("No OpenAI key stored yet") ?? false, m.lastReadMessage ?? "")
+        XCTAssertTrue(m.lastReadMessage?.contains("No OpenAI key saved yet") ?? false, m.lastReadMessage ?? "")
         XCTAssertFalse(m.lastReadMessage?.contains("not valid") ?? true, m.lastReadMessage ?? "")
     }
 }

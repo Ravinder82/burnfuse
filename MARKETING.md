@@ -67,6 +67,11 @@ from the product. Run `./scripts/screenshots.sh` to regenerate the whole set.
 - **"A no is explained where you typed it."** If OpenAI turns a standard project key down
   for cost reads, the same row offers the way out in place — type this key's spend by hand
   instead — instead of sending you to a second list that never worked for you anyway.
+- **"It never blames the wrong key."** A shell variable holding the sample value from a
+  quick-start file is named and ignored rather than sent, and a key saved in the app is
+  the one used whatever the environment says. So when a provider does say "this key is not
+  valid", it is talking about a key that was really sent — the only kind of error message
+  worth acting on.
 - **"Press Test and know now."** A key you paste can be tried against the provider on the
   spot — before you commit to saving it. It says what came back in plain words, and a
   read-only test never moves a burn figure. Each stored key shows only its two ends, so
