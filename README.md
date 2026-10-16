@@ -220,6 +220,7 @@ macos/               Swift package: the app
   Sources/burnfuse-shots/ icon + screenshot + marketing renderer
 scripts/             build, install, package, verify and screenshot scripts
 assets/              app icon, window screenshots and the marketing card
+website/             Apple-styled landing page (`website/index.html`)
 ```
 
 > Building under `~/Desktop` or `~/Documents`? Those folders are iCloud-synced, and iCloud
