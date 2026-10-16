@@ -65,29 +65,38 @@
         </div>
         <p class="hero-note" data-reveal style="--d: 0.5s">Free and open source. No account, and your keys stay on your Mac.</p>
 
-        <!-- the premiere — the product film, on its own plinth -->
+        <!-- the premiere — the tour, running in a real player -->
         <div class="film" data-film>
           <div class="film-plate">
             <div class="film-echo far" aria-hidden="true"></div>
             <div class="film-echo" aria-hidden="true"></div>
             <div class="film-clip">
               <video
-                class="reel"
-                src="assets/reel.mp4"
-                poster="assets/reel-cover.png"
+                id="tour"
+                src="assets/tour.mp4"
+                poster="assets/tour-cover.jpg"
                 autoplay
                 muted
                 loop
                 playsinline
                 preload="auto"
-                aria-label="The BurnFuse reel, eighteen seconds: an agent is looping, you're asleep"
+                aria-label="The BurnFuse tour: one glance tells you, the key you already use is the key it watches, and a trip tells you inside a minute"
               ></video>
+              <div class="player" id="player">
+                <button class="pbtn" id="pbtn" type="button" aria-label="Pause the tour">
+                  <svg class="i pause-i" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+                  <svg class="i play-i" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>
+                </button>
+                <input class="scrub" id="scrub" type="range" min="0" max="1000" step="1" value="0" aria-label="Seek through the tour" />
+                <span class="ptime mono" id="ptime" aria-hidden="true">0:00 / 0:21</span>
+                <button class="pbtn" id="snd" type="button" aria-label="Turn the sound on" aria-pressed="false">
+                  <svg class="i muted-i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6.5 9H3v6h3.5L11 19z" fill="currentColor" stroke="none"/><path d="m16.5 9.5 4.5 5"/><path d="m21 9.5-4.5 5"/></svg>
+                  <svg class="i sound-i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6.5 9H3v6h3.5L11 19z" fill="currentColor" stroke="none"/><path d="M15.5 9a4 4 0 0 1 0 6"/><path d="M18.2 6.4a7.8 7.8 0 0 1 0 11.2"/></svg>
+                </button>
+              </div>
             </div>
           </div>
-          <p class="film-meta" data-reveal style="--d: 0.6s">
-            <span>The whole story, eighteen seconds tall.</span>
-            <button class="film-toggle" type="button" aria-pressed="false">Pause</button>
-          </p>
+          <p class="film-meta" data-reveal style="--d: 0.6s">The whole product in twenty-one seconds. It loops.</p>
         </div>
       </section>
 
@@ -104,7 +113,7 @@
 
           <div class="stage" data-reveal style="--d: 0.15s">
             <div class="menubar" aria-hidden="true">
-              <span class="mb-side mono">Fri&nbsp;11:47&nbsp;PM</span>
+              <span class="mb-side mono" id="mbclock">Fri&nbsp;11:47&nbsp;PM</span>
               <div class="block" id="block" data-state="calm">
                 <svg class="flame" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
                 <span class="rate mono" id="rate">$2.45/hr</span>
@@ -112,6 +121,12 @@
               <span class="mb-side mb-glyphs" aria-hidden="true"><i></i><i></i><i></i></span>
             </div>
             <p class="stage-note">Your Mac’s menu bar. That’s where it lives.</p>
+
+            <p class="readout">
+              Reading <b id="rdno">01</b> — <span class="rd-state" id="rdstate">settled</span>.
+              <span id="rdrate">$2.45/hr</span>, <span id="rdpct">49%</span> of your $5.00 cap.
+            </p>
+            <div class="meter" aria-hidden="true"><i id="rdfill"></i></div>
 
             <div class="legend" role="list">
               <div class="legend-item calm active" role="listitem">
@@ -225,40 +240,29 @@
               <p class="capdesc">Burning now, the cap you set, and the trend across readings.</p>
             </figure>
 
-            <figure class="card g5" data-wipe>
-              <div class="frame r-round fill">
-                <img src="assets/icon_512.png" alt="The BurnFuse mark: a fuse that has just given way" />
-              </div>
-              <figcaption>
-                <span class="capname">The mark</span>
-                <span class="capmeta">Fig. 02</span>
-              </figcaption>
-              <p class="capdesc">A fuse that has just given way. Green tail, red past the break.</p>
-            </figure>
-
-            <figure class="card g7" data-wipe style="--d: 0.12s">
+            <figure class="card g6" data-wipe>
               <div class="frame r-sm r-window"><img src="assets/window-overview-light.png" alt="The BurnFuse window in light appearance: overview, tokens and watched keys" /></div>
               <figcaption>
                 <span class="capname">One window, everything in it</span>
-                <span class="capmeta">Fig. 03</span>
+                <span class="capmeta">Fig. 02</span>
               </figcaption>
               <p class="capdesc">Overview, insights and settings — all behind one sidebar.</p>
             </figure>
 
-            <figure class="card g6" data-wipe>
+            <figure class="card g6" data-wipe style="--d: 0.12s">
               <div class="frame r-sm"><img src="assets/providers-16x9.png" alt="BurnFuse providers: paste a key, the rest is worked out" /></div>
               <figcaption>
                 <span class="capname">Your providers</span>
-                <span class="capmeta">Fig. 04</span>
+                <span class="capmeta">Fig. 03</span>
               </figcaption>
               <p class="capdesc">Paste a key; the rest is worked out — thirty providers by name.</p>
             </figure>
 
-            <figure class="card g6" data-wipe style="--d: 0.12s">
+            <figure class="card g12" data-wipe style="--d: 0.12s">
               <div class="frame r-sm"><img src="assets/trip-flow-16x9.png" alt="What happens when BurnFuse trips: red block, notification, webhook, switch-off" /></div>
               <figcaption>
                 <span class="capname">From spike to stop</span>
-                <span class="capmeta">Fig. 05</span>
+                <span class="capmeta">Fig. 04</span>
               </figcaption>
               <p class="capdesc">What happens inside the minute after it trips.</p>
             </figure>
@@ -266,37 +270,76 @@
         </div>
       </section>
 
-      <!-- ================= 04 · why ================= -->
+      <!-- ================= 04 · privacy ================= -->
       <section class="section" id="privacy">
         <div class="wrap narrow">
+          <div class="sec-head">
+            <p class="kicker">Privacy</p>
+            <h2>Nothing leaves your Mac.</h2>
+          </div>
+
           <div class="vline" aria-hidden="true"></div>
           <blockquote class="quote" data-reveal>
             “Hearing about it in <em>a minute</em> instead of in the morning is the whole product.”
           </blockquote>
 
-          <div class="vgrid">
-            <div class="vcard" data-reveal>
-              <div class="vicon">
-                <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="32" cy="32" r="17"/></svg>
+          <div class="traffic" data-reveal style="--d: 0.1s">
+            <p class="traffic-label">What actually happens, every minute</p>
+            <div class="flow">
+              <div class="tnode">
+                <span class="tglyph">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+                </span>
+                <strong>Your key</strong>
+                <span>Pasted in once. Kept on your Mac, readable only by you.</span>
               </div>
-              <h3>No account.</h3>
-              <p>There is nothing to sign up for and nothing to log into. Open the app and add a key.</p>
+              <div class="thop" aria-hidden="true"><span class="thop-line"></span><span class="thop-cap">never leaves it</span></div>
+              <div class="tnode app">
+                <img class="ticon" src="assets/icon_512.png" alt="" />
+                <strong>BurnFuse, on your Mac</strong>
+                <span>Asks the provider for its own cost figure. Nothing else.</span>
+              </div>
+              <div class="thop" aria-hidden="true"><span class="thop-line"></span><span class="thop-cap">one request</span></div>
+              <div class="tnode">
+                <span class="tglyph">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M4 12h16"/><path d="M12 4c2.6 2.4 4 5 4 8s-1.4 5.6-4 8c-2.6-2.4-4-5-4-8s1.4-5.6 4-8z"/></svg>
+                </span>
+                <strong>The provider</strong>
+                <span>Answers with the number it already shows in its own dashboard.</span>
+              </div>
+            </div>
+            <p class="never"><strong>Never leaves your Mac:</strong> no account, no email, no telemetry, no analytics, no usage history.</p>
+          </div>
+
+          <div class="facts">
+            <div class="fact" data-reveal>
+              <span class="fglyph" aria-hidden="true">
+                <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="32" cy="32" r="17"/></svg>
+              </span>
+              <div class="fbody">
+                <h3>No account.</h3>
+                <p>There is nothing to sign up for and nothing to log into. Open the app and add a key.</p>
+              </div>
               <a class="vlink" href="#install">Get started <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
             </div>
-            <div class="vcard" data-reveal style="--d: 0.1s">
-              <div class="vicon">
-                <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="15" y="15" width="34" height="34"/></svg>
+            <div class="fact" data-reveal style="--d: 0.1s">
+              <span class="fglyph" aria-hidden="true">
+                <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="15" y="15" width="34" height="34"/></svg>
+              </span>
+              <div class="fbody">
+                <h3>No telemetry.</h3>
+                <p>Nothing about you leaves the Mac. No analytics, no server of ours, nothing proxied.</p>
               </div>
-              <h3>No telemetry.</h3>
-              <p>Nothing about you leaves the Mac. No analytics, no server of ours, nothing proxied.</p>
               <a class="vlink" href="https://github.com/Ravinder82/burnfuse">Read the code <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
             </div>
-            <div class="vcard" data-reveal style="--d: 0.2s">
-              <div class="vicon">
-                <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><line x1="8" y1="32" x2="25" y2="32"/><line x1="39" y1="32" x2="56" y2="32"/><circle cx="32" cy="32" r="3" fill="currentColor" stroke="none"/></svg>
+            <div class="fact" data-reveal style="--d: 0.2s">
+              <span class="fglyph" aria-hidden="true">
+                <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><line x1="8" y1="32" x2="25" y2="32"/><line x1="39" y1="32" x2="56" y2="32"/><circle cx="32" cy="32" r="3" fill="currentColor" stroke="none"/></svg>
+              </span>
+              <div class="fbody">
+                <h3>No pretending.</h3>
+                <p>Where a number can’t be read, the app says so. It never shows a zero it hasn’t measured.</p>
               </div>
-              <h3>No pretending.</h3>
-              <p>Where a number can’t be read, the app says so. It never shows a zero it hasn’t measured.</p>
               <a class="vlink" href="#how">How it works <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
             </div>
           </div>

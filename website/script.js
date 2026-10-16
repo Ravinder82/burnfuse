@@ -48,72 +48,143 @@
     }
   }
 
-  /* ---------- the premiere: play on screen, with a pause control ---------- */
-  const reel = document.querySelector("video.reel");
-  const reelToggle = document.querySelector(".film-toggle");
-  if (reel) {
+  /* ---------- the premiere: a real player for the tour ---------- */
+  const filmEl = document.getElementById("tour");
+  const pbtn = document.getElementById("pbtn");
+  const scrub = document.getElementById("scrub");
+  const ptime = document.getElementById("ptime");
+  const snd = document.getElementById("snd");
+  const player = document.getElementById("player");
+
+  if (filmEl) {
     let userPaused = !!reduced;
-    const setToggle = () => {
-      if (!reelToggle) return;
-      reelToggle.textContent = userPaused ? "Play" : "Pause";
-      reelToggle.setAttribute("aria-pressed", String(userPaused));
+
+    const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+
+    const paint = () => {
+      const d = filmEl.duration || 0;
+      const pct = d ? (filmEl.currentTime / d) * 100 : 0;
+      if (scrub && document.activeElement !== scrub) scrub.value = String(Math.round(pct * 10));
+      if (ptime) ptime.textContent = `${fmt(filmEl.currentTime)} / ${fmt(d)}`;
+      if (player) player.style.setProperty("--p", `${pct}%`);
+      if (pbtn) {
+        pbtn.classList.toggle("is-paused", filmEl.paused);
+        pbtn.setAttribute("aria-label", filmEl.paused ? "Play the tour" : "Pause the tour");
+      }
     };
+
+    const play = () => filmEl.play().catch(() => {});
+    const pause = () => filmEl.pause();
+    const toggle = () => {
+      if (filmEl.paused) { userPaused = false; play(); }
+      else { userPaused = true; pause(); }
+    };
+
     if (reduced) {
-      reel.removeAttribute("autoplay");
-      reel.pause();
-    }
-    setToggle();
-    if (reelToggle) {
-      reelToggle.addEventListener("click", () => {
-        userPaused = !userPaused;
-        if (userPaused) reel.pause();
-        else reel.play().catch(() => {});
-        setToggle();
+      filmEl.removeAttribute("autoplay");
+      pause();
+      // sit on the title frame rather than the empty opening frame
+      filmEl.addEventListener("loadedmetadata", () => {
+        filmEl.currentTime = Math.min(2.6, (filmEl.duration || 3) - 0.2);
       });
     }
+    ["timeupdate", "play", "pause", "loadedmetadata", "durationchange"].forEach((ev) =>
+      filmEl.addEventListener(ev, paint)
+    );
+    if (pbtn) pbtn.addEventListener("click", toggle);
+    filmEl.addEventListener("click", (e) => { if (e.target === filmEl) toggle(); });
+    if (scrub) {
+      scrub.addEventListener("input", () => {
+        if (filmEl.duration) filmEl.currentTime = (Number(scrub.value) / 1000) * filmEl.duration;
+      });
+    }
+    if (snd) {
+      snd.addEventListener("click", () => {
+        filmEl.muted = !filmEl.muted;
+        snd.classList.toggle("is-on", !filmEl.muted);
+        snd.setAttribute("aria-pressed", String(!filmEl.muted));
+        snd.setAttribute("aria-label", filmEl.muted ? "Turn the sound on" : "Turn the sound off");
+      });
+    }
+
     const vio = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
           if (userPaused) continue;
-          if (e.isIntersecting) reel.play().catch(() => {});
-          else reel.pause();
+          if (e.isIntersecting) play();
+          else pause();
         }
       },
       { threshold: 0.25 }
     );
-    vio.observe(reel);
+    vio.observe(filmEl);
+    paint();
   }
 
   /* ---------- the block demo: settled → climbing → tripped ---------- */
   const block = document.getElementById("block");
   const rate = document.getElementById("rate");
   const legends = [...document.querySelectorAll(".legend-item")];
+  const rdno = document.getElementById("rdno");
+  const rdstate = document.getElementById("rdstate");
+  const rdrate = document.getElementById("rdrate");
+  const rdpct = document.getElementById("rdpct");
+  const fill = document.getElementById("rdfill");
+  const meter = document.querySelector(".meter");
+  const clock = document.getElementById("mbclock");
 
   if (block && rate) {
+    const CAP = 5;
     const states = [
-      { key: "calm", value: 2.45 },
-      { key: "warm", value: 9.8 },
-      { key: "hot", value: 16.4 },
+      { key: "calm", word: "settled", value: 2.45 },
+      { key: "warm", word: "climbing", value: 9.8 },
+      { key: "hot", word: "tripped", value: 16.4 },
     ];
     let index = 0;
     let current = states[0].value;
+    let reading = 1;
+    let clockT = 23 * 60 + 47; // 11:47 PM, one minute per reading
     let raf = null;
     let ticker = null;
 
     const render = (v) => {
+      const pct = Math.round((v / CAP) * 100);
       rate.textContent = `$${v.toFixed(2)}/hr`;
+      if (rdrate) rdrate.textContent = `$${v.toFixed(2)}/hr`;
+      if (rdpct) rdpct.textContent = `${pct}%`;
+      if (fill) fill.style.width = `${Math.min(pct, 100)}%`;
     };
 
-    const apply = (i) => {
+    const tickClock = () => {
+      if (!clock) return;
+      clockT = (clockT + 1) % (24 * 60);
+      const h24 = Math.floor(clockT / 60);
+      const h = h24 % 12 === 0 ? 12 : h24 % 12;
+      const mm = String(clockT % 60).padStart(2, "0");
+      const ap = h24 < 12 ? "AM" : "PM";
+      clock.innerHTML = `Fri&nbsp;${h}:${mm}&nbsp;${ap}`;
+    };
+
+    const show = (i) => {
       const s = states[i];
       block.dataset.state = s.key;
       legends.forEach((el, n) => el.classList.toggle("active", n === i));
-
+      if (rdstate) { rdstate.textContent = s.word; rdstate.dataset.state = s.key; }
+      if (meter) meter.dataset.state = s.key;
       if (s.key === "hot" && !reduced) {
         block.classList.remove("trip");
         void block.offsetWidth; // restart the shake
         block.classList.add("trip");
       }
+    };
+
+    // one new reading lands: the number moves, the minute ticks over
+    const advance = (i) => {
+      const s = states[i];
+      show(i);
+      reading += 1;
+      if (rdno) rdno.textContent = String(reading).padStart(2, "0");
+      tickClock();
 
       if (reduced) {
         current = s.value;
@@ -124,7 +195,7 @@
       const from = current;
       const to = s.value;
       let base = null;
-      const dur = 900;
+      const dur = 600;
       cancelAnimationFrame(raf);
       const step = (t) => {
         if (base === null) base = t; // rAF's own clock — immune to clock drift
@@ -137,19 +208,20 @@
       raf = requestAnimationFrame(step);
     };
 
+    show(0);
+    render(current);
+
     const start = () => {
       if (ticker || reduced) return;
       ticker = setInterval(() => {
         index = (index + 1) % states.length;
-        apply(index);
-      }, 3200);
+        advance(index);
+      }, 2000);
     };
     const stop = () => {
       if (ticker) clearInterval(ticker);
       ticker = null;
     };
-
-    apply(0);
 
     const bio = new IntersectionObserver(
       (entries) => {
