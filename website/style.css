@@ -250,7 +250,7 @@ a { color: inherit; text-decoration: none; }
   margin-bottom: -14px;
 }
 
-/* ---------- the premiere: the tour, in a real player ---------- */
+/* ---------- the premiere: the launch reel, in a real player ---------- */
 .film {
   width: min(980px, 100%);
   display: flex;
@@ -312,7 +312,7 @@ a { color: inherit; text-decoration: none; }
 }
 .film.in .film-clip { clip-path: inset(0); }
 .film.in .film-plate::after { opacity: 1; }
-#tour {
+.film-clip video {
   width: 100%;
   height: 100%;
   object-fit: cover;

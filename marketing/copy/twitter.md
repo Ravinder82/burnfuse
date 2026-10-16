@@ -1,13 +1,13 @@
 # X / Twitter
 
-Post as a thread with the **story video** (`marketing/renders/story.mp4`) attached to
-tweet 1. Attach the stills where noted.
+Post as a thread with the **launch reel** (`marketing/renders/launch.mp4` — 24 s, 16:9,
+cut to its own 150 BPM score) attached to tweet 1. Attach the stills where noted.
 
 ---
 
 ## Thread (launch)
 
-**1/** (attach story.mp4)
+**1/** (attach launch.mp4)
 > Every AI spend watcher tells you the damage in the morning.
 >
 > I built one that trips like a breaker — from your Mac's menu bar, inside a minute.

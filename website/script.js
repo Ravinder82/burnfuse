@@ -48,8 +48,8 @@
     }
   }
 
-  /* ---------- the premiere: a real player for the tour ---------- */
-  const filmEl = document.getElementById("tour");
+  /* ---------- the premiere: a real player for the launch reel ---------- */
+  const filmEl = document.getElementById("film");
   const pbtn = document.getElementById("pbtn");
   const scrub = document.getElementById("scrub");
   const ptime = document.getElementById("ptime");
@@ -69,7 +69,7 @@
       if (player) player.style.setProperty("--p", `${pct}%`);
       if (pbtn) {
         pbtn.classList.toggle("is-paused", filmEl.paused);
-        pbtn.setAttribute("aria-label", filmEl.paused ? "Play the tour" : "Pause the tour");
+        pbtn.setAttribute("aria-label", filmEl.paused ? "Play the launch reel" : "Pause the launch reel");
       }
     };
 
@@ -83,9 +83,9 @@
     if (reduced) {
       filmEl.removeAttribute("autoplay");
       pause();
-      // sit on the title frame rather than the empty opening frame
+      // sit on the trip frame rather than the empty opening frame
       filmEl.addEventListener("loadedmetadata", () => {
-        filmEl.currentTime = Math.min(2.6, (filmEl.duration || 3) - 0.2);
+        filmEl.currentTime = Math.min(5.6, (filmEl.duration || 6) - 0.2);
       });
     }
     ["timeupdate", "play", "pause", "loadedmetadata", "durationchange"].forEach((ev) =>

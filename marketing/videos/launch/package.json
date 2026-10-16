@@ -1,0 +1,22 @@
+{
+  "name": "burnfuse-launch",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BurnFuse 16:9 product launch reel — Remotion",
+  "scripts": {
+    "render": "remotion render Launch out/launch.mp4",
+    "studio": "remotion studio"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.536",
+    "@remotion/fonts": "4.0.536",
+    "@remotion/media": "4.0.536",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "4.0.536"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "typescript": "^5.5.4"
+  }
+}
