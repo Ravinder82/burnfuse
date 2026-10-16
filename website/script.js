@@ -48,6 +48,26 @@
     }
   }
 
+  /* ---------- the reel: play only while it is on screen ---------- */
+  const reel = document.querySelector("video.reel");
+  if (reel) {
+    if (reduced) {
+      reel.removeAttribute("autoplay");
+      reel.pause();
+    } else {
+      const vio = new IntersectionObserver(
+        (entries) => {
+          for (const e of entries) {
+            if (e.isIntersecting) reel.play().catch(() => {});
+            else reel.pause();
+          }
+        },
+        { threshold: 0.25 }
+      );
+      vio.observe(reel);
+    }
+  }
+
   /* ---------- the block demo: settled → climbing → tripped ---------- */
   const block = document.getElementById("block");
   const rate = document.getElementById("rate");
