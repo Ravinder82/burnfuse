@@ -20,11 +20,11 @@
     },
     { threshold: 0.12, rootMargin: "0px 0px -8% 0px" }
   );
-  document.querySelectorAll("[data-reveal], [data-wipe]").forEach((el) => io.observe(el));
+  document.querySelectorAll("[data-reveal], [data-wipe], [data-film]").forEach((el) => io.observe(el));
 
   // Safety net: anything already in view reveals even if the observer is late.
   const revealInView = () => {
-    document.querySelectorAll("[data-reveal]:not(.in), [data-wipe]:not(.in)").forEach((el) => {
+    document.querySelectorAll("[data-reveal]:not(.in), [data-wipe]:not(.in), [data-film]:not(.in)").forEach((el) => {
       const r = el.getBoundingClientRect();
       if (r.top < window.innerHeight && r.bottom > 0) el.classList.add("in");
     });
@@ -48,24 +48,40 @@
     }
   }
 
-  /* ---------- the reel: play only while it is on screen ---------- */
+  /* ---------- the premiere: play on screen, with a pause control ---------- */
   const reel = document.querySelector("video.reel");
+  const reelToggle = document.querySelector(".film-toggle");
   if (reel) {
+    let userPaused = !!reduced;
+    const setToggle = () => {
+      if (!reelToggle) return;
+      reelToggle.textContent = userPaused ? "Play" : "Pause";
+      reelToggle.setAttribute("aria-pressed", String(userPaused));
+    };
     if (reduced) {
       reel.removeAttribute("autoplay");
       reel.pause();
-    } else {
-      const vio = new IntersectionObserver(
-        (entries) => {
-          for (const e of entries) {
-            if (e.isIntersecting) reel.play().catch(() => {});
-            else reel.pause();
-          }
-        },
-        { threshold: 0.25 }
-      );
-      vio.observe(reel);
     }
+    setToggle();
+    if (reelToggle) {
+      reelToggle.addEventListener("click", () => {
+        userPaused = !userPaused;
+        if (userPaused) reel.pause();
+        else reel.play().catch(() => {});
+        setToggle();
+      });
+    }
+    const vio = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (userPaused) continue;
+          if (e.isIntersecting) reel.play().catch(() => {});
+          else reel.pause();
+        }
+      },
+      { threshold: 0.25 }
+    );
+    vio.observe(reel);
   }
 
   /* ---------- the block demo: settled → climbing → tripped ---------- */
