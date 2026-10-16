@@ -1,44 +1,126 @@
-// BurnFuse website — precise, patient reveals. Apple-ad timing.
+// BurnFuse website — precise, patient motion.
 (() => {
-  const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  const observer = new IntersectionObserver(
+  /* ---------- sticky nav hairline on scroll ---------- */
+  const nav = document.getElementById("nav");
+  const onScroll = () => nav && nav.classList.toggle("scrolled", window.scrollY > 8);
+  window.addEventListener("scroll", onScroll, { passive: true });
+  onScroll();
+
+  /* ---------- scroll reveals + clip wipes ---------- */
+  const io = new IntersectionObserver(
     (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add("visible");
-          observer.unobserve(entry.target);
+      for (const e of entries) {
+        if (e.isIntersecting) {
+          e.target.classList.add("in");
+          io.unobserve(e.target);
         }
-      });
+      }
     },
-    { threshold: 0.12, rootMargin: "0px 0% -10% 0%" }
+    { threshold: 0.12, rootMargin: "0px 0px -8% 0px" }
   );
+  document.querySelectorAll("[data-reveal], [data-wipe]").forEach((el) => io.observe(el));
 
-  document.querySelectorAll("[data-scroll], .reveal").forEach((el) => {
-    if (!prefersReduced) el.classList.add("reveal");
-    el.classList.add("visible"); // reduced-motion: show immediately
-    observer.observe(el);
-  });
-
-  // Kicker + lede type-in feel on load (subtle, not glitchy)
-  const kicker = document.getElementById("kicker");
-  const lede = document.getElementById("lede");
-  if (kicker && !prefersReduced) {
-    kicker.style.opacity = "0";
-    kicker.style.transform = "translateY(14px)";
-    kicker.style.transition = "opacity 0.7s ease, transform 0.7s ease";
-    requestAnimationFrame(() => {
-      kicker.style.opacity = "1";
-      kicker.style.transform = "translateY(0)";
+  // Safety net: anything already in view reveals even if the observer is late.
+  const revealInView = () => {
+    document.querySelectorAll("[data-reveal]:not(.in), [data-wipe]:not(.in)").forEach((el) => {
+      const r = el.getBoundingClientRect();
+      if (r.top < window.innerHeight && r.bottom > 0) el.classList.add("in");
     });
+  };
+  window.addEventListener("load", () => setTimeout(revealInView, 200));
+  setTimeout(revealInView, 1000);
+
+  /* ---------- pipeline: run the flow while visible ---------- */
+  const pipeline = document.getElementById("pipeline");
+  if (pipeline) {
+    if (reduced) {
+      pipeline.classList.add("live");
+    } else {
+      const pio = new IntersectionObserver(
+        (entries) => {
+          for (const e of entries) pipeline.classList.toggle("live", e.isIntersecting);
+        },
+        { threshold: 0.25 }
+      );
+      pio.observe(pipeline);
+    }
   }
-  if (lede && !prefersReduced) {
-    lede.style.opacity = "0";
-    lede.style.transform = "translateY(14px)";
-    lede.style.transition = "opacity 0.9s ease, transform 0.9s ease";
-    requestAnimationFrame(() => {
-      lede.style.opacity = "1";
-      lede.style.transform = "translateY(0)";
-    });
+
+  /* ---------- the block demo: settled → climbing → tripped ---------- */
+  const block = document.getElementById("block");
+  const rate = document.getElementById("rate");
+  const legends = [...document.querySelectorAll(".legend-item")];
+
+  if (block && rate) {
+    const states = [
+      { key: "calm", value: 2.45 },
+      { key: "warm", value: 9.8 },
+      { key: "hot", value: 16.4 },
+    ];
+    let index = 0;
+    let current = states[0].value;
+    let raf = null;
+    let ticker = null;
+
+    const render = (v) => {
+      rate.textContent = `$${v.toFixed(2)}/hr`;
+    };
+
+    const apply = (i) => {
+      const s = states[i];
+      block.dataset.state = s.key;
+      legends.forEach((el, n) => el.classList.toggle("active", n === i));
+
+      if (s.key === "hot" && !reduced) {
+        block.classList.remove("trip");
+        void block.offsetWidth; // restart the shake
+        block.classList.add("trip");
+      }
+
+      if (reduced) {
+        current = s.value;
+        render(current);
+        return;
+      }
+
+      const from = current;
+      const to = s.value;
+      let base = null;
+      const dur = 900;
+      cancelAnimationFrame(raf);
+      const step = (t) => {
+        if (base === null) base = t; // rAF's own clock — immune to clock drift
+        const p = Math.max(0, Math.min(1, (t - base) / dur));
+        const e = 1 - Math.pow(1 - p, 3); // easeOutCubic
+        current = from + (to - from) * e;
+        render(current);
+        if (p < 1) raf = requestAnimationFrame(step);
+      };
+      raf = requestAnimationFrame(step);
+    };
+
+    const start = () => {
+      if (ticker || reduced) return;
+      ticker = setInterval(() => {
+        index = (index + 1) % states.length;
+        apply(index);
+      }, 3200);
+    };
+    const stop = () => {
+      if (ticker) clearInterval(ticker);
+      ticker = null;
+    };
+
+    apply(0);
+
+    const bio = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) (e.isIntersecting ? start : stop)();
+      },
+      { threshold: 0.35 }
+    );
+    bio.observe(block);
   }
 })();

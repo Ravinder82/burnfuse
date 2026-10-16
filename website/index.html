@@ -3,196 +3,372 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#f2f2f2" />
     <title>BurnFuse — A spend breaker for your AI keys.</title>
-    <link rel="preload" as="image" href="assets/launch-16x9.png" />
-    <link rel="preload" as="image" href="assets/states-16x9.png" />
-    <link rel="preload" as="image" href="assets/providers-16x9.png" />
-    <link rel="preload" as="image" href="assets/trip-flow-16x9.png" />
+    <meta
+      name="description"
+      content="BurnFuse watches what your AI keys spend and tells you in under a minute when something is burning. A macOS app. No account, no telemetry, MIT."
+    />
+    <meta property="og:title" content="BurnFuse — A spend breaker for your AI keys." />
+    <meta property="og:description" content="It reads your provider's own cost figure every minute — and trips when the burn runs away." />
+    <meta property="og:image" content="assets/og-card.png" />
+    <link rel="icon" type="image/png" href="assets/icon_512.png" />
+    <link rel="preconnect" href="https://api.fontshare.com" />
+    <link
+      rel="stylesheet"
+      href="https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&f[]=satoshi@400,500,700&display=swap"
+    />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <div id="shell">
+    <!-- ================= navigation ================= -->
+    <header id="nav">
+      <div class="nav-inner">
+        <a class="brand" href="#top" aria-label="BurnFuse — home">
+          <span class="brandmark" aria-hidden="true"><i class="s-calm"></i><i class="s-warm"></i><i class="s-hot"></i></span>
+          <span class="brandword">BurnFuse</span>
+        </a>
+        <nav class="nav-links" aria-label="Sections">
+          <a href="#how">How it works</a>
+          <a href="#screens">Screens</a>
+          <a href="#privacy">Privacy</a>
+          <a href="#install">Install</a>
+        </nav>
+        <a class="nav-cta" href="#install">Download</a>
+      </div>
+    </header>
+
+    <main id="top">
       <!-- ================= hero ================= -->
-      <section id="hero" class="section" data-scroll>
-        <div class="hair-top"></div>
-        <p class="kicker" id="kicker">BurnFuse · macOS 14+ · MIT</p>
-        <h1 class="hero">
-          One number<br />
-          in the menu bar.<br />
-          <span class="hero-em">Everything else is noise.</span>
+      <section class="hero" id="hero">
+        <p class="kicker reveal" data-reveal style="--d: 0.05s">A spend breaker for your AI keys · macOS · MIT</p>
+        <h1 class="echo" aria-label="BurnFuse">
+          <span class="echo-layer echo-4" aria-hidden="true">BurnFuse</span>
+          <span class="echo-layer echo-3" aria-hidden="true">BurnFuse</span>
+          <span class="echo-layer echo-2" aria-hidden="true">BurnFuse</span>
+          <span class="echo-layer echo-1" aria-hidden="true">BurnFuse</span>
+          <span class="echo-layer echo-front">BurnFuse</span>
         </h1>
-        <p class="lede" id="lede">
-          A spend breaker for your AI keys. It reads the provider’s own cost
-          figure every minute — and tells you inside one when something is
-          burning.
+        <p class="hero-sub" data-reveal style="--d: 0.25s">
+          Your AI keys cost money every minute. BurnFuse watches the meter — and the moment it runs too hot,
+          you know <strong>in under a minute</strong>. Not in the morning.
         </p>
-        <div class="hero-media" id="hero-media">
-          <img src="assets/launch-16x9.png" alt="BurnFuse menu bar showing $2.45/hr burning now" class="hero-shot" />
+        <div class="hero-cta" data-reveal style="--d: 0.4s">
+          <a class="btn btn-solid" href="#install">Download for macOS</a>
+          <a class="btn btn-line" href="https://github.com/Ravinder82/burnfuse">
+            github.com/Ravinder82/burnfuse
+            <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </a>
         </div>
-        <div class="cta" id="cta">
-          <a class="btn btn-solid" href="#install">Download DMG</a>
-          <a class="btn btn-outline" href="https://github.com/Ravinder82/burnfuse/releases/tag/v1.0.0">v1.0.0 on GitHub</a>
-        </div>
-        <div class="mono stamp">One file holds your data — ~/.burnfuse/keys.json</div>
+        <p class="hero-note mono" data-reveal style="--d: 0.5s">FREE · OPEN SOURCE · NO ACCOUNT · YOUR KEYS STAY ON YOUR MAC</p>
       </section>
 
-      <!-- ================= states ================= -->
-      <section id="states" class="section" data-scroll>
-        <div class="hair"></div>
-        <div class="section-head">
-          <p class="kicker">01 / three states</p>
-          <h2>Read at a glance.</h2>
-        </div>
-        <div class="grid three">
-          <div class="card state-card settled">
-            <div class="dot"></div>
-            <div class="word">settled</div>
-            <p class="desc">
-              Under its usual rate, under the cap you set. Nothing to do.
+      <!-- ================= 01 · the block ================= -->
+      <section class="section" id="block-demo">
+        <div class="wrap">
+          <div class="sec-head">
+            <p class="kicker" data-reveal>01 / The whole app, in one block</p>
+            <h2 data-reveal>One block. Three colours.</h2>
+            <p class="sub" data-reveal style="--d: 0.1s">
+              It sits in your Mac’s menu bar all day. The colour is the message — that’s the whole idea.
             </p>
-            <div class="mono time">6:40 PM</div>
           </div>
-          <div class="card state-card climbing">
-            <div class="dot"></div>
-            <div class="word">climbing</div>
-            <p class="desc">
-              Past its normal rate — over the cap, or far above its own usual.
-            </p>
-            <div class="mono time">7:04 PM</div>
-          </div>
-          <div class="card state-card tripped">
-            <div class="dot"></div>
-            <div class="word">tripped</div>
-            <p class="desc">
-              Marked, logged, and you are told — inside a minute. Not in the morning.
-            </p>
-            <div class="mono time" style="color: var(--hot)">7:12 PM</div>
-          </div>
-        </div>
-        <img src="assets/states-16x9.png" alt="The three states of BurnFuse: settled, climbing, tripped" class="decoration" />
-      </section>
 
-      <!-- ================= where the number comes from ================= -->
-      <section id="reads" class="section" data-scroll>
-        <div class="hair"></div>
-        <div class="section-head">
-          <p class="kicker">02 / where the number comes from</p>
-          <h2>The key you already use is the key it watches.</h2>
-        </div>
-        <div class="two-col">
-          <div class="copy">
-            <p class="body">
-              Paste it once. BurnFuse pulls the provider’s own cost figure every
-              minute — no scripts, no numbers typed by hand.
-            </p>
-            <div class="chips">
-              <div class="chip">OpenAI · <span class="up">reads itself</span></div>
-              <div class="chip">Anthropic · <span class="up">reads itself</span></div>
-              <div class="chip">OpenRouter · <span class="up">reads itself</span></div>
-            </div>
-            <p class="note mono">
-              Where a provider publishes no cost figure a key can read, the row
-              says so, names where the number lives, and takes it from you.
-              Thirty providers. Not one dead end.
-            </p>
-          </div>
-          <div class="media">
-            <img src="assets/providers-16x9.png" alt="BurnFuse providers panel" class="shot" />
-          </div>
-        </div>
-      </section>
-
-      <!-- ================= inside a minute ================= -->
-      <section id="trip" class="section" data-scroll>
-        <div class="hair"></div>
-        <div class="section-head">
-          <p class="kicker">03 / inside a minute</p>
-          <h2>From spike to stop.</h2>
-        </div>
-        <div class="two-col reverse">
-          <div class="media">
-            <img src="assets/trip-flow-16x9.png" alt="BurnFuse tripped state in the menu bar" class="shot" />
-          </div>
-          <div class="copy">
-            <p class="body">
-              A trip marks the key, logs the minute, and tells you — menu bar
-              red, a notification, an optional Slack/Discord webhook — and where
-              the provider allows it, offers to switch the key off itself. One
-              more press.
-            </p>
-            <div class="chain">
-              <div class="chain-row">
-                <span class="step hot">menu bar red</span>
-                <span class="arrow">→</span>
-                <span class="step">notification</span>
-                <span class="arrow">→</span>
+          <div class="stage" data-reveal style="--d: 0.15s">
+            <div class="menubar" aria-hidden="true">
+              <span class="mb-side mono">Fri&nbsp;11:47&nbsp;PM</span>
+              <div class="block" id="block" data-state="calm">
+                <svg class="flame" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
+                <span class="rate mono" id="rate">$2.45/hr</span>
               </div>
-              <div class="chain-row">
-                <span class="step">Slack / Discord</span>
-                <span class="arrow">→</span>
-                <span class="step hot">switch off at OpenAI…</span>
+              <span class="mb-side mb-glyphs" aria-hidden="true"><i></i><i></i><i></i></span>
+            </div>
+            <p class="stage-note mono" data-reveal style="--d: 0.25s">YOUR MAC’S MENU BAR — THAT’S WHERE IT LIVES</p>
+
+            <div class="legend" role="list">
+              <div class="legend-item calm active" role="listitem">
+                <i class="dot"></i>
+                <div><strong>settled.</strong> Nothing to worry about. The spend is calm.</div>
+              </div>
+              <div class="legend-item warm" role="listitem">
+                <i class="dot"></i>
+                <div><strong>climbing.</strong> Spending faster than usual. Keep an eye on it.</div>
+              </div>
+              <div class="legend-item hot" role="listitem">
+                <i class="dot"></i>
+                <div><strong>tripped.</strong> The breaker fired. You’re told right away.</div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- ================= privacy ================= -->
-      <section id="privacy" class="section" data-scroll>
-        <div class="hair"></div>
-        <div class="section-head centered">
-          <p class="kicker">04 / your mac, not our server</p>
-          <h2>No account.<br />No telemetry.<br />No server.</h2>
-        </div>
-        <div class="two-col">
-          <div class="copy">
-            <p class="body">
-              Keys live in one file, readable by you alone, and are sent only to
-              the provider you named. No analytics, nothing proxied anywhere.
-            </p>
-            <div class="keybox">
-              <div class="mono path">~/.burnfuse/keys.json</div>
-              <div class="mono dim">ONE FILE HOLDS YOUR DATA</div>
+      <!-- ================= 02 · pipeline ================= -->
+      <section class="section" id="how">
+        <div class="wrap">
+          <div class="sec-head">
+            <p class="kicker" data-reveal>02 / How it works</p>
+            <h2 data-reveal>Five small steps. That’s the whole machine.</h2>
+          </div>
+
+          <div class="pipeline" id="pipeline" data-reveal style="--d: 0.1s">
+            <div class="pstep" style="--i: 0">
+              <div class="prail">
+                <div class="node mono">01</div>
+                <i class="pulse" aria-hidden="true"></i>
+              </div>
+              <div class="pbody">
+                <div class="picon"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3 3.5-3.5"/></svg></div>
+                <h3>Add your key</h3>
+                <p>Paste a key you already use. One field — nothing new to sign up for.</p>
+                <span class="ptag mono">once</span>
+              </div>
+            </div>
+
+            <div class="pstep" style="--i: 1">
+              <div class="prail">
+                <div class="node mono">02</div>
+                <i class="pulse" aria-hidden="true"></i>
+              </div>
+              <div class="pbody">
+                <div class="picon"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+                <h3>It reads the cost</h3>
+                <p>Every minute, it asks your provider what that key has spent so far.</p>
+                <span class="ptag mono">every minute</span>
+              </div>
+            </div>
+
+            <div class="pstep" style="--i: 2">
+              <div class="prail">
+                <div class="node mono">03</div>
+                <i class="pulse" aria-hidden="true"></i>
+              </div>
+              <div class="pbody">
+                <div class="picon"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg></div>
+                <h3>You set the limit</h3>
+                <p>Like $5 an hour. It also learns what a normal hour looks like by itself.</p>
+                <span class="ptag mono">your rule</span>
+              </div>
+            </div>
+
+            <div class="pstep" style="--i: 3">
+              <div class="prail">
+                <div class="node mono">04</div>
+                <i class="pulse" aria-hidden="true"></i>
+              </div>
+              <div class="pbody">
+                <div class="picon"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+                <h3>It trips</h3>
+                <p>Spending runs hot? Red block, a notification, a ping if you added one.</p>
+                <span class="ptag mono">under a minute</span>
+              </div>
+            </div>
+
+            <div class="pstep" style="--i: 4">
+              <div class="prail">
+                <div class="node mono">05</div>
+              </div>
+              <div class="pbody">
+                <div class="picon"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg></div>
+                <h3>It offers the off</h3>
+                <p>At OpenAI or Anthropic, it can switch the key off for you. One more press.</p>
+                <span class="ptag mono">one press</span>
+              </div>
             </div>
           </div>
-          <div class="chips">
-            <div class="chip">MIT</div>
-            <div class="chip">macOS 14+</div>
-            <div class="chip">native SwiftUI</div>
-            <div class="chip">no account</div>
-            <div class="chip">no telemetry</div>
+        </div>
+      </section>
+
+      <!-- ================= 03 · screens ================= -->
+      <section class="section" id="screens">
+        <div class="wrap">
+          <div class="sec-head">
+            <p class="kicker" data-reveal>03 / A look around</p>
+            <h2 data-reveal>See it for yourself.</h2>
+          </div>
+
+          <div class="gallery">
+            <figure class="card g8" data-wipe>
+              <div class="frame r-sm"><img src="assets/launch-16x9.png" alt="BurnFuse: the burn at a glance — burning now, the cap, and the trend" /></div>
+              <figcaption>
+                <span class="capname">The burn, at a glance</span>
+                <span class="capmeta mono">Fig. 01</span>
+              </figcaption>
+              <p class="capdesc">Burning now, the cap you set, and the trend across readings.</p>
+            </figure>
+
+            <figure class="card g4" data-wipe style="--d: 0.12s">
+              <div class="frame r-pill">
+                <img src="assets/reel-cover.png" alt="The BurnFuse reel cover: an agent is looping, you're asleep" />
+                <span class="overlay"><span class="badge mono">0:15<br /><i>the reel</i></span></span>
+              </div>
+              <figcaption>
+                <span class="capname">Understood in a hurry</span>
+                <span class="capmeta mono">Fig. 02</span>
+              </figcaption>
+              <p class="capdesc">The whole story, fifteen seconds tall.</p>
+            </figure>
+
+            <figure class="card g5" data-wipe>
+              <div class="frame r-round">
+                <img src="assets/icon_512.png" alt="The BurnFuse mark: a fuse that has just given way" />
+              </div>
+              <figcaption>
+                <span class="capname">The mark</span>
+                <span class="capmeta mono">Fig. 03</span>
+              </figcaption>
+              <p class="capdesc">A fuse that has just given way. Green tail, red past the break.</p>
+            </figure>
+
+            <figure class="card g7" data-wipe style="--d: 0.12s">
+              <div class="frame r-sm"><img class="pos-top" src="assets/window-overview-light.png" alt="The BurnFuse window in light appearance: overview, tokens and watched keys" /></div>
+              <figcaption>
+                <span class="capname">One window, everything in it</span>
+                <span class="capmeta mono">Fig. 04</span>
+              </figcaption>
+              <p class="capdesc">Overview, insights and settings — all behind one sidebar.</p>
+            </figure>
+
+            <figure class="card g6" data-wipe>
+              <div class="frame r-sm"><img src="assets/providers-16x9.png" alt="BurnFuse providers: paste a key, the rest is worked out" /></div>
+              <figcaption>
+                <span class="capname">Your providers</span>
+                <span class="capmeta mono">Fig. 05</span>
+              </figcaption>
+              <p class="capdesc">Paste a key; the rest is worked out — thirty providers by name.</p>
+            </figure>
+
+            <figure class="card g6" data-wipe style="--d: 0.12s">
+              <div class="frame r-sm"><img src="assets/trip-flow-16x9.png" alt="What happens when BurnFuse trips: red block, notification, webhook, switch-off" /></div>
+              <figcaption>
+                <span class="capname">From spike to stop</span>
+                <span class="capmeta mono">Fig. 06</span>
+              </figcaption>
+              <p class="capdesc">What happens inside the minute after it trips.</p>
+            </figure>
           </div>
         </div>
       </section>
 
-      <!-- ================= install ================= -->
-      <section id="install" class="section" data-scroll>
-        <div class="hair"></div>
-        <div class="section-head centered">
-          <p class="kicker">install</p>
-          <h2>Get BurnFuse.</h2>
-        </div>
-        <div class="install-block">
-          <div class="mono block">
-            <div class="line"><span class="pr">$</span> git clone github.com/<span class="arg">Ravinder82/burnfuse</span></div>
-            <div class="line"><span class="pr">$</span> cd burnfuse &amp;&amp; ./scripts/install.sh</div>
+      <!-- ================= 04 · why ================= -->
+      <section class="section" id="privacy">
+        <div class="wrap narrow">
+          <div class="vline" aria-hidden="true"></div>
+          <blockquote class="quote" data-reveal>
+            “Hearing about it in <em>a minute</em> instead of in the morning is the whole product.”
+          </blockquote>
+
+          <div class="vgrid">
+            <div class="vcard" data-reveal>
+              <div class="vicon">
+                <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="32" cy="32" r="17"/></svg>
+              </div>
+              <h3>No account.</h3>
+              <p>There is nothing to sign up for and nothing to log into. Open the app and add a key.</p>
+              <a class="vlink" href="#install">Get started <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+            </div>
+            <div class="vcard" data-reveal style="--d: 0.1s">
+              <div class="vicon">
+                <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="15" y="15" width="34" height="34"/></svg>
+              </div>
+              <h3>No telemetry.</h3>
+              <p>Nothing about you leaves the Mac. No analytics, no server of ours, nothing proxied.</p>
+              <a class="vlink" href="https://github.com/Ravinder82/burnfuse">Read the code <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+            </div>
+            <div class="vcard" data-reveal style="--d: 0.2s">
+              <div class="vicon">
+                <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><line x1="8" y1="32" x2="25" y2="32"/><line x1="39" y1="32" x2="56" y2="32"/><circle cx="32" cy="32" r="3" fill="currentColor" stroke="none"/></svg>
+              </div>
+              <h3>No pretending.</h3>
+              <p>Where a number can’t be read, the app says so. It never shows a zero it hasn’t measured.</p>
+              <a class="vlink" href="#how">How it works <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+            </div>
           </div>
-          <div class="cta" style="justify-content: center">
-            <a class="btn btn-solid" href="https://github.com/Ravinder82/burnfuse/releases/tag/v1.0.0">Download v1.0.0 DMG</a>
-          </div>
         </div>
-        <p class="note mono centered">
-          Native SwiftUI · macOS 14+ · MIT · Drag into Applications and it lives in your menu bar.
-        </p>
       </section>
 
-      <footer class="section">
-        <div class="hair"></div>
-        <p class="mono stamp">Built to be quiet, honest, and right the one time it matters.</p>
-        <p class="mono stamp centered" style="margin-top: 14px; color: var(--ink3);">github.com/Ravinder82/burnfuse</p>
-      </footer>
-    </div>
+      <!-- ================= 05 · install ================= -->
+      <section class="section" id="install">
+        <div class="wrap narrow">
+          <div class="sec-head center">
+            <p class="kicker" data-reveal>05 / Install</p>
+            <h2 data-reveal>Get it running.</h2>
+          </div>
+
+          <div class="install-row" data-reveal style="--d: 0.1s">
+            <a class="btn btn-solid btn-big" href="https://github.com/Ravinder82/burnfuse/releases/tag/v1.0.0">
+              Download for macOS
+              <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </a>
+            <p class="mono install-meta">v1.0.0 · 2.6 MB · macOS 14+ · FREE</p>
+          </div>
+
+          <div class="terminal" id="terminal" data-reveal style="--d: 0.15s">
+            <div class="term-head" aria-hidden="true"><i></i><i></i><i></i></div>
+            <div class="term-body mono">
+              <div class="tline"><span class="pr">$</span> git clone https://github.com/Ravinder82/burnfuse.git</div>
+              <div class="tline"><span class="pr">$</span> cd burnfuse &amp;&amp; ./scripts/install.sh</div>
+            </div>
+          </div>
+
+          <div class="chiprow" data-reveal style="--d: 0.2s">
+            <span class="chip mono">MIT</span>
+            <span class="chip mono">native SwiftUI</span>
+            <span class="chip mono">macOS 14+</span>
+            <span class="chip mono">no account</span>
+            <span class="chip mono">no telemetry</span>
+            <span class="chip mono">no server</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ================= footer ================= -->
+    <footer id="footer">
+      <div class="f-inner">
+        <div class="f-grid">
+          <div class="f-col f-brand">
+            <div class="f-logo">
+              <img src="assets/icon_512.png" alt="" width="40" height="40" />
+              <span>BurnFuse</span>
+            </div>
+            <p class="f-sum">A spend breaker for your AI keys. Watch the burn rate. Cap the damage. Know within a minute — not in the morning.</p>
+          </div>
+          <div class="f-col">
+            <h4>Product</h4>
+            <a href="#how">How it works</a>
+            <a href="#screens">Screens</a>
+            <a href="#privacy">Privacy</a>
+            <a href="#install">Install</a>
+          </div>
+          <div class="f-col">
+            <h4>Elsewhere</h4>
+            <a href="https://github.com/Ravinder82/burnfuse">GitHub</a>
+            <a href="https://github.com/Ravinder82/burnfuse/releases/tag/v1.0.0">Releases · v1.0.0</a>
+            <a href="https://github.com/Ravinder82/burnfuse/tree/main/marketing">Marketing kit</a>
+            <a href="https://github.com/Ravinder82/burnfuse/blob/main/LICENSE">MIT License</a>
+          </div>
+          <div class="f-col">
+            <h4>Contact</h4>
+            <a href="https://github.com/Ravinder82/burnfuse/issues">
+              <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+              Issues &amp; ideas
+            </a>
+            <a href="https://github.com/Ravinder82">
+              <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
+              @Ravinder82
+            </a>
+            <p class="f-note">Built to be quiet, honest, and right the one time it matters.</p>
+          </div>
+        </div>
+        <div class="f-bottom">
+          <span class="mono">© 2026 Ravinder Poonia · MIT</span>
+          <span class="mono">Not affiliated with OpenAI, Anthropic or OpenRouter</span>
+        </div>
+      </div>
+    </footer>
 
     <script src="script.js"></script>
   </body>
