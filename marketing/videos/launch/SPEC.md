@@ -1,7 +1,8 @@
 # BurnFuse — launch reel (16:9)
 
-The product launch cut. 24 seconds, beat-locked to its own score, built in
-Remotion from the site's assets and design language.
+The product launch cut. 24 seconds, beat-locked to a real licensed track
+("Can't Get You Off My Mind" — Michael Ramir C., Mixkit; locked to exactly
+150.000 BPM), built in Remotion from the site's assets and design language.
 
 ## Deliverable
 
@@ -13,21 +14,29 @@ Remotion from the site's assets and design language.
 | Duration | 720 frames — 24.000 s |
 | Video | H.264, CRF 16, preset medium, yuv420p |
 | Audio | AAC 320 kbps, 48 kHz stereo |
-| Loudness | −14.6 LUFS integrated, −1.37 dBTP (trailer loudness) |
+| Loudness | −16.0 LUFS integrated, peak −4.2 dBFS (sound-pass spec; measured with `ebur128` on the exported MP4) |
 | Poster | `marketing/renders/launch-poster.jpg` (frame at 5.6 s — the trip slam) |
 
-## Music grid — 150 BPM
+## Music grid — a real track locked to 150.000 BPM
 
-The score is synthesised (`sound/build.py`, tools/score_lib) at 150 BPM so
-every beat lands on an integer frame:
+The soundtrack is a licensed track (see `marketing/sound/LICENSES.md`),
+stretched a measured −0.04 % (`atempo`) to exactly 150.000 BPM so every beat
+lands on an integer frame:
 
-- 1 beat = 0.4 s = **12 frames**
-- 1 bar = **48 frames** (1.6 s)
-- 15 bars = **720 frames** = 60 beats
-
-Every hard cut sits on a bar line; every pop sits on a beat or half-beat.
-Kick on every beat from bar 2, offbeat hats, snare 2 & 4, sub drop at the
-trip, risers into the climb and the brands, snare build into the endcard.
+- 1 beat = 0.4 s = **12 frames**; 1 bar = **48 frames**; 15 bars = 720 frames.
+- The track's halftime kick grid lands every 0.8 s — on every bar line; both
+  scene drops (trip, brand) land on its strongest hits.
+- Sections spliced from the track (all points on the measured kick grid,
+  film frame 0 = kick #27): **A** `22.022 s → 38.022 s` covers film 0–16 s;
+  **B** `74.822 s → 82.822 s` covers 16–24 s; seam at 16.0 s with a 10 ms
+  equal-power crossfade.
+- SFX (ready-made, Freesound CC0 — one per cut or big move): whooshes at
+  1.6 / 6.4 / 11.2 / 16.0 s, boom on the trip (4.8 s) and brand (20.8 s)
+  drops, stamp at 5.6 s, UI ticks on the chain pops (7.13–8.47 s), soft
+  impact on the card slam (14.53 s), flash tick at 19.2 s. Exact map in
+  `sound/assemble.py`.
+- Measured cue ledger: every cut sits on a strong kick within ±1 frame (the
+  track's own groove); the seam kick lands at ±0 ms.
 
 ## Scene map
 
@@ -68,15 +77,25 @@ trip, risers into the climb and the brands, snare build into the endcard.
 | `public/img/providers.png` | `website/assets/providers-16x9.png` (3200×1800) | Product scene |
 | `public/img/icon.png` | `website/assets/icon_512.png` | Brand scene |
 | `public/fonts/*.ttf` | Fontshare (Clash Display, Satoshi) | everything |
-| `public/sound/launch-score.m4a` | `sound/build.py` (numpy + ffmpeg) | soundtrack |
+| `public/sound/launch-score.m4a` | `sound/assemble.py` (numpy + ffmpeg) from `marketing/sound/{music,sfx}` | soundtrack |
 
 ## Build
 
 ```bash
 cd marketing/videos/launch
-python3 sound/build.py          # synthesise sound/launch-score.m4a (150 BPM, 24 s)
+bash ../../sound/fetch.sh                     # music + SFX sources (raw audio is gitignored)
+~/.local/share/app-launch-kit/venv/bin/python sound/assemble.py   # mix → QC'd sound/launch-score.m4a
 npx remotion render Launch out/launch.mp4 \
   --crf=16 --x264-preset=medium --audio-bitrate=320k
+```
+
+`assemble.py` prints the loudness / peak / duration QC and exits non-zero on a
+miss (−16.0 LUFS / peak ≤ −4 dBFS / 24.000 s). For an audio-only change,
+render nothing — remux:
+
+```bash
+ffmpeg -y -i out/launch.mp4 -i sound/launch-score.m4a \
+  -map 0:v -map 1:a -c copy -movflags +faststart out/launch.mp4
 ```
 
 Studio preview: `npx remotion studio`.

@@ -29,4 +29,6 @@ burnfuse-state.json
 # Marketing build output
 marketing/renders/
 marketing/videos/*/.hyperframes/
+marketing/sound/music/
+marketing/sound/*.wav
 __pycache__/
